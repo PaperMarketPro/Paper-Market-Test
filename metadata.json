@@ -1,0 +1,6 @@
+{
+  "name": "Paper Market Pro",
+  "description": "AI-powered paper trading, trading-improvement, and trader-education platform. Learn, practice, build discipline, and analyze mistakes without risking capital.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

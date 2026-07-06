@@ -1,0 +1,21 @@
+{
+  "collections": {
+    "users": {
+      "fields": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "optional": true },
+        "phoneNumber": { "type": "string", "optional": true },
+        "experience": { "type": "string" },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "riskTolerance": { "type": "number" },
+        "virtualBalance": { "type": "number" },
+        "initialBalance": { "type": "number" },
+        "streak": { "type": "number" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "isPro": { "type": "boolean" },
+        "role": { "type": "string" }
+      }
+    }
+  }
+}

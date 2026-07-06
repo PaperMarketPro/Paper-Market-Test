@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Premium Fintech Theme Colors */
+  --color-primary-50: #f0f6ff;
+  --color-primary-100: #e0ebff;
+  --color-primary-500: #2563eb; /* premium brand color: royal / electric blue */
+  --color-primary-600: #1d4ed8;
+  --color-primary-accent: #3b82f6; /* radiant blue */
+  
+  --color-sky-50: #f0f6ff;
+  --color-sky-100: #e0ebff;
+  --color-sky-200: #c2d7ff;
+  --color-sky-300: #93b5ff;
+  --color-sky-400: #3b82f6;
+  --color-sky-500: #2563eb;
+  --color-sky-600: #1d4ed8;
+  --color-sky-700: #1e40af;
+  --color-sky-800: #1e3a8a;
+  --color-sky-900: #172554;
+  --color-sky-950: #0a1120;
+
+  --color-bull: #10b981; /* green for buy/long/positive pnl */
+  --color-bear: #ef4444; /* red for sell/short/negative pnl */
+  --color-warning: #f59e0b; /* amber for risk alerts */
+
+  --animate-shimmer: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Custom global styles to ensure smooth dark/light transitions */
+body {
+  font-family: var(--font-sans);
+  background-color: #060913;
+  color: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.light body {
+  background-color: #f4f7fc;
+  color: #0f172a;
+}
+
+/* Tabular figures for numbers comparison */
+.tabular-numbers {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
