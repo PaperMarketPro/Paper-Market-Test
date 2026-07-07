@@ -109,7 +109,7 @@ export const StrategyBuilder: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* Header tab switch */}
       <div className="flex border-b border-white/5 gap-4">
         {[
@@ -135,7 +135,7 @@ export const StrategyBuilder: React.FC = () => {
       </div>
 
       {activeTab === 'create' && (
-        <form onSubmit={handleSaveStrategy} className="space-y-6 max-w-lg mx-auto font-sans">
+        <form onSubmit={handleSaveStrategy} className="space-y-6 max-w-4xl mx-auto w-full font-sans">
           {/* Metadata Card info */}
           <div className="bg-[#11141c] border border-white/5 rounded-2xl p-5 space-y-3">
             <div className="space-y-1">

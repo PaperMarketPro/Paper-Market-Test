@@ -35,21 +35,21 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },
     { key: 'positions', label: 'Positions', icon: <Briefcase className="w-5 h-5" /> },
     { key: 'equity', label: 'Equity', icon: <TrendingUp className="w-5 h-5" /> },
-    { key: 'fno', label: 'F&O', icon: <ArrowLeftRight className="w-5 h-5" /> },
-    { key: 'academy', label: 'Learn', icon: <BookOpen className="w-5 h-5" /> },
-    { key: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
+    { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-5 h-5" /> },
+    { key: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
 
   const drawerItems = [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-4 h-4" /> },
     { key: 'positions', label: 'Positions & Orders', icon: <Briefcase className="w-4 h-4" /> },
     { key: 'equity', label: 'Equity Watchlists', icon: <TrendingUp className="w-4 h-4" /> },
-    { key: 'fno', label: 'F&O Option Chain', icon: <ArrowLeftRight className="w-4 h-4" /> },
+    { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-4 h-4" /> },
     { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
     { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },
     { key: 'strategy', label: 'Strategy Builder', icon: <Cpu className="w-4 h-4" /> },
     { key: 'academy', label: 'Academy (Learn)', icon: <BookOpen className="w-4 h-4" /> },
     { key: 'profile', label: 'Subscription / Badges', icon: <Award className="w-4 h-4" /> },
+    { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
@@ -66,7 +66,10 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
           <div className="bg-[#12182d] border border-white/5 rounded-xl p-3 flex items-center justify-between">
             <div className="space-y-0.5">
               <span className="block text-xs font-bold text-white max-w-[120px] truncate">{user.name}</span>
-              <span className="block text-[9px] text-gray-500 uppercase font-mono tracking-widest">Level {user.level}</span>
+              <div className="flex items-center gap-2">
+                <span className="block text-[9px] text-gray-500 uppercase font-mono tracking-widest">Level {user.level}</span>
+                <span className="text-[10px] text-amber-500 font-bold font-mono shrink-0">🔥 {user.streak}d</span>
+              </div>
             </div>
             <span className="bg-sky-500/10 text-sky-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full">PRO</span>
           </div>
@@ -202,7 +205,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
                 <div className="bg-[#12182d] border border-white/5 rounded-xl p-3 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="block text-xs font-bold text-white max-w-[120px] truncate">{user.name}</span>
-                    <span className="block text-[8px] text-gray-500 font-mono">Level {user.level} sandbox account</span>
+                    <span className="block text-[8px] text-gray-500 font-mono">Level {user.level} simulated account</span>
                   </div>
                   <span className="bg-sky-500/10 text-sky-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full">PRO</span>
                 </div>
@@ -239,7 +242,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
                   <span className="capitalize text-sky-400 font-bold">{theme}</span>
                 </button>
                 <div className="text-[10px] uppercase font-mono text-gray-600 tracking-widest text-center">
-                  SIMULATED SANDBOX • NO RISK
+                  SIMULATED PLATFORM • NO RISK
                 </div>
               </div>
             </motion.div>

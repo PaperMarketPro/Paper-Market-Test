@@ -104,7 +104,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
   const range = maxVal - minVal || 1;
 
   return (
-    <div className="space-y-6 pb-24 max-w-lg mx-auto">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* Header Info */}
       <div className="flex justify-between items-center bg-white/2 border border-white/5 rounded-2xl p-4">
         <div>
@@ -124,8 +124,11 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
         </div>
       </div>
 
-      {/* Mini Candlestick SVG Chart (TradingView style) */}
-      <div className="bg-[#11141c]/50 border border-white/5 rounded-2xl p-4 relative overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        {/* Left Column - Chart */}
+        <div className="space-y-6">
+          {/* Mini Candlestick SVG Chart (TradingView style) */}
+          <div className="bg-[#11141c]/50 border border-white/5 rounded-2xl p-4 relative overflow-hidden">
         <span className="absolute top-2 right-2 text-[8px] font-mono text-gray-500 uppercase tracking-widest bg-[#0b0e14]/85 px-1.5 py-0.5 rounded border border-white/5">
           Simulated 5m Candle Chart
         </span>
@@ -166,8 +169,17 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
         </div>
       </div>
 
-      {/* Ticket form */}
-      <div className="bg-white/2 border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      {/* Info card underneath the chart */}
+      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-[10px] text-gray-400 flex items-start gap-2.5">
+        <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+        <span className="font-sans leading-relaxed">
+          Executing CE/PE and Limit orders simulates real-time matching with mock order books. All transaction records populate your private portfolio positions history instantly.
+        </span>
+      </div>
+    </div>
+
+    {/* Right Column - Trade Ticket Form */}
+    <div className="bg-white/2 border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
         {/* Dynamic Overlay for feedback states */}
         <AnimatePresence>
           {isLoading && (
@@ -339,7 +351,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
           {/* Live Brokerage and Margin Estimate Panel */}
           <div className="bg-white/1 border border-white/5 rounded-xl p-4 space-y-2 text-xs">
             <div className="flex justify-between text-gray-400">
-              <span>Required Sandbox Margin</span>
+              <span>Required Margin</span>
               <span className="font-mono text-white tabular-numbers">₹{marginRequired.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-gray-400">
@@ -369,13 +381,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
           </button>
         </form>
       </div>
-
-      <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-[10px] text-gray-400 flex items-start gap-2">
-        <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-        <span>
-          Executing CE/PE and Limit orders simulates real-time matching with mock order books. All transaction records populate your private sandbox positions history instantly.
-        </span>
-      </div>
     </div>
+  </div>
   );
 };

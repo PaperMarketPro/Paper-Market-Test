@@ -87,7 +87,10 @@ function MainAppCoordinator() {
         <Academy />
       )}
       {currentTab === 'profile' && (
-        <Profile onLogout={handleLogout} />
+        <Profile onLogout={handleLogout} initialSubTab="stats" />
+      )}
+      {currentTab === 'settings' && (
+        <Profile onLogout={handleLogout} initialSubTab="settings" />
       )}
     </Navigation>
   );

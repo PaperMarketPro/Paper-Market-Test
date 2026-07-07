@@ -115,7 +115,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
       else if (err.code === 'auth/wrong-password') friendlyMsg = "Incorrect password.";
       else if (err.code === 'auth/email-already-in-use') friendlyMsg = "This email is already registered. Please log in.";
       else if (err.code === 'auth/weak-password') friendlyMsg = "Password should be at least 6 characters.";
-      else if (err.code === 'auth/operation-not-allowed') friendlyMsg = "Email/Password sign-in is not enabled in Firebase Auth Console. Click 'Continue in Local Guest Sandbox' below to start practicing risk-free instantly!";
+      else if (err.code === 'auth/operation-not-allowed') friendlyMsg = "Email/Password sign-in is not enabled in Firebase Auth Console. Click 'Continue in Local Guest Mode' below to start practicing risk-free instantly!";
       setErrorMsg(friendlyMsg);
     } finally {
       setIsLoading(false);
@@ -211,7 +211,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
         >
           <BrandLogo size="xl" className="mb-4" />
           <p className="text-xs font-mono text-gray-500 uppercase tracking-widest mt-1">
-            AI Trading Sandbox
+            AI Trading Simulator
           </p>
         </motion.div>
       </div>
@@ -219,7 +219,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
   }
 
   return (
-    <div className="min-h-screen bg-[#060913] text-gray-100 flex flex-col justify-between py-8 px-4 md:px-8 max-w-md mx-auto">
+    <div className="min-h-screen bg-[#060913] text-gray-100 flex flex-col justify-between py-8 px-4 md:px-8 max-w-lg mx-auto w-full">
       {/* Header Info */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
@@ -249,7 +249,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                   <ShieldCheck className="w-8 h-8 text-sky-500" />
                 </div>
                 <h2 className="text-2xl font-display font-bold text-white tracking-tight">
-                  Risk-Free Sandbox
+                  Risk-Free Practice
                 </h2>
                 <p className="text-gray-400 text-sm leading-relaxed">
                   Practice trading on live Nifty, Bank Nifty, and major NSE stocks with real-time quote movements using ₹5L starting virtual capital.
@@ -431,7 +431,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
               {[
                 { label: 'Starter', value: 100000, desc: '₹1 Lakh' },
                 { label: 'Standard', value: 500000, desc: '₹5 Lakhs' },
-                { label: 'Pro Sandbox', value: 1000000, desc: '₹10 Lakhs' },
+                { label: 'Pro Simulator', value: 1000000, desc: '₹10 Lakhs' },
                 { label: 'High Roller', value: 2500000, desc: '₹25 Lakhs' }
               ].map(cap => (
                 <div
@@ -453,7 +453,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
               onClick={() => setStep('login')}
               className="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium py-3 rounded-xl flex items-center justify-center gap-2 transition"
             >
-              Continue to Sandbox <ArrowRight className="w-4 h-4" />
+              Continue to Dashboard <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>
         )}
@@ -710,7 +710,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                 onClick={handleGuestProceed}
                 className="w-full bg-white/5 hover:bg-white/10 text-sky-400 font-semibold py-2.5 rounded-xl text-xs transition border border-sky-400/20 hover:border-sky-400/40 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse" /> Continue in Local Guest Sandbox
+                <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse" /> Continue in Local Guest Mode
               </button>
             </div>
           </motion.div>
@@ -723,7 +723,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
           SIMULATED PLATFORM • NO REAL MONEY RISKED
         </span>
         <span className="block text-[10px] text-gray-600">
-          Educational sandbox environment not representing financial advise.
+          Educational simulator environment not representing financial advice.
         </span>
       </div>
     </div>

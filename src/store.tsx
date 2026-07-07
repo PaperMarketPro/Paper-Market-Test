@@ -28,6 +28,7 @@ interface AppContextType {
   initializeGuestUser: (profileData: Partial<UserProfile>) => void;
   theme: 'dark' | 'light';
   instruments: Instrument[];
+  futures: Instrument[];
   optionChain: OptionChainItem[];
   orders: Order[];
   positions: Position[];
@@ -67,7 +68,20 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Theme state
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('dark', 'light');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   // User details - defaults to null until fetched/loaded
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -77,6 +91,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Financial arrays
   const [instruments, setInstruments] = useState<Instrument[]>(INITIAL_INSTRUMENTS);
+  const [futures, setFutures] = useState<Instrument[]>([
+    { symbol: 'NIFTY 24-JUL FUT', name: 'NSE Nifty 50 Futures', ltp: 24385.50, change: 1.35, high: 24460.00, low: 24190.00, volume: 4500000, sparkline: [24200, 24250, 24310, 24385.50] },
+    { symbol: 'BANKNIFTY 24-JUL FUT', name: 'NSE Bank Nifty Futures', ltp: 52550.00, change: -0.35, high: 52910.00, low: 52200.00, volume: 2200000, sparkline: [52800, 52600, 52450, 52550.00] },
+    { symbol: 'RELIANCE 24-JUL FUT', name: 'Reliance Industries Futures', ltp: 2995.00, change: 1.95, high: 3025.00, low: 2945.00, volume: 850000, sparkline: [2945, 2965, 2980, 2995.00] },
+    { symbol: 'TCS 24-JUL FUT', name: 'Tata Consultancy Services Futures', ltp: 4140.20, change: 1.05, high: 4165.00, low: 4110.00, volume: 320000, sparkline: [4110, 4125, 4130, 4140.20] },
+    { symbol: 'INFY 24-JUL FUT', name: 'Infosys Futures', ltp: 1650.10, change: -1.10, high: 1680.00, low: 1638.00, volume: 650000, sparkline: [1670, 1660, 1642, 1650.10] },
+    { symbol: 'SBIN 24-JUL FUT', name: 'State Bank of India Futures', ltp: 846.50, change: 0.75, high: 855.00, low: 838.00, volume: 1100000, sparkline: [838, 842, 844, 846.50] }
+  ]);
   const [optionChain, setOptionChain] = useState<OptionChainItem[]>(MOCK_OPTION_CHAIN);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [positions, setPositions] = useState<Position[]>(INITIAL_POSITIONS);
@@ -354,7 +376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'nt-1',
         title: 'Welcome to Paper Market Pro!',
-        body: 'Running in Local Sandbox Mode. All features are active with local state simulation.',
+        body: 'Running in Local Practice Mode. All features are active with local state simulation.',
         timestamp: new Date().toISOString(),
         type: 'badge',
         isRead: false
@@ -366,7 +388,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Selected asset for Order Ticket details
   const [selectedAssetSymbol, setSelectedAssetSymbol] = useState<string>('RELIANCE');
-  const selectedAsset = instruments.find(i => i.symbol === selectedAssetSymbol) || instruments[0];
+  
+  // Find in equities, futures, or options dynamically
+  const getSelectedAsset = () => {
+    let resolved = instruments.find(i => i.symbol === selectedAssetSymbol);
+    if (resolved) return resolved;
+
+    resolved = futures.find(f => f.symbol === selectedAssetSymbol);
+    if (resolved) return resolved;
+
+    if (selectedAssetSymbol.includes('CE') || selectedAssetSymbol.includes('PE')) {
+      const parts = selectedAssetSymbol.split(' ');
+      const strikeStr = parts[parts.length - 2];
+      const typeStr = parts[parts.length - 1];
+      const strike = parseInt(strikeStr);
+      if (!isNaN(strike)) {
+        const underlierName = parts[0];
+        const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
+        const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
+        const spot = underlier ? underlier.ltp : 24325.85;
+        const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
+        const distance = strike - spot;
+
+        const callIntrinsic = Math.max(0, spot - strike);
+        const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+        const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+
+        const putIntrinsic = Math.max(0, strike - spot);
+        const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+        const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+
+        const callDelta = Number((1 / (1 + Math.exp(distance / (strikeStep * 1.5)))).toFixed(2));
+        const putDelta = Number((callDelta - 1).toFixed(2));
+
+        const ltp = typeStr === 'CE' ? (callLtp < 1.0 ? 1.05 : callLtp) : (putLtp < 1.0 ? 1.05 : putLtp);
+        const delta = typeStr === 'CE' ? callDelta : putDelta;
+        const volume = Math.round(1000000 * Math.exp(-Math.pow(distance / (strikeStep * 2), 2)));
+
+        return {
+          symbol: selectedAssetSymbol,
+          name: `${underlier ? underlier.name : underlierName} ${strike} ${typeStr === 'CE' ? 'Call' : 'Put'} Option`,
+          ltp: ltp,
+          change: Number((delta * 100).toFixed(2)),
+          high: Number((ltp * 1.25).toFixed(2)),
+          low: Number((ltp * 0.75).toFixed(2)),
+          volume: volume,
+          sparkline: [Number((ltp * 0.9).toFixed(2)), Number((ltp * 0.95).toFixed(2)), Number((ltp * 1.05).toFixed(2)), ltp]
+        };
+      }
+    }
+
+    return instruments[0];
+  };
+
+  const selectedAsset = getSelectedAsset();
 
   const setSelectedAssetBySymbol = (symbol: string) => {
     setSelectedAssetSymbol(symbol);
@@ -380,6 +455,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         prev.map(inst => {
           const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
           // Recalculate sparkline
+          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+          const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
+          return {
+            ...inst,
+            ltp: nextLtp,
+            change: Number(priceChange.toFixed(2)),
+            high: nextLtp > inst.high ? nextLtp : inst.high,
+            low: nextLtp < inst.low ? nextLtp : inst.low,
+            sparkline: sparkCopy,
+          };
+        })
+      );
+
+      // Walk futures
+      setFutures(prev =>
+        prev.map(inst => {
+          const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
           const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
           const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
           return {
@@ -417,10 +509,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             currentPrice: matchingAsset.ltp
           };
         }
+
+        const matchingFuture = futures.find(f => f.symbol === pos.symbol);
+        if (matchingFuture) {
+          return {
+            ...pos,
+            currentPrice: matchingFuture.ltp
+          };
+        }
+
+        if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
+          const parts = pos.symbol.split(' ');
+          const strikeStr = parts[parts.length - 2];
+          const typeStr = parts[parts.length - 1];
+          const strike = parseInt(strikeStr);
+          if (!isNaN(strike)) {
+            const underlierName = parts[0];
+            const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
+            const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
+            const spot = underlier ? underlier.ltp : 24325.85;
+            const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
+            const distance = strike - spot;
+            
+            if (typeStr === 'CE') {
+              const callIntrinsic = Math.max(0, spot - strike);
+              const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+              const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+              return {
+                ...pos,
+                currentPrice: callLtp < 1.0 ? 1.05 : callLtp
+              };
+            } else {
+              const putIntrinsic = Math.max(0, strike - spot);
+              const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+              const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+              return {
+                ...pos,
+                currentPrice: putLtp < 1.0 ? 1.05 : putLtp
+              };
+            }
+          }
+        }
+
         return pos;
       })
     );
-  }, [instruments]);
+  }, [instruments, futures]);
 
   // AI Auto-Trader Real-Time Strategy Execution Engine
   useEffect(() => {
@@ -523,13 +657,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Visual Theme Toggle
   const toggleTheme = () => {
-    setTheme(prev => {
-      const nextTheme = prev === 'dark' ? 'light' : 'dark';
-      const root = window.document.documentElement;
-      root.classList.remove(prev);
-      root.classList.add(nextTheme);
-      return nextTheme;
-    });
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   // Upgrade user to Pro
@@ -756,7 +884,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const exitValue = exitPrice * qty;
     setUser(prev => ({
       ...prev,
-      virtualBalance: prev.virtualBalance + (pos.direction === 'Long' ? exitValue : -exitValue) + realizedPnl
+      virtualBalance: prev.virtualBalance + (pos.direction === 'Long' ? exitValue : -exitValue)
     }));
 
     // Remove or decrement open position
@@ -1110,6 +1238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         initializeGuestUser,
         theme,
         instruments,
+        futures,
         optionChain,
         orders,
         positions: [...positions, ...closedHistory], // Export all positions (open and closed) to context

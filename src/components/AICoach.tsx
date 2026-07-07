@@ -47,7 +47,7 @@ export const AICoach: React.FC = () => {
   const [riskScore, setRiskScore] = useState(58);
   const [execPrecision, setExecPrecision] = useState(70);
   const [coachingFeedback, setCoachingFeedback] = useState<string>(
-    "We analyzed your local sandbox activity log. Your overall execution parameters are healthy, but focus remains on tighter stop-loss compliance."
+    "We analyzed your trading activity log. Your overall execution parameters are healthy, but focus remains on tighter stop-loss compliance."
   );
 
   // Teaching / Lessons states
@@ -257,7 +257,7 @@ export const AICoach: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-xl mx-auto">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* Tab Selectors */}
       <div className="flex bg-[#11141c] border border-white/5 rounded-2xl p-1.5 gap-1 shadow-inner">
         <button

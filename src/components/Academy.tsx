@@ -80,7 +80,7 @@ export const Academy: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-lg mx-auto">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* Dynamic Certificate Award overlay */}
       <AnimatePresence>
         {showCertificate && (

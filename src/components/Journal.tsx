@@ -213,7 +213,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
   });
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* 1. Unjournaled Closed Trades Warning banner (If any exist) */}
       {unjournaledPositions.length > 0 && (
         <motion.div 

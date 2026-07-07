@@ -8,13 +8,23 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store';
 import { 
   Flame, Award, ShieldAlert, CheckCircle, TrendingUp, Activity, 
-  Settings, RefreshCw, LogOut, Check, Star, Shield, Bell, X, CreditCard, Sparkles, AlertTriangle 
+  Settings, RefreshCw, LogOut, Check, Star, Shield, Bell, X, CreditCard, Sparkles, AlertTriangle,
+  Sun, Moon
 } from 'lucide-react';
 
-export const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, upgradeToPro } = useApp();
+interface ProfileProps {
+  onLogout: () => void;
+  initialSubTab?: 'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings';
+}
+
+export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'stats' }) => {
+  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, upgradeToPro, theme, toggleTheme } = useApp();
   if (!user) return null;
-  const [activeSubTab, setActiveSubTab] = useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>('stats');
+  const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
+
+  React.useEffect(() => {
+    setActiveSubTab(initialSubTab);
+  }, [initialSubTab]);
 
   // Subscription state
   const [showCheckout, setShowCheckout] = useState(false);
@@ -45,7 +55,7 @@ export const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-lg mx-auto">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* Profile Overview Card */}
       <div className="bg-gradient-to-br from-[#171b26] to-[#11141c] border border-white/5 rounded-2xl p-6 flex justify-between items-center shadow-xl">
         <div className="space-y-1">
@@ -94,30 +104,34 @@ export const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           {/* Active Challenges list */}
           <div className="space-y-3">
             <span className="text-xs font-mono text-gray-500 uppercase tracking-widest block">Active Challenges</span>
-            {challenges.map(ch => (
-              <div key={ch.id} className="bg-white/2 border border-white/5 rounded-2xl p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-0.5">
-                    <h4 className="text-xs font-bold text-white leading-tight">{ch.title}</h4>
-                    <p className="text-[11px] text-gray-400 leading-relaxed font-sans">{ch.description}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {challenges.map(ch => (
+                <div key={ch.id} className="bg-white/2 border border-white/5 rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-white leading-tight">{ch.title}</h4>
+                        <p className="text-[11px] text-gray-400 leading-relaxed font-sans">{ch.description}</p>
+                      </div>
+                      <span className="text-[10px] bg-sky-500/10 text-sky-400 font-mono font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                        +{ch.xpReward} XP
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[10px] bg-sky-500/10 text-sky-400 font-mono font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
-                    +{ch.xpReward} XP
-                  </span>
-                </div>
 
-                {/* Progress bar */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                    <span>Progress</span>
-                    <span>{ch.progress}/{ch.target}</span>
-                  </div>
-                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className="bg-sky-500 h-full" style={{ width: `${(ch.progress / ch.target) * 100}%` }} />
+                  {/* Progress bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                      <span>Progress</span>
+                      <span>{ch.progress}/{ch.target}</span>
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="bg-sky-500 h-full" style={{ width: `${(ch.progress / ch.target) * 100}%` }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -125,7 +139,7 @@ export const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       {activeSubTab === 'achievements' && (
         <div className="space-y-4">
           <span className="text-xs font-mono text-gray-500 uppercase tracking-widest block">Earned Badges & Medals</span>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {badges.map(bd => (
               <div
                 key={bd.id}
@@ -269,7 +283,7 @@ export const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       {activeSubTab === 'notifications' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center text-xs">
-            <span className="text-xs font-mono text-gray-500 uppercase tracking-widest block">Sandbox Notifications</span>
+            <span className="text-xs font-mono text-gray-500 uppercase tracking-widest block">Trading Notifications</span>
             {notifications.length > 0 && (
               <button onClick={clearAllNotifications} className="text-sky-500 hover:text-sky-400 font-medium">
                 Clear all
@@ -311,49 +325,104 @@ export const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       )}
 
       {activeSubTab === 'settings' && (
-        <div className="space-y-6 max-w-lg mx-auto">
-          {/* Reset capital section */}
-          <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
-            <div>
-              <span className="text-xs font-mono text-amber-500 uppercase tracking-widest block">Danger Zone: Reset sandbox</span>
-              <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Erase all active paper orders and positions, reset cash ledger to standard preset capital levels.</p>
-            </div>
+        <div className="space-y-6 max-w-4xl mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Theme selection card */}
+            <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
+              <div>
+                <span className="text-xs font-mono text-sky-400 uppercase tracking-widest block font-bold">App Theme Settings</span>
+                <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Toggle between light or eye-safe dark themes for optimal trading workspace comfort.</p>
+              </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest block">Choose Target Balance (₹)</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[100000, 500000, 1000000].map(val => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setResetVal(val)}
-                    className={`py-1.5 rounded-lg text-xs font-semibold transition ${
-                      resetVal === val ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10'
-                    }`}
-                  >
-                    ₹{val.toLocaleString('en-IN')}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (theme === 'dark') toggleTheme();
+                  }}
+                  className={`py-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer border ${
+                    theme === 'light'
+                      ? 'bg-sky-500/10 text-sky-500 border-sky-500/20 shadow-md font-sans'
+                      : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10 hover:text-white font-sans'
+                  }`}
+                >
+                  <Sun className="w-4 h-4" /> Light Mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (theme === 'light') toggleTheme();
+                  }}
+                  className={`py-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer border ${
+                    theme === 'dark'
+                      ? 'bg-sky-500/10 text-sky-500 border-sky-500/20 shadow-md font-sans'
+                      : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10 hover:text-white font-sans'
+                  }`}
+                >
+                  <Moon className="w-4 h-4" /> Dark Mode
+                </button>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => resetAccount(resetVal)}
-              className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 font-bold py-2.5 rounded-xl text-xs transition border border-amber-500/15 flex items-center justify-center gap-1.5"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Full Sandbox Cash Reset
-            </button>
+            {/* Reset capital section */}
+            <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
+              <div>
+                <span className="text-xs font-mono text-amber-500 uppercase tracking-widest block">Danger Zone: Reset Account Capital</span>
+                <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Erase all active paper orders and positions, reset cash ledger to standard preset capital levels.</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest block">Choose Target Balance (₹)</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[100000, 500000, 1000000].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setResetVal(val)}
+                      className={`py-1.5 rounded-lg text-xs font-semibold transition ${
+                        resetVal === val ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 font-sans' : 'bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 font-sans'
+                      }`}
+                    >
+                      ₹{val.toLocaleString('en-IN')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => resetAccount(resetVal)}
+                className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 font-bold py-2.5 rounded-xl text-xs transition border border-amber-500/15 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Full Simulated Cash Reset
+              </button>
+            </div>
           </div>
 
-          {/* Logout button */}
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-3 rounded-xl text-xs transition border border-red-500/15 flex items-center justify-center gap-1.5"
-          >
-            <LogOut className="w-4 h-4" /> Sign out of Sandbox Session
-          </button>
+          {/* Account Actions card */}
+          <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg max-w-xl mx-auto">
+            <div>
+              <span className="text-xs font-mono text-red-400 uppercase tracking-widest block font-bold">Session & Account Control</span>
+              <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Log out from your current device session or change to a different user account.</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-2.5 rounded-xl text-xs transition border border-white/5 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Change Account
+              </button>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2.5 rounded-xl text-xs transition border border-red-500/15 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Sign Out Session
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
