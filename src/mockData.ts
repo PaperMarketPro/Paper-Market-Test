@@ -204,27 +204,51 @@ export const INITIAL_POSITIONS: Position[] = [
 export const CLOSED_POSITIONS: Position[] = [
   {
     id: 'pos-closed-1',
-    symbol: 'TCS',
+    symbol: 'SBIN',
     direction: 'Long',
-    quantity: 30,
-    entryPrice: 4050.00,
-    currentPrice: 4125.15,
-    timestamp: '2026-07-04T09:30:00-07:00',
+    quantity: 100,
+    entryPrice: 855.00,
+    currentPrice: 833.00,
+    timestamp: '2026-07-02T10:00:00-07:00',
     status: 'Closed',
-    realizedPnl: 2254.50,
-    closedTimestamp: '2026-07-04T14:45:00-07:00'
+    realizedPnl: -2200.00,
+    closedTimestamp: '2026-07-02T15:15:00-07:00'
   },
   {
     id: 'pos-closed-2',
-    symbol: 'SBIN',
+    symbol: 'TCS',
     direction: 'Long',
-    quantity: 200,
-    entryPrice: 855.00,
-    currentPrice: 842.20,
-    timestamp: '2026-07-03T10:00:00-07:00',
+    quantity: 64,
+    entryPrice: 4050.00,
+    currentPrice: 4125.00,
+    timestamp: '2026-07-03T09:30:00-07:00',
+    status: 'Closed',
+    realizedPnl: 4800.00,
+    closedTimestamp: '2026-07-03T14:45:00-07:00'
+  },
+  {
+    id: 'pos-closed-3',
+    symbol: 'RELIANCE',
+    direction: 'Long',
+    quantity: 80,
+    entryPrice: 2950.00,
+    currentPrice: 2918.00,
+    timestamp: '2026-07-04T10:30:00-07:00',
     status: 'Closed',
     realizedPnl: -2560.00,
-    closedTimestamp: '2026-07-03T15:15:00-07:00'
+    closedTimestamp: '2026-07-04T15:00:00-07:00'
+  },
+  {
+    id: 'pos-closed-4',
+    symbol: 'INFY',
+    direction: 'Short',
+    quantity: 100,
+    entryPrice: 1660.00,
+    currentPrice: 1680.00,
+    timestamp: '2026-07-05T11:45:00-07:00',
+    status: 'Closed',
+    realizedPnl: -2000.00,
+    closedTimestamp: '2026-07-05T16:00:00-07:00'
   }
 ];
 

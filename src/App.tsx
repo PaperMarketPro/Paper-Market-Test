@@ -16,6 +16,7 @@ import { AICoach } from './components/AICoach';
 import { StrategyBuilder } from './components/StrategyBuilder';
 import { Academy } from './components/Academy';
 import { Profile } from './components/Profile';
+import { Analytics } from './components/Analytics';
 import { Position } from './types';
 
 function MainAppCoordinator() {
@@ -70,6 +71,9 @@ function MainAppCoordinator() {
       )}
       {currentTab === 'positions' && (
         <PositionsList onJournalShortcut={handleJournalShortcut} />
+      )}
+      {currentTab === 'analytics' && (
+        <Analytics />
       )}
       {currentTab === 'journal' && (
         <Journal

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, TrendingUp, Cpu, Award, User, Menu, X, Bell, Shield, 
   Settings, HelpCircle, BrainCircuit, Library, History, Sparkles, BookOpen,
-  Briefcase, ArrowLeftRight
+  Briefcase, ArrowLeftRight, BarChart2
 } from 'lucide-react';
 import { useApp } from '../store';
 import { BrandLogo } from './BrandLogo';
@@ -44,6 +44,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
     { key: 'positions', label: 'Positions & Orders', icon: <Briefcase className="w-4 h-4" /> },
     { key: 'equity', label: 'Equity Watchlists', icon: <TrendingUp className="w-4 h-4" /> },
     { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-4 h-4" /> },
+    { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
     { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
     { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },
     { key: 'strategy', label: 'Strategy Builder', icon: <Cpu className="w-4 h-4" /> },
@@ -53,9 +54,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
       {/* 1. Permanent Left Sidebar on Desktop Viewports */}
-      <aside className="hidden lg:flex flex-col justify-between w-64 bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/5 p-6 shrink-0">
+      <aside className="hidden md:flex flex-col justify-between w-64 bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/5 p-6 shrink-0">
         <div className="space-y-6">
           {/* Logo Brand Header */}
           <div className="flex items-center px-1">
@@ -116,7 +117,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
       {/* 2. Responsive Content Container */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#060913]">
         {/* Top Header Row for desktop viewports */}
-        <header className="hidden lg:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
+        <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
           {/* Left section: Tab label and sub-label */}
           <div className="shrink-0">
             <h1 className="text-xs font-extrabold text-slate-950 dark:text-white uppercase font-mono tracking-wider flex items-center gap-2">
@@ -125,6 +126,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
                currentTab === 'positions' ? 'Portfolio & Orders' : 
                currentTab === 'equity' ? 'Equity watchlists' :
                currentTab === 'fno' ? 'Future & Option Desk' :
+               currentTab === 'analytics' ? 'Performance Analytics' :
                currentTab === 'journal' ? 'AI Trading Journal' :
                currentTab === 'ai-coach' ? 'AI Coach Insights' :
                currentTab === 'strategy' ? 'Advanced strategy builder' :
@@ -201,7 +203,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
         </header>
 
         {/* Top Header Row for mobile/tablet grids */}
-        <header className="lg:hidden flex justify-between items-center bg-white/95 dark:bg-[#0c1020]/90 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
+        <header className="md:hidden flex justify-between items-center bg-white/95 dark:bg-[#0c1020]/90 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsDrawerOpen(true)}
@@ -232,7 +234,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
         </main>
 
         {/* 3. Bottom Navigation bar on Mobile Viewports */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl px-1 py-1.5 flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl px-1 py-1.5 flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
           {navItems.map(item => {
             const isActive = currentTab === item.key;
 
@@ -258,7 +260,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
       {/* 4. Slide-out Navigation Drawer on Mobile (accessible via hamburger) */}
       <AnimatePresence>
         {isDrawerOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div className="fixed inset-0 z-50 md:hidden flex">
             {/* Backdrop opacity */}
             <motion.div
               initial={{ opacity: 0 }}
