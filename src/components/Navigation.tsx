@@ -53,7 +53,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
     { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
-  const sidebarItems = drawerItems.filter(item => !navItems.some(nav => nav.key === item.key));
+  const sidebarItems = drawerItems.filter(item => item.key === 'settings' || !navItems.some(nav => nav.key === item.key));
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
