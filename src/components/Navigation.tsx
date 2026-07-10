@@ -53,6 +53,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
     { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
   ];
 
+  const sidebarItems = drawerItems.filter(item => !navItems.some(nav => nav.key === item.key));
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
       {/* 1. Permanent Left Sidebar on Desktop Viewports */}
@@ -77,7 +79,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
 
           {/* Nav list */}
           <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none">
-            {drawerItems.map(item => {
+            {sidebarItems.map(item => {
               const isActive = currentTab === item.key;
               return (
                 <button
@@ -116,8 +118,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#060913]">
         {/* Top Header Row for desktop viewports */}
         <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
-          {/* Left section: Tab label and sub-label */}
-          <div className="block shrink-0">
+          {/* Left section: Tab label and sub-label (visible on large viewports) */}
+          <div className="hidden lg:block shrink-0">
             <h1 className="text-xs font-extrabold text-slate-950 dark:text-white uppercase font-mono tracking-wider flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-sky-400 animate-pulse" />
               {currentTab === 'dashboard' ? 'Active Trading Desk' : 
@@ -135,6 +137,27 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
               Simulated Real-Time Paper Trading & Analytics
             </p>
           </div>
+
+          {/* Center section: Desktop top navigation bar */}
+          <nav className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200/40 dark:border-white/5 shadow-inner max-w-sm lg:max-w-md xl:max-w-xl overflow-x-auto shrink-0 scrollbar-none">
+            {navItems.map(item => {
+              const isActive = currentTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => handleNavClick(item.key)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all duration-200 shrink-0 ${
+                    isActive
+                      ? 'bg-white dark:bg-[#12182d] text-blue-600 dark:text-sky-400 shadow-sm border border-slate-200/20 dark:border-white/5 scale-[1.02]'
+                      : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {React.cloneElement(item.icon as React.ReactElement, { className: 'w-3.5 h-3.5 shrink-0' })}
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
           {/* Right section: Balance, notifications, level indicators */}
           <div className="flex items-center gap-3.5">
@@ -278,7 +301,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
 
                 {/* Drawer list */}
                 <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-240px)]">
-                  {drawerItems.map(item => {
+                  {sidebarItems.map(item => {
                     const isActive = currentTab === item.key;
                     return (
                       <button
