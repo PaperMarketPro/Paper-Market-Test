@@ -49,6 +49,9 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
   // Option Greeks toggle
   const [showGreeks, setShowGreeks] = useState(false);
 
+  // Option Chain approved setup (OK button clicked)
+  const [optionChainApproved, setOptionChainApproved] = useState(true);
+
   // Sync activeTab when mode changes
   React.useEffect(() => {
     if (mode === 'fno') {
@@ -121,7 +124,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
               {activeTab === tab.key && (
                 <motion.div
                   layoutId="marketTabUnderline"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-500"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-sky-500"
                 />
               )}
             </button>
@@ -130,7 +133,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
       ) : (
         <div className="bg-[#0b0e14]/50 border border-white/5 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <span className="text-[10px] font-mono text-sky-400 uppercase tracking-widest block font-bold">
+            <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
               {mode === 'equity' ? 'EQUITY TRADING' : 'F&O DERIVATIVES'}
             </span>
             <h2 className="text-lg font-bold text-white tracking-tight">
@@ -317,7 +320,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                           ) : (
                             <button
                               onClick={() => addToWatchlist(inst.symbol)}
-                              className="px-3 bg-white/5 hover:bg-white/10 text-sky-400 rounded-xl transition flex items-center justify-center text-xs font-bold gap-1 cursor-pointer"
+                              className="px-3 bg-white/5 hover:bg-white/10 text-blue-600 dark:text-sky-400 rounded-xl transition flex items-center justify-center text-xs font-bold gap-1 cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" /> Watch
                             </button>
@@ -348,7 +351,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
               onClick={() => setFnoSection('futures')}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                 fnoSection === 'futures'
-                  ? 'bg-sky-500 text-white shadow'
+                  ? 'bg-blue-600 dark:bg-sky-500 text-white shadow'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -358,7 +361,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
               onClick={() => setFnoSection('options')}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                 fnoSection === 'options'
-                  ? 'bg-amber-500 text-black shadow'
+                  ? 'bg-blue-600 dark:bg-sky-500 text-white shadow'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -388,28 +391,55 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                 </button>
               )}
             </div>
-          ) : (
+          ) : optionChainApproved ? (
             <div className="relative font-sans">
               <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-sky-500/60" />
               </span>
               <input
                 type="text"
-                placeholder={`Filter ${selectedOptionIndex.split(' ')[0]} strikes (e.g. CE, PE, or strike price)...`}
+                placeholder="Search options (e.g. NIFTY 24300, TCS CE, PE, strike price)..."
                 value={fnoOptionsSearchQuery}
-                onChange={(e) => setFnoOptionsSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFnoOptionsSearchQuery(val);
+                  
+                  // Smart underlier detector: Automatically switch active underlier if mentioned!
+                  const lowerVal = val.toLowerCase();
+                  const allUnderliers = [
+                    { key: 'NIFTY 50', terms: ['nifty 50', 'nifty', 'nifty50', 'nf'] },
+                    { key: 'BANKNIFTY', terms: ['banknifty', 'bank nifty', 'bank', 'bnf'] },
+                    { key: 'FINNIFTY', terms: ['finnifty', 'fin nifty', 'fin'] },
+                    { key: 'SENSEX', terms: ['sensex', 'sen', 'sx'] },
+                    { key: 'MIDCPNIFTY', terms: ['midcpnifty', 'midcap', 'mid'] },
+                    { key: 'RELIANCE', terms: ['reliance', 'rel'] },
+                    { key: 'TCS', terms: ['tcs'] },
+                    { key: 'INFY', terms: ['infy', 'infosys'] },
+                    { key: 'HDFCBANK', terms: ['hdfcbank', 'hdfc'] },
+                    { key: 'ICICIBANK', terms: ['icici'] },
+                    { key: 'SBIN', terms: ['sbin', 'sbi'] },
+                    { key: 'TATAMOTORS', terms: ['tatamotors', 'tata'] }
+                  ];
+
+                  const matched = allUnderliers.find(u => 
+                    u.terms.some(term => lowerVal.includes(term))
+                  );
+                  if (matched && matched.key !== selectedOptionIndex) {
+                    setSelectedOptionIndex(matched.key);
+                  }
+                }}
                 className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
               />
               {fnoOptionsSearchQuery && (
                 <button
                   onClick={() => setFnoOptionsSearchQuery('')}
-                  className="absolute inset-y-0 right-3.5 flex items-center text-gray-500 hover:text-white text-[10px] font-mono"
+                  className="absolute inset-y-0 right-3.5 flex items-center text-gray-500 hover:text-white text-[10px] font-mono border-0 bg-transparent cursor-pointer"
                 >
                   Clear
                 </button>
               )}
             </div>
-          )}
+          ) : null}
 
           {fnoSection === 'futures' ? (
             <div className="space-y-4">
@@ -552,6 +582,117 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                 )}
               </div>
             </div>
+          ) : !optionChainApproved ? (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white/2 border border-white/5 rounded-2xl p-6 space-y-6 font-sans"
+            >
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
+                  OPTIONS CHAIN CONFIGURATOR
+                </span>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Configure Indices, Options Chain &amp; Greeks
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Select your index underlier, choose weekly expirations, and decide if you want to include real-time Greek metrics like Delta and Theta. Click OK to initialize.
+                </p>
+              </div>
+
+              {/* Index underlier selector */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">
+                  Select Index Underlier
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { symbol: 'NIFTY 50', name: 'Nifty 50' },
+                    { symbol: 'BANKNIFTY', name: 'Bank Nifty' },
+                    { symbol: 'FINNIFTY', name: 'Fin Nifty' },
+                    { symbol: 'SENSEX', name: 'Sensex' },
+                    { symbol: 'MIDCPNIFTY', name: 'Midcap Nifty' },
+                    { symbol: 'RELIANCE', name: 'Reliance' },
+                    { symbol: 'TCS', name: 'TCS' },
+                    { symbol: 'INFY', name: 'Infosys' },
+                    { symbol: 'HDFCBANK', name: 'HDFC Bank' },
+                    { symbol: 'SBIN', name: 'SBI' },
+                    { symbol: 'TATAMOTORS', name: 'Tata Motors' }
+                  ].map(idxObj => (
+                    <button
+                      key={idxObj.symbol}
+                      type="button"
+                      onClick={() => setSelectedOptionIndex(idxObj.symbol)}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition border ${
+                        selectedOptionIndex === idxObj.symbol
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/15'
+                          : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'
+                      }`}
+                    >
+                      <span className="block font-bold">{idxObj.name}</span>
+                      <span className="block text-[9px] text-gray-500 font-mono">
+                        ₹{(instruments.find(i => i.symbol === idxObj.symbol)?.ltp || 24325.85).toLocaleString('en-IN', { maximumFractionDigits: 1 })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Expiry Selector */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">
+                  Select Weekly Expiry
+                </label>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {expiries.map(exp => (
+                    <button
+                      key={exp}
+                      type="button"
+                      onClick={() => setSelectedExpiry(exp)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                        selectedExpiry === exp
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white/5 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {exp}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Option Greeks Toggle */}
+              <div className="bg-white/2 border border-white/5 p-4 rounded-xl flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-white block">Calculate Option Greeks</span>
+                  <p className="text-[10px] text-gray-500">
+                    Include real-time calculated Delta and Theta sensitivities inside the option chain grid
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGreeks(!showGreeks)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                    showGreeks ? 'bg-blue-600' : 'bg-white/10'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      showGreeks ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* OK Action Button */}
+              <button
+                type="button"
+                onClick={() => setOptionChainApproved(true)}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold rounded-xl text-xs transition uppercase tracking-wider shadow-lg shadow-blue-500/20 cursor-pointer text-center"
+              >
+                OK - Load Option Chain &amp; Greeks
+              </button>
+            </motion.div>
           ) : (() => {
             const selectedIndexInstrument = instruments.find(i => i.symbol === selectedOptionIndex) || instruments[0];
             const spotPrice = selectedIndexInstrument ? selectedIndexInstrument.ltp : 24325.85;
@@ -563,11 +704,23 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                 strikeStep = 100;
               } else if (indexSymbol === 'MIDCPNIFTY') {
                 strikeStep = 50;
+              } else if (spot > 3000) {
+                strikeStep = 100;
+              } else if (spot > 1000) {
+                strikeStep = 50;
+              } else if (spot > 500) {
+                strikeStep = 20;
+              } else if (spot > 100) {
+                strikeStep = 10;
+              } else {
+                strikeStep = 5;
               }
               
               // Round spot to nearest strikeStep
               const atmStrike = Math.round(spot / strikeStep) * strikeStep;
               const strikes = [
+                atmStrike - strikeStep * 5,
+                atmStrike - strikeStep * 4,
                 atmStrike - strikeStep * 3,
                 atmStrike - strikeStep * 2,
                 atmStrike - strikeStep * 1,
@@ -575,6 +728,8 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                 atmStrike + strikeStep * 1,
                 atmStrike + strikeStep * 2,
                 atmStrike + strikeStep * 3,
+                atmStrike + strikeStep * 4,
+                atmStrike + strikeStep * 5,
               ];
 
               return strikes.map((strike, idx) => {
@@ -621,16 +776,40 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
 
             return (
               <div className="space-y-4">
-                {/* Index Selector */}
+                {/* Active Indicator & Reset Settings */}
+                <div className="flex justify-between items-center bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500 animate-pulse"></span>
+                    </span>
+                    <span className="text-xs font-semibold text-blue-600 dark:text-sky-400">
+                      Options Chain Simulation Active
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setOptionChainApproved(false)}
+                    className="text-[10px] font-bold text-blue-600 dark:text-sky-400 hover:underline bg-white/5 px-2.5 py-1 rounded-lg border border-white/5"
+                  >
+                    ← Reconfigure Setup
+                  </button>
+                </div>
+                {/* Index & Stock Underliers Selector */}
                 <div className="space-y-2">
-                  <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest block">Select Index Underlier</span>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                  <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest block">Select Underlier (Indices & Stocks)</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                     {[
                       { symbol: 'NIFTY 50', name: 'Nifty 50' },
                       { symbol: 'BANKNIFTY', name: 'Bank Nifty' },
                       { symbol: 'FINNIFTY', name: 'Fin Nifty' },
                       { symbol: 'SENSEX', name: 'Sensex' },
                       { symbol: 'MIDCPNIFTY', name: 'Midcap Nifty' },
+                      { symbol: 'RELIANCE', name: 'Reliance' },
+                      { symbol: 'TCS', name: 'TCS' },
+                      { symbol: 'INFY', name: 'Infosys' },
+                      { symbol: 'HDFCBANK', name: 'HDFC Bank' },
+                      { symbol: 'SBIN', name: 'SBI' },
+                      { symbol: 'TATAMOTORS', name: 'Tata Motors' }
                     ].map(idxObj => (
                       <button
                         key={idxObj.symbol}
@@ -640,7 +819,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border ${
                           selectedOptionIndex === idxObj.symbol
-                            ? 'bg-amber-500 text-black border-amber-500 shadow-md shadow-amber-500/10'
+                            ? 'bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:text-black dark:border-sky-500 shadow-md'
                             : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'
                         }`}
                       >
@@ -659,7 +838,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                         key={exp}
                         onClick={() => setSelectedExpiry(exp)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-                          selectedExpiry === exp ? 'bg-sky-500 text-white' : 'bg-white/5 text-gray-400 hover:text-white'
+                          selectedExpiry === exp ? 'bg-blue-600 dark:bg-sky-500 text-white dark:text-black' : 'bg-white/5 text-gray-400 hover:text-white'
                         }`}
                       >
                         {exp}
@@ -676,7 +855,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                   </div>
                   <button
                     onClick={() => setShowGreeks(!showGreeks)}
-                    className="text-[10px] bg-white/5 text-sky-400 hover:bg-white/10 px-2.5 py-1.5 rounded-lg border border-white/5 font-semibold uppercase flex items-center gap-1"
+                    className="text-[10px] bg-white/5 text-blue-600 dark:text-sky-400 hover:bg-white/10 px-2.5 py-1.5 rounded-lg border border-white/5 font-semibold uppercase flex items-center gap-1"
                   >
                     <Percent className="w-3.5 h-3.5" /> {showGreeks ? 'Hide Greeks' : 'Show Greeks'}
                   </button>
@@ -725,70 +904,87 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
 
                     {/* Chain rows */}
                     <div className="divide-y divide-white/5">
-                      {currentOptionChain.filter(item => {
-                        if (!fnoOptionsSearchQuery) return true;
-                        const q = fnoOptionsSearchQuery.toLowerCase();
-                        const strikeStr = item.strike.toString();
-                        return strikeStr.includes(q) || "ce".includes(q) || "pe".includes(q) || selectedOptionIndex.toLowerCase().includes(q);
-                      }).map(item => {
-                        const isCallItm = item.strike < spotPrice;
-                        const isPutItm = item.strike > spotPrice;
+                      {(() => {
+                        const filteredChain = currentOptionChain.filter(item => {
+                          if (!fnoOptionsSearchQuery) return true;
+                          const q = fnoOptionsSearchQuery.trim().toLowerCase();
+                          
+                          // If they typed an underlier like "reliance", hide non-matching but we already switch automatically.
+                          // Let's filter by strike number if present.
+                          const numbers = q.match(/\d+/);
+                          if (numbers) {
+                            return item.strike.toString().includes(numbers[0]);
+                          }
+                          
+                          // Otherwise, if they just type "ce" or "pe", show all (and fade non-matching column inside)
+                          if (q.includes('ce') || q.includes('pe') || q.includes('call') || q.includes('put')) {
+                            return true;
+                          }
+                          
+                          return item.strike.toString().includes(q) || selectedOptionIndex.toLowerCase().includes(q);
+                        });
 
-                        const underlierName = selectedOptionIndex.split(' ')[0];
+                        if (filteredChain.length === 0) {
+                          return (
+                            <div className="text-center py-12 text-gray-500 text-xs font-sans space-y-2">
+                              <p className="font-semibold text-gray-400">No option strikes match your search</p>
+                              <p className="text-[10px] text-gray-600">Try searching for a strike price like "24300" or a specific index/stock</p>
+                            </div>
+                          );
+                        }
 
-                        return (
-                          <div key={item.strike} className="grid grid-cols-7 text-center items-center py-2 text-xs tabular-numbers hover:bg-white/5 transition">
-                            {/* CALL side metrics */}
-                            <div className={`py-1 ${isCallItm ? 'bg-emerald-500/5' : ''}`}>
-                              <span className="text-gray-400">{showGreeks ? item.calls.delta.toFixed(2) : `${(item.calls.oi / 1000).toFixed(0)}k`}</span>
-                            </div>
-                            <div className={`py-1 ${isCallItm ? 'bg-emerald-500/5' : ''}`}>
-                              <span className="text-gray-400">{showGreeks ? item.calls.theta.toFixed(1) : `${(item.calls.volume / 1000).toFixed(0)}k`}</span>
-                            </div>
-                            <div
-                              onClick={() => handleQuickTrade(`${underlierName} 24-JUL ${item.strike} CE`)}
-                              className={`py-1 font-bold text-emerald-400 cursor-pointer hover:bg-emerald-500/10 rounded transition ${
-                                isCallItm ? 'bg-emerald-500/10' : ''
-                              }`}
-                            >
-                              ₹{item.calls.ltp.toFixed(1)}
-                            </div>
+                        return filteredChain.map(item => {
+                          const isCallItm = item.strike < spotPrice;
+                          const isPutItm = item.strike > spotPrice;
 
-                            {/* STRIKE price center */}
-                            <div className="bg-white/3 text-white border-x border-white/5 font-bold py-1 text-center font-mono">
-                              {item.strike}
-                            </div>
+                          const underlierName = selectedOptionIndex.split(' ')[0];
 
-                            {/* PUT side metrics */}
-                            <div
-                              onClick={() => handleQuickTrade(`${underlierName} 24-JUL ${item.strike} PE`)}
-                              className={`py-1 font-bold text-red-400 cursor-pointer hover:bg-red-500/10 rounded transition ${
-                                isPutItm ? 'bg-red-500/10' : ''
-                              }`}
-                            >
-                              ₹{item.puts.ltp.toFixed(1)}
-                            </div>
-                            <div className={`py-1 ${isPutItm ? 'bg-red-500/5' : ''}`}>
-                              <span className="text-gray-400">{showGreeks ? item.puts.theta.toFixed(1) : `${(item.puts.volume / 1000).toFixed(0)}k`}</span>
-                            </div>
-                            <div className={`py-1 ${isPutItm ? 'bg-red-500/5' : ''}`}>
-                              <span className="text-gray-400">{showGreeks ? item.puts.delta.toFixed(2) : `${(item.puts.oi / 1000).toFixed(0)}k`}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          const q = fnoOptionsSearchQuery.toLowerCase();
+                          const hideCe = (q.includes('pe') || q.includes('put')) && !(q.includes('ce') || q.includes('call'));
+                          const hidePe = (q.includes('ce') || q.includes('call')) && !(q.includes('pe') || q.includes('put'));
 
-                      {currentOptionChain.filter(item => {
-                        if (!fnoOptionsSearchQuery) return true;
-                        const q = fnoOptionsSearchQuery.toLowerCase();
-                        const strikeStr = item.strike.toString();
-                        return strikeStr.includes(q) || "ce".includes(q) || "pe".includes(q) || selectedOptionIndex.toLowerCase().includes(q);
-                      }).length === 0 && (
-                        <div className="text-center py-12 text-gray-500 text-xs font-sans space-y-2">
-                          <p className="font-semibold text-gray-400">No option strikes match your search</p>
-                          <p className="text-[10px] text-gray-600">Try searching for a strike price like "24300" or "24400"</p>
-                        </div>
-                      )}
+                          return (
+                            <div key={item.strike} className="grid grid-cols-7 text-center items-center py-2 text-xs tabular-numbers hover:bg-white/5 transition">
+                              {/* CALL side metrics */}
+                              <div className={`py-1 ${isCallItm ? 'bg-emerald-500/5' : ''} ${hideCe ? 'opacity-20' : ''}`}>
+                                <span className="text-gray-400">{showGreeks ? item.calls.delta.toFixed(2) : `${(item.calls.oi / 1000).toFixed(0)}k`}</span>
+                              </div>
+                              <div className={`py-1 ${isCallItm ? 'bg-emerald-500/5' : ''} ${hideCe ? 'opacity-20' : ''}`}>
+                                <span className="text-gray-400">{showGreeks ? item.calls.theta.toFixed(1) : `${(item.calls.volume / 1000).toFixed(0)}k`}</span>
+                              </div>
+                              <div
+                                onClick={() => !hideCe && handleQuickTrade(`${underlierName} 24-JUL ${item.strike} CE`)}
+                                className={`py-1 font-bold text-emerald-400 cursor-pointer hover:bg-emerald-500/10 rounded transition ${
+                                  isCallItm ? 'bg-emerald-500/10' : ''
+                                } ${hideCe ? 'opacity-20 pointer-events-none' : ''}`}
+                              >
+                                ₹{item.calls.ltp.toFixed(1)}
+                              </div>
+
+                              {/* STRIKE price center */}
+                              <div className="bg-white/3 text-white border-x border-white/5 font-bold py-1 text-center font-mono">
+                                {item.strike}
+                              </div>
+
+                              {/* PUT side metrics */}
+                              <div
+                                onClick={() => !hidePe && handleQuickTrade(`${underlierName} 24-JUL ${item.strike} PE`)}
+                                className={`py-1 font-bold text-red-400 cursor-pointer hover:bg-red-500/10 rounded transition ${
+                                  isPutItm ? 'bg-red-500/10' : ''
+                                } ${hidePe ? 'opacity-20 pointer-events-none' : ''}`}
+                              >
+                                ₹{item.puts.ltp.toFixed(1)}
+                              </div>
+                              <div className={`py-1 ${isPutItm ? 'bg-red-500/5' : ''} ${hidePe ? 'opacity-20' : ''}`}>
+                                <span className="text-gray-400">{showGreeks ? item.puts.theta.toFixed(1) : `${(item.puts.volume / 1000).toFixed(0)}k`}</span>
+                              </div>
+                              <div className={`py-1 ${isPutItm ? 'bg-red-500/5' : ''} ${hidePe ? 'opacity-20' : ''}`}>
+                                <span className="text-gray-400">{showGreeks ? item.puts.delta.toFixed(2) : `${(item.puts.oi / 1000).toFixed(0)}k`}</span>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 </div>

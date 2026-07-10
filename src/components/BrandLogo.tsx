@@ -19,8 +19,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   layout
 }) => {
   const sizeMap = {
-    sm: { icon: 'w-6 h-6', text: 'text-sm' },
-    md: { icon: 'w-10 h-10', text: 'text-base' },
+    sm: { icon: 'w-8 h-8', text: 'text-sm' },
+    md: { icon: 'w-10 h-10', text: 'text-[17px]' },
     lg: { icon: 'w-16 h-16', text: 'text-2xl' },
     xl: { icon: 'w-24 h-24', text: 'text-4xl' }
   };
@@ -96,23 +96,23 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       {!iconOnly && (
         activeLayout === 'stacked' ? (
           <div className="flex flex-col text-left leading-[0.95] tracking-tight">
-            <span className={`${size === 'xl' ? 'text-4xl' : 'text-2xl'} font-sans font-extrabold text-white`}>
+            <span className={`${size === 'xl' ? 'text-4xl' : 'text-2xl'} font-sans font-extrabold text-slate-950 dark:text-white`}>
               Paper
             </span>
-            <span className={`${size === 'xl' ? 'text-4xl' : 'text-2xl'} font-sans font-extrabold text-white mt-0.5`}>
+            <span className={`${size === 'xl' ? 'text-4xl' : 'text-2xl'} font-sans font-extrabold text-slate-950 dark:text-white mt-0.5`}>
               Market
             </span>
-            <span className={`${size === 'xl' ? 'text-4xl' : 'text-2xl'} font-sans font-extrabold text-sky-400 mt-1`}>
+            <span className={`${size === 'xl' ? 'text-4xl' : 'text-2xl'} font-sans font-extrabold text-blue-600 dark:text-sky-400 mt-1`}>
               Pro
             </span>
           </div>
         ) : (
           <div className="flex flex-col leading-none">
-            <span className={`font-display font-bold tracking-tight ${currentSize.text} text-white flex items-center`}>
+            <span className={`font-display font-bold tracking-tight ${currentSize.text} text-slate-950 dark:text-white flex items-center`}>
               <span>Paper Market</span>
-              <span className="text-sky-400 font-extrabold ml-1.5">Pro</span>
+              <span className="text-blue-600 dark:text-sky-400 font-extrabold ml-1.5">Pro</span>
             </span>
-            <span className="text-[9px] text-gray-500 font-semibold font-sans mt-0.5 tracking-wide">
+            <span className="text-[9px] text-slate-500 dark:text-gray-400 font-semibold font-sans mt-0.5 tracking-wide">
               AI Sim Trading & Analytics
             </span>
           </div>

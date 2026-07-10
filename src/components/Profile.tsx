@@ -18,7 +18,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'stats' }) => {
-  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, upgradeToPro, theme, toggleTheme } = useApp();
+  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, updateBalance, upgradeToPro, theme, toggleTheme } = useApp();
   if (!user) return null;
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 
@@ -57,29 +57,37 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
   return (
     <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
       {/* Profile Overview Card */}
-      <div className="bg-gradient-to-br from-[#171b26] to-[#11141c] border border-white/5 rounded-2xl p-6 flex justify-between items-center shadow-xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5">
-            <span className="font-display font-bold text-lg text-white">{user.name}</span>
-            <span className="bg-sky-500/10 text-sky-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full">
-              Lvl {user.level}
-            </span>
+      <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-center gap-6 shadow-xl">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          {/* Beautiful Initial Avatar with modern gradient */}
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-sky-500 dark:from-blue-500 dark:to-sky-400 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-blue-500/20 shrink-0 border border-white/10 select-none">
+            {user.name ? user.name.charAt(0).toUpperCase() : 'G'}
           </div>
-          <span className="text-xs text-gray-400 block">{user.email}</span>
-          <span className="text-xs text-gray-500 font-mono block">Role: Intraday Scalper</span>
+
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Elegant, clear blue accent as suggested by the user */}
+              <span className="font-display font-bold text-lg text-blue-600 dark:text-sky-400 leading-tight">{user.name}</span>
+              <span className="bg-sky-500/10 text-sky-500 dark:text-sky-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap">
+                Lvl {user.level}
+              </span>
+            </div>
+            <span className="text-xs text-slate-600 dark:text-gray-400 block">{user.email}</span>
+            <span className="text-xs text-slate-700 dark:text-gray-400 font-mono block">Role: Intraday Scalper</span>
+          </div>
         </div>
 
-        <div className="text-right flex flex-col items-end gap-1">
-          <div className="flex items-center gap-1 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/15">
-            <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span className="text-xs font-bold text-amber-400 tabular-numbers">{user.streak}d Streak</span>
+        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 sm:gap-1.5 w-full sm:w-auto border-t sm:border-t-0 border-slate-100 dark:border-white/5 pt-4 sm:pt-0 shrink-0">
+          <div className="flex items-center gap-1.5 bg-amber-500/10 px-3.5 py-1.5 rounded-xl border border-amber-500/15 whitespace-nowrap shrink-0 shadow-sm shadow-amber-500/5">
+            <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-pulse" />
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 tabular-numbers whitespace-nowrap">{user.streak}d Streak</span>
           </div>
-          <span className="text-[10px] text-gray-400 font-mono mt-1 block">{user.xp} Total XP</span>
+          <span className="text-xs text-slate-500 dark:text-gray-400 font-mono block whitespace-nowrap">{user.xp} Total XP</span>
         </div>
       </div>
 
       {/* Sub Navigation Tabs */}
-      <div className="flex bg-white/2 border border-white/5 p-1 rounded-xl justify-between overflow-x-auto gap-1">
+      <div className="flex bg-white/2 border border-slate-200/50 dark:border-white/5 p-1 rounded-xl justify-between overflow-x-auto gap-1">
         {[
           { key: 'stats', label: 'Summary' },
           { key: 'achievements', label: 'Rewards' },
@@ -90,8 +98,10 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
           <button
             key={tab.key}
             onClick={() => setActiveSubTab(tab.key as any)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
-              activeSubTab === tab.key ? 'bg-white/5 text-white' : 'text-gray-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              activeSubTab === tab.key 
+                ? 'bg-blue-600 text-white dark:bg-white/5 dark:text-white shadow-sm' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
             }`}
           >
             {tab.label}
@@ -103,17 +113,17 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
         <div className="space-y-4">
           {/* Active Challenges list */}
           <div className="space-y-3">
-            <span className="text-xs font-mono text-gray-500 uppercase tracking-widest block">Active Challenges</span>
+            <span className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Active Challenges</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {challenges.map(ch => (
-                <div key={ch.id} className="bg-white/2 border border-white/5 rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+                <div key={ch.id} className="bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-2xl p-4 space-y-3 flex flex-col justify-between">
                   <div className="space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-white leading-tight">{ch.title}</h4>
-                        <p className="text-[11px] text-gray-400 leading-relaxed font-sans">{ch.description}</p>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{ch.title}</h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-sans">{ch.description}</p>
                       </div>
-                      <span className="text-[10px] bg-sky-500/10 text-sky-400 font-mono font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-[10px] bg-sky-500/10 text-sky-500 dark:text-sky-400 font-mono font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
                         +{ch.xpReward} XP
                       </span>
                     </div>
@@ -121,11 +131,11 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
 
                   {/* Progress bar */}
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                    <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                       <span>Progress</span>
                       <span>{ch.progress}/{ch.target}</span>
                     </div>
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                       <div className="bg-sky-500 h-full" style={{ width: `${(ch.progress / ch.target) * 100}%` }} />
                     </div>
                   </div>
@@ -138,7 +148,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
 
       {activeSubTab === 'achievements' && (
         <div className="space-y-4">
-          <span className="text-xs font-mono text-gray-500 uppercase tracking-widest block">Earned Badges & Medals</span>
+          <span className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Earned Badges & Medals</span>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {badges.map(bd => (
               <div
@@ -146,22 +156,22 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 className={`p-4 rounded-2xl border transition text-center flex flex-col items-center justify-center space-y-2 relative overflow-hidden ${
                   bd.isEarned
                     ? 'bg-sky-500/5 border-sky-500/25'
-                    : 'bg-white/1 border-white/5 opacity-50'
+                    : 'bg-white/1 border-slate-200/50 dark:border-white/5 opacity-50'
                 }`}
               >
                 <div className={`p-2.5 rounded-xl border ${
                   bd.isEarned 
-                    ? 'bg-sky-500/10 border-sky-500/15 text-sky-400 animate-pulse' 
-                    : 'bg-white/5 border-white/5 text-gray-500'
+                    ? 'bg-sky-500/10 border-sky-500/15 text-sky-500 dark:text-sky-400 animate-pulse' 
+                    : 'bg-white/5 border-slate-200/50 dark:border-white/5 text-slate-400'
                 }`}>
                   {getBadgeIcon(bd.icon)}
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white leading-tight">{bd.name}</h4>
-                  <p className="text-[10px] text-gray-400 font-sans mt-1 leading-relaxed max-w-[120px] mx-auto">{bd.description}</p>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">{bd.name}</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-sans mt-1 leading-relaxed max-w-[120px] mx-auto">{bd.description}</p>
                 </div>
                 {bd.isEarned && (
-                  <span className="text-[8px] font-mono text-gray-500 uppercase block pt-1">
+                  <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 block pt-1">
                     Earned: {bd.earnedDate}
                   </span>
                 )}
@@ -174,11 +184,11 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
       {activeSubTab === 'subscription' && (
         <div className="space-y-4">
           {/* Plan checklist comparison */}
-          <div className="bg-gradient-to-tr from-[#171b26] to-[#11141c] border border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
+          <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
             <div className="text-center space-y-1.5">
-              <Sparkles className="w-8 h-8 text-sky-400 mx-auto animate-bounce" />
-              <h3 className="text-base font-bold text-white tracking-tight">Upgrade to Paper Market Pro</h3>
-              <p className="text-xs text-gray-400">Enhance your discipline with institutional grade modeling</p>
+              <Sparkles className="w-8 h-8 text-blue-600 dark:text-sky-400 mx-auto animate-bounce" />
+              <h3 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">Upgrade to Paper Market Pro</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Enhance your discipline with institutional grade modeling</p>
             </div>
 
             <div className="space-y-3 pt-3">
@@ -367,8 +377,8 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
             {/* Reset capital section */}
             <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
               <div>
-                <span className="text-xs font-mono text-amber-500 uppercase tracking-widest block">Danger Zone: Reset Account Capital</span>
-                <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Erase all active paper orders and positions, reset cash ledger to standard preset capital levels.</p>
+                <span className="text-xs font-mono text-amber-500 uppercase tracking-widest block">Simulated Capital Settings</span>
+                <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Select a simulated capital level to instantly adjust your current balance, or run a full reset below.</p>
               </div>
 
               <div className="space-y-2">
@@ -378,9 +388,12 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                     <button
                       key={val}
                       type="button"
-                      onClick={() => setResetVal(val)}
+                      onClick={() => {
+                        setResetVal(val);
+                        updateBalance(val);
+                      }}
                       className={`py-1.5 rounded-lg text-xs font-semibold transition ${
-                        resetVal === val ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 font-sans' : 'bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 font-sans'
+                        resetVal === val || user.virtualBalance === val ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 font-sans shadow-inner shadow-amber-500/5' : 'bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 font-sans'
                       }`}
                     >
                       ₹{val.toLocaleString('en-IN')}
@@ -394,7 +407,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 onClick={() => resetAccount(resetVal)}
                 className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 font-bold py-2.5 rounded-xl text-xs transition border border-amber-500/15 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
               >
-                <RefreshCw className="w-3.5 h-3.5" /> Full Simulated Cash Reset
+                <RefreshCw className="w-3.5 h-3.5" /> Full Clear & Fresh Start Reset
               </button>
             </div>
           </div>

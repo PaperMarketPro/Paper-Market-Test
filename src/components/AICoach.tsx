@@ -64,7 +64,7 @@ export const AICoach: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<Array<{ role: 'user' | 'assistant'; text: string; timestamp: string }>>([
     {
       role: 'assistant',
-      text: "Hello. I am your Trading Mind Coach. I am here to help you regulate trading anxiety, neutralize greed, prevent revenge trading, and maintain supreme execution discipline. How are you feeling about the market or your current positions?",
+      text: "Hey there. I'm your Trading Mind Coach. Think of me as your personal psychologist and performance mentor for these markets. We're here to work on your execution discipline, stop emotional triggers like FOMO or revenge trading in their tracks, and keep your head straight when the volatility hits. How have your trades been going today? Feeling any stress or greed creeping in?",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);

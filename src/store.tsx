@@ -48,6 +48,7 @@ interface AppContextType {
   toggleTheme: () => void;
   upgradeToPro: () => void;
   resetAccount: (balance: number) => void;
+  updateBalance: (balance: number) => void;
   addOrder: (orderData: { symbol: string; direction: 'Buy' | 'Sell'; type: 'Market' | 'Limit' | 'Stop-Loss'; quantity: number; price?: number; triggerPrice?: number; stopLoss?: number; target?: number }) => { success: boolean; message: string };
   exitPosition: (positionId: string, quantityToExit?: number) => { success: boolean; message: string };
   modifySLTarget: (positionId: string, stopLoss?: number, target?: number) => void;
@@ -668,14 +669,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Reset Account balance
   const resetAccount = (targetBalance: number) => {
-    setUser(prev => ({
-      ...prev,
-      virtualBalance: targetBalance,
-      initialBalance: targetBalance
-    }));
+    setUser(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        virtualBalance: targetBalance,
+        initialBalance: targetBalance
+      };
+    });
     setPositions([]);
     setOrders([]);
     pushNotification('Virtual Capital Reset', `Your account balance has been refurnished to ₹${targetBalance.toLocaleString('en-IN')}. Trade responsibly!`, 'alert');
+  };
+
+  // Update Account balance directly without erasing trades
+  const updateBalance = (targetBalance: number) => {
+    setUser(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        virtualBalance: targetBalance,
+        initialBalance: targetBalance
+      };
+    });
+    pushNotification('Balance Updated', `Your account balance has been updated to ₹${targetBalance.toLocaleString('en-IN')}.`, 'alert');
   };
 
   // Add Notification Helper
@@ -950,6 +967,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInsights(prev => [newCoachInsight, ...prev]);
     pushNotification('Position Closed', `Exited ${qty} shares of ${pos.symbol} with P&L of ₹${realizedPnl.toFixed(2)}`, isWin ? 'alert' : 'coach');
     addXP(40);
+
+    // COMPLETELY AUTOMATED AI TRADE JOURNALING SYSTEM
+    (async () => {
+      try {
+        pushNotification(
+          'AI Auto-Journaling',
+          `Gemini is compiling behavioral diagnostics for your ${closedPos.symbol} trade...`,
+          'coach'
+        );
+
+        const res = await fetch('/api/journal/auto-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: closedPos.symbol,
+            direction: closedPos.direction,
+            entryPrice: closedPos.entryPrice,
+            exitPrice: closedPos.currentPrice,
+            realizedPnl: closedPos.realizedPnl || 0,
+            quantity: closedPos.quantity,
+            closedTimestamp: closedPos.closedTimestamp,
+            additionalNotes: "Completely automated AI Journaling ledger entry."
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success && data.entry) {
+          const { entry } = data;
+          addJournalEntry({
+            positionId: closedPos.id,
+            symbol: closedPos.symbol,
+            direction: closedPos.direction,
+            pnl: closedPos.realizedPnl || 0,
+            entryReason: entry.entryReason,
+            exitReason: entry.exitReason,
+            emotionTags: entry.emotionTags || [],
+            mistakeTags: entry.mistakeTags || [],
+            lessonLearned: entry.lessonLearned,
+            notes: entry.notes || "Auto-logged with AI Journalizer."
+          });
+
+          pushNotification(
+            'AI Auto-Journal Saved! 🧠',
+            `Behavioral diagnostics and lessons for ${closedPos.symbol} recorded.`,
+            'xp'
+          );
+        } else {
+          throw new Error("AI API error");
+        }
+      } catch (err) {
+        console.error("Automated AI journaling failed, saving fallback:", err);
+        // Robust fallback so the user always has an instant journal entry
+        const fallbackWin = (closedPos.realizedPnl || 0) >= 0;
+        addJournalEntry({
+          positionId: closedPos.id,
+          symbol: closedPos.symbol,
+          direction: closedPos.direction,
+          pnl: closedPos.realizedPnl || 0,
+          entryReason: `Technical momentum breakout setup tested near local support boundaries at ₹${closedPos.entryPrice}.`,
+          exitReason: fallbackWin ? "Designated profit targets hit cleanly at horizontal resistance." : "Designated stop-loss triggered to preserve virtual core balance.",
+          emotionTags: fallbackWin ? ["Patient", "Disciplined"] : ["Anxious", "Fearful"],
+          mistakeTags: fallbackWin ? [] : ["Early Exit"],
+          lessonLearned: `IF I trade ${closedPos.symbol}, THEN I will establish rigid exit boundaries and let them execute automatically.`,
+          notes: "Automated local fallback trade log recorded."
+        });
+      }
+    })();
 
     return { success: true, message: 'Position exited successfully!' };
   };
@@ -1257,6 +1341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleTheme,
         upgradeToPro,
         resetAccount,
+        updateBalance,
         addOrder,
         exitPosition,
         modifySLTarget,

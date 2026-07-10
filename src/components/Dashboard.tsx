@@ -150,7 +150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
           {/* 5. SIMULATED PERFORMANCE MATRIX WITH AREA CHART */}
           <div className="space-y-1.5">
-            <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block font-bold">
+            <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
               Simulated Performance Matrix
             </span>
             
@@ -217,7 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               <h3 className="text-xs font-bold text-white uppercase font-mono tracking-wider">Active Positions ({openPositions.length})</h3>
               <button
                 onClick={() => onNavigate('positions')}
-                className="text-[10px] text-sky-400 hover:text-sky-300 font-bold font-mono uppercase flex items-center gap-1"
+                className="text-[10px] text-blue-600 dark:text-sky-400 hover:text-blue-500 dark:hover:text-sky-300 font-bold font-mono uppercase flex items-center gap-1"
               >
                 Full View
               </button>
@@ -271,10 +271,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <details className="group bg-[#0b0e14]/40 border border-white/5 rounded-2xl overflow-hidden">
             <summary className="flex justify-between items-center p-4 text-xs font-semibold text-gray-400 cursor-pointer hover:bg-white/4 select-none">
               <span className="flex items-center gap-1.5 font-mono uppercase tracking-wider">
-                <Activity className="w-3.5 h-3.5 text-sky-400" />
+                <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
                 Detailed Ledger Analytics
               </span>
-              <span className="text-[9px] text-sky-400 font-mono uppercase group-open:hidden">Expand</span>
+              <span className="text-[9px] text-blue-600 dark:text-sky-400 font-mono uppercase group-open:hidden">Expand</span>
               <span className="text-[9px] text-gray-500 font-mono uppercase group-open:inline hidden">Collapse</span>
             </summary>
             
@@ -295,14 +295,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 </div>
                 <div className="bg-white/2 border border-white/5 p-3 rounded-xl">
                   <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Discipline Score</span>
-                  <span className="block text-sm font-bold text-sky-400 mt-0.5">88/100</span>
+                  <span className="block text-sm font-bold text-blue-600 dark:text-sky-400 mt-0.5">88/100</span>
                 </div>
               </div>
 
               {/* Heatmap Section */}
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-sky-500" />
+                  <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
                   <span className="text-[10px] font-mono text-gray-400 uppercase font-bold tracking-wider">P&L Calendar Heatmap</span>
                 </div>
                 <div className="flex flex-wrap gap-1 items-center pb-1">
@@ -346,7 +346,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               <div className="flex gap-2">
                 <button
                   onClick={() => onNavigate('journal')}
-                  className="flex-1 text-center text-[10px] text-sky-400 font-bold py-2 bg-sky-500/5 rounded-xl border border-sky-500/10 block uppercase font-mono tracking-wider"
+                  className="flex-1 text-center text-[10px] text-blue-600 dark:text-sky-400 font-bold py-2 bg-sky-500/5 rounded-xl border border-sky-500/10 block uppercase font-mono tracking-wider"
                 >
                   Discipline Journal
                 </button>
@@ -369,14 +369,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <div className="bg-[#0b0e14]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-4">
             {/* Left Circular Meter */}
             <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-sky-500/5 border border-sky-500/10 shrink-0">
-              <span className="text-[11px] font-mono font-bold text-sky-400">1</span>
+              <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-sky-400">1</span>
               <svg className="absolute inset-0 w-full h-full transform -rotate-90">
                 <circle
                   cx="22"
                   cy="22"
                   r="20"
                   fill="transparent"
-                  stroke="#0ea5e9"
+                  stroke="#3b82f6"
                   strokeWidth="1.5"
                   strokeDasharray={125.6}
                   strokeDashoffset={125.6 - (125.6 * (Math.min(300, user.xp % 300))) / 300}
@@ -388,7 +388,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             {/* Right Info blocks */}
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-sky-400 font-bold tracking-wider uppercase">Option Apprentice</span>
+                <span className="text-blue-600 dark:text-sky-400 font-bold tracking-wider uppercase">Option Apprentice</span>
                 <span className="text-gray-400 font-medium">{user.xp % 300} / 300 XP</span>
               </div>
               
@@ -409,7 +409,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           {/* 3. TOTAL VIRTUAL CAPITAL CARD */}
           <div className="bg-[#0b0e14]/60 border border-sky-500/5 rounded-2xl p-5 space-y-4">
             <div>
-              <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block font-bold">
+              <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
                 Total Virtual Capital
               </span>
               <span className="text-3xl font-display font-extrabold text-white tracking-tight block mt-1 tabular-numbers">
