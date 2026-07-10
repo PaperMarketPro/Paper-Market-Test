@@ -133,7 +133,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
           Simulated 5m Candle Chart
         </span>
         <div className="h-[120px] flex items-center justify-center">
-          <svg width={chartWidth} height={chartHeight}>
+          <svg viewBox="0 0 320 120" width="100%" height="100%" className="w-full h-full max-h-[120px]">
             {/* Horizontal guidelines */}
             <line x1="0" y1="20" x2={chartWidth} y2="20" stroke="rgba(255,255,255,0.02)" />
             <line x1="0" y1="60" x2={chartWidth} y2="60" stroke="rgba(255,255,255,0.02)" />

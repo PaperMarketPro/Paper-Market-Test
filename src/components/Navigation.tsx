@@ -56,8 +56,8 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
       {/* 1. Permanent Left Sidebar on Desktop Viewports */}
-      <aside className="hidden md:flex flex-col justify-between w-64 bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/5 p-6 shrink-0">
-        <div className="space-y-6">
+      <aside className="hidden md:flex flex-col justify-between w-64 bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/5 p-6 shrink-0 h-screen sticky top-0 overflow-y-auto scrollbar-none">
+        <div className="space-y-6 flex-1 flex flex-col min-h-0">
           {/* Logo Brand Header */}
           <div className="flex items-center px-1">
             <BrandLogo size="md" />
@@ -76,26 +76,24 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
           </div>
 
           {/* Nav list */}
-          <nav className="space-y-1">
-            {drawerItems
-              .filter(item => item.key === 'settings' || !navItems.some(nav => nav.key === item.key))
-              .map(item => {
-                const isActive = currentTab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => handleNavClick(item.key)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                      isActive 
-                        ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 border-l-2 border-blue-600 dark:border-sky-500' 
-                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/2'
-                    }`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </button>
-                );
-              })}
+          <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none">
+            {drawerItems.map(item => {
+              const isActive = currentTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => handleNavClick(item.key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    isActive 
+                      ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 border-l-2 border-blue-600 dark:border-sky-500' 
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/2'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
@@ -119,7 +117,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
         {/* Top Header Row for desktop viewports */}
         <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
           {/* Left section: Tab label and sub-label */}
-          <div className="shrink-0">
+          <div className="block shrink-0">
             <h1 className="text-xs font-extrabold text-slate-950 dark:text-white uppercase font-mono tracking-wider flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-sky-400 animate-pulse" />
               {currentTab === 'dashboard' ? 'Active Trading Desk' : 
@@ -138,27 +136,6 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
             </p>
           </div>
 
-          {/* Center section: Desktop top navigation bar */}
-          <nav className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200/40 dark:border-white/5 shadow-inner max-w-lg xl:max-w-2xl overflow-x-auto shrink-0">
-            {navItems.map(item => {
-              const isActive = currentTab === item.key;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => handleNavClick(item.key)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-                    isActive
-                      ? 'bg-white dark:bg-[#12182d] text-blue-600 dark:text-sky-400 shadow-sm border border-slate-200/20 dark:border-white/5 scale-[1.02]'
-                      : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {React.cloneElement(item.icon as React.ReactElement, { className: 'w-3.5 h-3.5 shrink-0' })}
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
           {/* Right section: Balance, notifications, level indicators */}
           <div className="flex items-center gap-3.5">
             {/* Live Virtual Capital Badge */}
@@ -170,7 +147,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
             </div>
 
             {/* Streak & Level Badges with consistent styling */}
-            <div className="flex items-center gap-1.5 flex-nowrap">
+            <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
               <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/15 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
                 🔥 {user.streak} Days
               </div>
@@ -300,26 +277,24 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
                 </div>
 
                 {/* Drawer list */}
-                <nav className="space-y-1">
-                  {drawerItems
-                    .filter(item => item.key === 'settings' || !navItems.some(nav => nav.key === item.key))
-                    .map(item => {
-                      const isActive = currentTab === item.key;
-                      return (
-                        <button
-                          key={item.key}
-                          onClick={() => handleNavClick(item.key)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                            isActive 
-                              ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 border-l-2 border-blue-600 dark:border-sky-500' 
-                              : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/2'
-                          }`}
-                        >
-                          {item.icon}
-                          {item.label}
-                        </button>
-                      );
-                    })}
+                <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-240px)]">
+                  {drawerItems.map(item => {
+                    const isActive = currentTab === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => handleNavClick(item.key)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                          isActive 
+                            ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 border-l-2 border-blue-600 dark:border-sky-500' 
+                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/2'
+                        }`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </button>
+                    );
+                  })}
                 </nav>
               </div>
 
