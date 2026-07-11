@@ -628,7 +628,7 @@ export const AICoach: React.FC = () => {
                 {/* Discipline Score ring */}
                 <div className="text-center space-y-2">
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90">
+                    <svg viewBox="0 0 80 80" className="w-full h-full transform -rotate-90">
                       <circle cx="40" cy="40" r="32" stroke="rgba(255,255,255,0.02)" strokeWidth="4" fill="transparent" />
                       <circle cx="40" cy="40" r="32" stroke="#0ea5e9" strokeWidth="4" fill="transparent"
                         strokeDasharray={`${2 * Math.PI * 32}`}
@@ -636,7 +636,7 @@ export const AICoach: React.FC = () => {
                         strokeLinecap="round"
                       />
                     </svg>
-                    <span className="absolute text-sm font-bold font-mono text-white tabular-numbers">{dispScore}%</span>
+                    <span className="absolute text-xs sm:text-sm font-bold font-mono text-white tabular-numbers">{dispScore}%</span>
                   </div>
                   <span className="block text-[10px] font-medium text-gray-400">Discipline</span>
                 </div>
@@ -644,7 +644,7 @@ export const AICoach: React.FC = () => {
                 {/* Risk Control Score */}
                 <div className="text-center space-y-2">
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90">
+                    <svg viewBox="0 0 80 80" className="w-full h-full transform -rotate-90">
                       <circle cx="40" cy="40" r="32" stroke="rgba(255,255,255,0.02)" strokeWidth="4" fill="transparent" />
                       <circle cx="40" cy="40" r="32" stroke="#f59e0b" strokeWidth="4" fill="transparent"
                         strokeDasharray={`${2 * Math.PI * 32}`}
@@ -652,7 +652,7 @@ export const AICoach: React.FC = () => {
                         strokeLinecap="round"
                       />
                     </svg>
-                    <span className="absolute text-sm font-bold font-mono text-white tabular-numbers">{riskScore}%</span>
+                    <span className="absolute text-xs sm:text-sm font-bold font-mono text-white tabular-numbers">{riskScore}%</span>
                   </div>
                   <span className="block text-[10px] font-medium text-gray-400">Risk Profile</span>
                 </div>
@@ -660,7 +660,7 @@ export const AICoach: React.FC = () => {
                 {/* Execution Precision */}
                 <div className="text-center space-y-2">
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90">
+                    <svg viewBox="0 0 80 80" className="w-full h-full transform -rotate-90">
                       <circle cx="40" cy="40" r="32" stroke="rgba(255,255,255,0.02)" strokeWidth="4" fill="transparent" />
                       <circle cx="40" cy="40" r="32" stroke="#a855f7" strokeWidth="4" fill="transparent"
                         strokeDasharray={`${2 * Math.PI * 32}`}
@@ -668,7 +668,7 @@ export const AICoach: React.FC = () => {
                         strokeLinecap="round"
                       />
                     </svg>
-                    <span className="absolute text-sm font-bold font-mono text-purple-400 tabular-numbers">{execPrecision}%</span>
+                    <span className="absolute text-xs sm:text-sm font-bold font-mono text-purple-400 tabular-numbers">{execPrecision}%</span>
                   </div>
                   <span className="block text-[10px] font-medium text-gray-400">Precision</span>
                 </div>

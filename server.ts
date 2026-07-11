@@ -8,9 +8,20 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Razorpay client with environment variables or fallback to provided test credentials
+const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "rzp_test_TC3Hx6D3Aywz7D";
+const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || "qwRsIZ4BEbOcPLy5Erk5AEg4";
+
+const razorpay = new Razorpay({
+  key_id: razorpayKeyId,
+  key_secret: razorpayKeySecret,
+});
 
 // Initialize the official @google/genai SDK
 const ai = new GoogleGenAI({
@@ -31,6 +42,49 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Razorpay Payment Gateway Integration Routes
+  app.post("/api/razorpay/create-order", async (req, res) => {
+    try {
+      const options = {
+        amount: 900, // ₹9.00 in paise
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+      };
+      const order = await razorpay.orders.create(options);
+      res.json({
+        success: true,
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: razorpayKeyId
+      });
+    } catch (error: any) {
+      console.error("Razorpay order creation error:", error);
+      res.status(500).json({ success: false, error: "Failed to create Razorpay order.", details: error.message });
+    }
+  });
+
+  app.post("/api/razorpay/verify-signature", async (req, res) => {
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac("sha256", razorpayKeySecret)
+        .update(body.toString())
+        .digest("hex");
+
+      const isValid = expectedSignature === razorpay_signature;
+      if (isValid) {
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ success: false, error: "Invalid payment signature verification." });
+      }
+    } catch (error: any) {
+      console.error("Razorpay signature verification error:", error);
+      res.status(500).json({ success: false, error: "Failed to verify transaction.", details: error.message });
+    }
   });
 
   // Helper to safely parse JSON from Gemini markdown wrappers
@@ -138,7 +192,8 @@ Produce a JSON response matching this schema:
       const systemInstruction = `You are "AI Trading Coach & Educator".
 Based on the user's trading journal entries, evaluate their core psychological and tactical leaks.
 Design an engaging, personalized Markdown tutorial lesson to correct this behavior.
-Format the output strictly as JSON. No markdown other than the JSON string itself.`;
+Format the output strictly as JSON. No markdown other than the JSON string itself.
+CRITICAL LANGUAGE RULE: Detect the language of the user's trading journal entries. If they are written in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the lesson titles, problemAnalysis, coreConcept, exercises, and quizzes in that SAME language so the user gets a fully native learning experience!`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
@@ -260,7 +315,8 @@ Format the output strictly as JSON matching this schema:
 
       const systemInstruction = `You are "AI Research Quantitative Psychologist".
 Analyze the trader's computed metrics and focus areas, research their psychological leaks, and return custom high-quality AI insights and feedback.
-Format the output strictly as JSON. No markdown other than the JSON string itself.`;
+Format the output strictly as JSON. No markdown other than the JSON string itself.
+CRITICAL LANGUAGE RULE: Detect the language of the user's journals, custom training directives, or specified focus area. If they are in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the insights (headline, description) and feedback in that SAME language!`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
@@ -330,7 +386,8 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 2. Speak like a real human mentor—authentic, empathetic, warm, grounded, but direct and completely honest. Use short, punchy paragraphs and highly conversational syntax (e.g., "Hey, I completely hear you," "Look, let's be real for a second," "I've been in that exact spot").
 3. AVOID long bulleted lists of advice unless explicitly requested. Real humans don't speak in neat bullet points; they converse in natural, flowing paragraphs. Limit any lists to 1 or 2 high-impact takeaways at most.
 4. Use authentic trading language and cognitive principles naturally (e.g., "drawdown," "chasing a runner," "risk parameters," "emotional capital").
-5. Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty rallies 2% without me, THEN I will close my charts and walk away until the afternoon session"). Do this collaboratively, like a seasoned mentor helping a friend, rather than an AI assignment.`;
+5. Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty rallies 2% without me, THEN I will close my charts and walk away until the afternoon session"). Do this collaboratively, like a seasoned mentor helping a friend, rather than an AI assignment.
+6. CRITICAL LANGUAGE RULE: You MUST automatically detect the language of the user's message/input (e.g. Hindi, Hinglish, Spanish, French, German, Tamil, Telugu, etc.) and respond in that EXACT same language or style. If they speak in Hindi (e.g. "मेरा बहुत नुकसान हो गया है"), reply in fluent, warm, and encouraging Hindi. If they use Hinglish (e.g. "FOMO control kaise karu?"), reply in natural Hinglish. Keep your tone identical and consistent across all languages. Match their style perfectly.`;
 
       // Map client history to Gemini Content structure if present
       const contents: any[] = [];

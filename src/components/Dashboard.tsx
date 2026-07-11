@@ -124,11 +124,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const points = equityData.map((val, index) => {
     const x = (index / (equityData.length - 1)) * width;
     const y = height - ((val - minEquity) / range) * (height - 30) - 15;
-    return `${x},${y}`;
+    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
   }).join(' ');
 
   // SVG Area Path
-  const areaPoints = `${points} ${width},${height} 0,${height}`;
+  const areaPoints = `${points} L ${width} ${height} L 0 ${height} Z`;
 
   return (
     <div className="space-y-5 pb-24 max-w-5xl mx-auto w-full">
@@ -369,8 +369,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           <div className="bg-[#0b0e14]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-4">
             {/* Left Circular Meter */}
             <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-sky-500/5 border border-sky-500/10 shrink-0">
-              <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-sky-400">1</span>
-              <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+              <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-sky-400">{user.level}</span>
+              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full transform -rotate-90">
                 <circle
                   cx="22"
                   cy="22"

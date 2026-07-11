@@ -29,6 +29,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
   // Subscription state
   const [showCheckout, setShowCheckout] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [razorpayError, setRazorpayError] = useState<string | null>(null);
 
   // Settings state
   const [resetVal, setResetVal] = useState<number>(500000);
@@ -45,13 +46,116 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
     }
   };
 
-  const handleSimulatedPayment = () => {
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpayCheckout = async () => {
     setIsUpgrading(true);
-    setTimeout(() => {
+    setRazorpayError(null);
+
+    try {
+      // 1. Load Razorpay Script if not loaded
+      if (!(window as any).Razorpay) {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          throw new Error("Failed to load Razorpay checkout SDK. Check your internet connection.");
+        }
+      }
+
+      // 2. Create Order on backend
+      const res = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Failed to create payment order: ${errText}`);
+      }
+
+      const orderData = await res.json();
+      if (!orderData.success) {
+        throw new Error(orderData.error || "Order creation failed on server.");
+      }
+
+      const { orderId, amount, currency, keyId } = orderData;
+
+      // 3. Open Razorpay Checkout modal
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: currency,
+        name: "Paper Market Pro",
+        description: "Premium subscription upgrade",
+        order_id: orderId,
+        handler: async function (response: any) {
+          try {
+            setIsUpgrading(true);
+            // 4. Verify Signature on backend
+            const verifyRes = await fetch("/api/razorpay/verify-signature", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              })
+            });
+
+            if (!verifyRes.ok) {
+              const verifyErr = await verifyRes.json();
+              throw new Error(verifyErr.error || "Payment signature verification failed.");
+            }
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              // Upgrade user
+              upgradeToPro();
+              setShowCheckout(false);
+            } else {
+              throw new Error("Payment verification unsuccessful.");
+            }
+          } catch (err: any) {
+            console.error("Signature verification error:", err);
+            setRazorpayError(err.message || "Failed to verify transaction signature.");
+          } finally {
+            setIsUpgrading(false);
+          }
+        },
+        prefill: {
+          name: user.name || "",
+          email: user.email || "",
+        },
+        theme: {
+          color: "#0ea5e9"
+        },
+        modal: {
+          ondismiss: function() {
+            setIsUpgrading(false);
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        console.error("Payment failed event:", response.error);
+        setRazorpayError(response.error.description || "Payment failed. Please try again.");
+        setIsUpgrading(false);
+      });
+      rzp.open();
+
+    } catch (err: any) {
+      console.error("Razorpay Checkout Error:", err);
+      setRazorpayError(err.message || "An error occurred during Razorpay initialization.");
       setIsUpgrading(false);
-      setShowCheckout(false);
-      upgradeToPro();
-    }, 1500);
+    }
   };
 
   return (
@@ -242,9 +346,15 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
             >
               <div className="flex justify-between items-center">
                 <h3 className="text-base font-bold text-white flex items-center gap-1.5">
-                  <CreditCard className="w-5 h-5 text-sky-400" /> Simulated Payment Portal
+                  <CreditCard className="w-5 h-5 text-sky-400" /> Razorpay Checkout Portal
                 </h3>
-                <button onClick={() => setShowCheckout(false)} className="p-1 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white">
+                <button 
+                  onClick={() => {
+                    setShowCheckout(false);
+                    setRazorpayError(null);
+                  }} 
+                  className="p-1 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white cursor-pointer"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -260,28 +370,35 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 </div>
                 <div className="flex justify-between font-bold text-gray-300 pt-1">
                   <span>Amount Payable</span>
-                  <span className="text-white">₹9.00</span>
+                  <span className="text-white font-display">₹9.00</span>
                 </div>
               </div>
 
-              <div className="text-[10px] text-gray-500 bg-[#0b0e14] p-3 rounded-lg border border-white/5 leading-relaxed">
-                🚨 This is a mock payment gate. No actual credit-card billing will happen. Clicking checkout upgrades your account state immediately on the React client side.
+              {razorpayError && (
+                <div className="text-[11px] text-red-400 bg-red-500/10 p-3 rounded-lg border border-red-500/20 leading-relaxed font-sans flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-400" />
+                  <span>{razorpayError}</span>
+                </div>
+              )}
+
+              <div className="text-[10px] text-gray-400 bg-[#0b0e14] p-3 rounded-lg border border-white/5 leading-relaxed">
+                ℹ️ Secured by Razorpay. This is a secure test payment gateway. Clicking "Pay via Razorpay" will initialize the secure checkout popup. Use dummy card credentials to simulate the transaction.
               </div>
 
               <button
                 type="button"
-                onClick={handleSimulatedPayment}
+                onClick={handleRazorpayCheckout}
                 disabled={isUpgrading}
-                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5"
+                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {isUpgrading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    Processing simulated token...
+                    Initializing Razorpay...
                   </>
                 ) : (
                   <>
-                    Confirm Simulated Checkout <Sparkles className="w-4 h-4" />
+                    Pay via Razorpay <Sparkles className="w-4 h-4" />
                   </>
                 )}
               </button>
