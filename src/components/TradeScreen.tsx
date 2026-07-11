@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store';
 import { Sparkles, ArrowRight, ShieldCheck, HelpCircle, Check, Info } from 'lucide-react';
+import { StockChart } from './StockChart';
 
 interface TradeScreenProps {
   onSuccess: () => void;
@@ -124,62 +125,23 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column - Chart */}
-        <div className="space-y-6">
-          {/* Mini Candlestick SVG Chart (TradingView style) */}
-          <div className="bg-[#11141c]/50 border border-white/5 rounded-2xl p-4 relative overflow-hidden">
-        <span className="absolute top-2 right-2 text-[8px] font-mono text-gray-500 uppercase tracking-widest bg-[#0b0e14]/85 px-1.5 py-0.5 rounded border border-white/5">
-          Simulated 5m Candle Chart
-        </span>
-        <div className="h-[120px] flex items-center justify-center">
-          <svg viewBox="0 0 320 120" width="100%" height="100%" className="w-full h-full max-h-[120px]">
-            {/* Horizontal guidelines */}
-            <line x1="0" y1="20" x2={chartWidth} y2="20" stroke="rgba(255,255,255,0.02)" />
-            <line x1="0" y1="60" x2={chartWidth} y2="60" stroke="rgba(255,255,255,0.02)" />
-            <line x1="0" y1="100" x2={chartWidth} y2="100" stroke="rgba(255,255,255,0.02)" />
+        <div className="lg:col-span-7 space-y-6">
+          {/* Real-time Ticking interactive stock chart */}
+          <StockChart height={280} showControls={true} />
 
-            {mockCandles.map((c, idx) => {
-              const x = idx * (candleWidth + candleGap) + 15;
-              const openY = chartHeight - ((c.o - minVal) / range) * (chartHeight - 20) - 10;
-              const closeY = chartHeight - ((c.c - minVal) / range) * (chartHeight - 20) - 10;
-              const highY = chartHeight - ((c.h - minVal) / range) * (chartHeight - 20) - 10;
-              const lowY = chartHeight - ((c.l - minVal) / range) * (chartHeight - 20) - 10;
-
-              const isGreen = c.c >= c.o;
-              const color = isGreen ? '#10b981' : '#ef4444';
-
-              return (
-                <g key={idx}>
-                  {/* Wick */}
-                  <line x1={x + candleWidth / 2} y1={highY} x2={x + candleWidth / 2} y2={lowY} stroke={color} strokeWidth="1.5" />
-                  {/* Candle Body */}
-                  <rect
-                    x={x}
-                    y={Math.min(openY, closeY)}
-                    width={candleWidth}
-                    height={Math.max(Math.abs(closeY - openY), 2)}
-                    fill={color}
-                    rx="1.5"
-                  />
-                </g>
-              );
-            })}
-          </svg>
+          {/* Info card underneath the chart */}
+          <div className="p-4 bg-[#0b0e14] rounded-2xl border border-white/5 text-[10px] text-gray-400 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+            <span className="font-sans leading-relaxed">
+              Executing CE/PE and Limit orders simulates real-time matching with mock order books. All transaction records populate your private portfolio positions history instantly.
+            </span>
+          </div>
         </div>
-      </div>
 
-      {/* Info card underneath the chart */}
-      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-[10px] text-gray-400 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-        <span className="font-sans leading-relaxed">
-          Executing CE/PE and Limit orders simulates real-time matching with mock order books. All transaction records populate your private portfolio positions history instantly.
-        </span>
-      </div>
-    </div>
-
-    {/* Right Column - Trade Ticket Form */}
-    <div className="bg-white/2 border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        {/* Right Column - Trade Ticket Form */}
+        <div className="lg:col-span-5 bg-white/2 border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden">
         {/* Dynamic Overlay for feedback states */}
         <AnimatePresence>
           {isLoading && (

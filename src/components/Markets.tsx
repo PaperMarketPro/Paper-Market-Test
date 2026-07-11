@@ -9,6 +9,7 @@ import { useApp } from '../store';
 import { Instrument } from '../types';
 import { Search, Plus, Trash2, TrendingUp, TrendingDown, Eye, ChevronRight, X, Layers, Percent, Activity } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
+import { StockChart } from './StockChart';
 
 interface MarketsProps {
   onNavigate: (tab: string, arg?: any) => void;
@@ -259,30 +260,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                         className="bg-white/1 border-t border-white/5 p-4 space-y-4"
                       >
                         {/* Real-time Ticker Chart */}
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest block flex items-center gap-1">
-                            <Activity className="w-3.5 h-3.5 text-sky-400 animate-pulse" /> Real-Time Live Chart (3s ticks)
-                          </span>
-                          <div className="h-28 w-full bg-black/20 rounded-xl p-2.5 border border-white/5">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <AreaChart data={inst.sparkline.map((val, i) => ({ Tick: `T${i}`, Price: val }))}>
-                                <YAxis domain={['auto', 'auto']} hide={true} />
-                                <Tooltip
-                                  contentStyle={{ backgroundColor: '#11141c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                  labelStyle={{ color: '#9ca3af', fontSize: '9px', fontFamily: 'monospace' }}
-                                  itemStyle={{ color: isChangePositive ? '#10b981' : '#ef4444', fontSize: '10px', fontFamily: 'monospace' }}
-                                />
-                                <defs>
-                                  <linearGradient id={`colorPrice-${inst.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={isChangePositive ? '#10b981' : '#ef4444'} stopOpacity={0.25}/>
-                                    <stop offset="95%" stopColor={isChangePositive ? '#10b981' : '#ef4444'} stopOpacity={0}/>
-                                  </linearGradient>
-                                </defs>
-                                <Area type="monotone" dataKey="Price" stroke={isChangePositive ? '#10b981' : '#ef4444'} strokeWidth={1.5} fillOpacity={1} fill={`url(#colorPrice-${inst.symbol})`} />
-                              </AreaChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
+                        <StockChart asset={inst} height={210} showControls={true} />
 
                         {/* Summary Metrics */}
                         <div className="grid grid-cols-3 gap-2 text-center text-xs">
