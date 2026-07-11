@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../store';
 import { BrandLogo } from './BrandLogo';
+import { NativeTickerTape } from './StockChart';
 
 interface NavigationProps {
   currentTab: string;
@@ -116,6 +117,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
 
       {/* 2. Responsive Content Container */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#060913]">
+        <NativeTickerTape />
         {/* Top Header Row for desktop viewports */}
         <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
           {/* Left section: Tab label and sub-label (visible on large viewports) */}

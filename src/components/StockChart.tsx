@@ -8,7 +8,7 @@ import { useApp } from '../store';
 import { Instrument } from '../types';
 import { 
   TrendingUp, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
-  ChevronDown, Layers, Calendar
+  ChevronDown, Layers, Calendar, Sparkles, BookOpen, CheckSquare, ShieldCheck
 } from 'lucide-react';
 import { 
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Area, CartesianGrid 
@@ -33,6 +33,280 @@ interface Candle {
   bbLower?: number;
   bbBasis?: number;
 }
+
+/**
+ * Native Ticker Tape Widget
+ * Renders a rolling ribbon of live prices for major Indian market assets.
+ */
+export const NativeTickerTape: React.FC = () => {
+  const { instruments } = useApp();
+
+  return (
+    <div className="w-full bg-[#07090e]/85 border-b border-white/5 py-1.5 z-40 relative overflow-hidden select-none">
+      <div className="flex w-max whitespace-nowrap animate-marquee">
+        {/* Triple the list to ensure a seamless looping scroll animation */}
+        {[...instruments, ...instruments, ...instruments].map((inst, index) => {
+          const isPositive = inst.change >= 0;
+          return (
+            <div 
+              key={`${inst.symbol}-${index}`} 
+              className="inline-flex items-center space-x-2 px-5 border-r border-white/5 text-[11px] hover:bg-white/5 transition cursor-pointer"
+            >
+              <span className="font-bold text-gray-200 font-display uppercase">
+                {inst.symbol}
+              </span>
+              <span className="text-gray-400 font-mono">
+                ₹{inst.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+              <span className={`font-mono font-bold flex items-center gap-0.5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isPositive ? '▲' : '▼'}{inst.change.toFixed(2)}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Native Technical Analysis Gauge Widget
+ * Renders buy/sell gauges computed over standard technical oscillators and moving averages.
+ */
+export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: Instrument; height?: number }> = ({ 
+  candles, 
+  activeAsset, 
+  height = 220 
+}) => {
+  const lastCandle = candles[candles.length - 1];
+  const prevCandle = candles[candles.length - 2];
+
+  const metrics = useMemo(() => {
+    if (!lastCandle) {
+      return { 
+        score: 0, 
+        label: 'Neutral', 
+        color: 'text-amber-400', 
+        bgColor: 'bg-amber-400/5', 
+        strokeColor: '#f59e0b',
+        emaStatus: 'Neutral', 
+        smaStatus: 'Neutral', 
+        bbStatus: 'Neutral', 
+        momentumStatus: 'Neutral' 
+      };
+    }
+
+    const ltp = activeAsset.ltp;
+    let score = 0;
+    
+    // EMA (8) signal
+    let emaStatus = 'Neutral';
+    if (lastCandle.ema) {
+      if (ltp > lastCandle.ema) {
+        score += 30;
+        emaStatus = 'Bullish';
+      } else if (ltp < lastCandle.ema) {
+        score -= 30;
+        emaStatus = 'Bearish';
+      }
+    }
+
+    // SMA (15) signal
+    let smaStatus = 'Neutral';
+    if (lastCandle.sma) {
+      if (ltp > lastCandle.sma) {
+        score += 30;
+        smaStatus = 'Bullish';
+      } else if (ltp < lastCandle.sma) {
+        score -= 30;
+        smaStatus = 'Bearish';
+      }
+    }
+
+    // Bollinger Bands position signal
+    let bbStatus = 'Neutral';
+    if (lastCandle.bbUpper && lastCandle.bbLower && lastCandle.bbBasis) {
+      const range = lastCandle.bbUpper - lastCandle.bbLower;
+      if (range > 0) {
+        const percent = (ltp - lastCandle.bbLower) / range;
+        if (percent > 0.8) {
+          score += 25;
+          bbStatus = 'Overbought';
+        } else if (percent < 0.2) {
+          score -= 25;
+          bbStatus = 'Oversold';
+        } else if (ltp > lastCandle.bbBasis) {
+          score += 15;
+          bbStatus = 'Bullish';
+        } else {
+          score -= 15;
+          bbStatus = 'Bearish';
+        }
+      }
+    }
+
+    // Momentum signal
+    let momentumStatus = 'Neutral';
+    if (prevCandle) {
+      if (lastCandle.close > prevCandle.close) {
+        score += 15;
+        momentumStatus = 'Bullish';
+      } else {
+        score -= 15;
+        momentumStatus = 'Bearish';
+      }
+    }
+
+    // Normalize score to -100 to 100 range
+    score = Math.max(-100, Math.min(100, score));
+
+    let label = 'Neutral';
+    let color = 'text-amber-400';
+    let bgColor = 'bg-amber-400/10';
+    let strokeColor = '#f59e0b';
+    
+    if (score >= 60) {
+      label = 'Strong Buy';
+      color = 'text-emerald-400';
+      bgColor = 'bg-emerald-500/10';
+      strokeColor = '#10b981';
+    } else if (score >= 20) {
+      label = 'Buy';
+      color = 'text-emerald-400';
+      bgColor = 'bg-emerald-500/5';
+      strokeColor = '#34d399';
+    } else if (score <= -60) {
+      label = 'Strong Sell';
+      color = 'text-rose-400';
+      bgColor = 'bg-red-500/10';
+      strokeColor = '#f43f5e';
+    } else if (score <= -20) {
+      label = 'Sell';
+      color = 'text-rose-400';
+      bgColor = 'bg-red-500/5';
+      strokeColor = '#f87171';
+    }
+
+    return {
+      score,
+      label,
+      color,
+      bgColor,
+      strokeColor,
+      emaStatus,
+      smaStatus,
+      bbStatus,
+      momentumStatus
+    };
+  }, [lastCandle, prevCandle, activeAsset.ltp]);
+
+  // Translate score (-100 to 100) to rotation angle for gauge needle (-90deg to 90deg)
+  const rotationAngle = (metrics.score / 100) * 90;
+
+  return (
+    <div 
+      className="w-full rounded-xl overflow-hidden bg-[#07090e]/40 p-4 border border-white/5 flex flex-col justify-between" 
+      style={{ height: `${height}px` }}
+    >
+      {/* Visual Gauge Header */}
+      <div className="text-center">
+        <span className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1">Composite Technical Outlook</span>
+        <span className={`text-sm font-extrabold tracking-tight ${metrics.color}`}>
+          {metrics.label}
+        </span>
+      </div>
+
+      {/* Speedometer Gauge Arc (SVG) */}
+      <div className="relative flex justify-center items-end h-16 mt-2">
+        <svg className="w-28 h-14 overflow-visible" viewBox="0 0 100 50">
+          {/* Background Arc */}
+          <path
+            d="M 10 50 A 40 40 0 0 1 90 50"
+            fill="none"
+            stroke="rgba(255,255,255,0.05)"
+            strokeWidth="8"
+            strokeLinecap="round"
+          />
+          {/* Segmented Color Backgrounds for Sell, Neutral, Buy */}
+          <path
+            d="M 10 50 A 40 40 0 0 1 35 15"
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="8"
+            opacity="0.1"
+          />
+          <path
+            d="M 35 15 A 40 40 0 0 1 65 15"
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth="8"
+            opacity="0.1"
+          />
+          <path
+            d="M 65 15 A 40 40 0 0 1 90 50"
+            fill="none"
+            stroke="#10b981"
+            strokeWidth="8"
+            opacity="0.1"
+          />
+          {/* Value Arc Accent (Drawn dynamically based on value) */}
+          <path
+            d="M 10 50 A 40 40 0 0 1 90 50"
+            fill="none"
+            stroke={metrics.strokeColor}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray="126"
+            strokeDashoffset={126 - (126 * ((metrics.score + 100) / 200))}
+            className="transition-all duration-500 ease-out"
+          />
+          {/* Center Hub */}
+          <circle cx="50" cy="50" r="3.5" fill="#3b82f6" />
+          {/* Needle indicator */}
+          <line
+            x1="50"
+            y1="50"
+            x2="50"
+            y2="18"
+            stroke="#ffffff"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            style={{ 
+              transform: `rotate(${rotationAngle}deg)`, 
+              transformOrigin: '50px 50px',
+            }}
+            className="transition-transform duration-500 ease-out"
+          />
+        </svg>
+
+        {/* Dynamic score label overlay */}
+        <div className="absolute bottom-0 text-[10px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+          Score: {metrics.score > 0 ? '+' : ''}{metrics.score}
+        </div>
+      </div>
+
+      {/* Breakdown Metrics */}
+      <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono mt-3 border-t border-white/5 pt-3">
+        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
+          <span className="text-gray-500">EMA (8):</span>
+          <span className={metrics.emaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}>{metrics.emaStatus}</span>
+        </div>
+        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
+          <span className="text-gray-500">SMA (15):</span>
+          <span className={metrics.smaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}>{metrics.smaStatus}</span>
+        </div>
+        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
+          <span className="text-gray-500">Bollinger:</span>
+          <span className={metrics.bbStatus.includes('Bullish') || metrics.bbStatus.includes('Overbought') ? 'text-emerald-400' : 'text-rose-400'}>{metrics.bbStatus}</span>
+        </div>
+        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
+          <span className="text-gray-500">Momentum:</span>
+          <span className={metrics.momentumStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}>{metrics.momentumStatus}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const StockChart: React.FC<StockChartProps> = ({ 
   asset, 
@@ -69,113 +343,12 @@ export const StockChart: React.FC<StockChartProps> = ({
     }
   }, [timeframe]);
 
-  // Generate historical baseline candles when symbol or timeframe changes
-  useEffect(() => {
-    const symbol = activeAsset.symbol;
-    const ltp = activeAsset.ltp;
+  // Technical Indicators Formulas: EMA, SMA, Bollinger Bands (pure computation over cloned array)
+  const computeIndicators = (rawCandles: Candle[]): Candle[] => {
+    if (rawCandles.length === 0) return [];
     
-    // Seed random seed based on symbol name to make charts unique yet persistent
-    let seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const random = () => {
-      const x = Math.sin(seed++) * 10000;
-      return x - Math.floor(x);
-    };
-
-    const count = 35;
-    const generatedCandles: Candle[] = [];
-    
-    // Scale standard deviation/variance based on the stock's price range
-    const variance = ltp * 0.003; 
-    let currentPrice = ltp - (count * variance * 0.2); // Start a bit lower/higher for a natural walk
-
-    const now = new Date();
-    
-    for (let i = 0; i < count; i++) {
-      const step = (random() - 0.48) * variance;
-      const open = Number((currentPrice).toFixed(2));
-      const close = Number((currentPrice + step).toFixed(2));
-      const high = Number((Math.max(open, close) + random() * (variance * 0.4)).toFixed(2));
-      const low = Number((Math.min(open, close) - random() * (variance * 0.4)).toFixed(2));
-      const volume = Math.round(100000 + random() * 800000);
-
-      // Create format label based on index & timeframe
-      let timeStr = '';
-      if (timeframe === '1D') {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (count - i));
-        timeStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      } else {
-        const m = new Date(now);
-        const minsToSubtract = (count - i) * (timeframe === '1m' ? 1 : timeframe === '5m' ? 5 : timeframe === '15m' ? 15 : 60);
-        m.setMinutes(m.getMinutes() - minsToSubtract);
-        timeStr = m.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
-      }
-
-      generatedCandles.push({
-        time: timeStr,
-        open,
-        high,
-        low,
-        close,
-        volume
-      });
-
-      currentPrice = close;
-    }
-
-    // Force the very last candle's close to be exactly equal to the activeAsset.ltp
-    const lastIdx = generatedCandles.length - 1;
-    if (lastIdx >= 0) {
-      generatedCandles[lastIdx].close = ltp;
-      generatedCandles[lastIdx].high = Math.max(generatedCandles[lastIdx].open, ltp, generatedCandles[lastIdx].high);
-      generatedCandles[lastIdx].low = Math.min(generatedCandles[lastIdx].open, ltp, generatedCandles[lastIdx].low);
-    }
-
-    // Compute technical indicators over the generated candles
-    computeIndicators(generatedCandles);
-    
-    setCandles(generatedCandles);
-    previousAssetPrice.current = ltp;
-    previousAssetSymbol.current = symbol;
-  }, [activeAsset.symbol, timeframe]);
-
-  // Handle live ticking prices from the store
-  useEffect(() => {
-    // If the active symbol changed, the baseline generator handles it.
-    if (activeAsset.symbol !== previousAssetSymbol.current) {
-      return;
-    }
-
-    const currentLtp = activeAsset.ltp;
-    if (currentLtp === previousAssetPrice.current || candles.length === 0) {
-      return;
-    }
-
-    setCandles(prev => {
-      const updated = [...prev];
-      const lastCandle = { ...updated[updated.length - 1] };
-      
-      // Update the live last candle metrics
-      lastCandle.close = currentLtp;
-      if (currentLtp > lastCandle.high) lastCandle.high = currentLtp;
-      if (currentLtp < lastCandle.low) lastCandle.low = currentLtp;
-      
-      // Update volume slightly for the tick
-      lastCandle.volume = lastCandle.volume + Math.round(Math.random() * 5000);
-
-      updated[updated.length - 1] = lastCandle;
-      
-      // Re-compute indicators so lines follow live ticks flawlessly
-      computeIndicators(updated);
-      return updated;
-    });
-
-    previousAssetPrice.current = currentLtp;
-  }, [activeAsset.ltp, activeAsset.symbol]);
-
-  // Technical Indicators Formulas: EMA, SMA, Bollinger Bands
-  const computeIndicators = (data: Candle[]) => {
-    if (data.length === 0) return;
+    // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
+    const data = rawCandles.map(c => ({ ...c }));
 
     // 1. EMA (Period 8)
     const emaPeriod = 8;
@@ -211,7 +384,6 @@ export const StockChart: React.FC<StockChartProps> = ({
         data[i].bbUpper = data[i].close;
         data[i].bbLower = data[i].close;
       } else {
-        // Compute basis (SMA 20)
         let sum = 0;
         for (let j = 0; j < bbPeriod; j++) {
           sum += data[i - j].close;
@@ -219,7 +391,6 @@ export const StockChart: React.FC<StockChartProps> = ({
         const basis = sum / bbPeriod;
         data[i].bbBasis = Number(basis.toFixed(2));
 
-        // Compute Standard Deviation
         let varianceSum = 0;
         for (let j = 0; j < bbPeriod; j++) {
           varianceSum += Math.pow(data[i - j].close - basis, 2);
@@ -230,7 +401,119 @@ export const StockChart: React.FC<StockChartProps> = ({
         data[i].bbLower = Number((basis - stdDevMultiplier * stdDev).toFixed(2));
       }
     }
+
+    return data;
   };
+
+  // Generate historical baseline candles when symbol or timeframe changes (for native fallback)
+  useEffect(() => {
+    const symbol = activeAsset.symbol;
+    const ltp = activeAsset.ltp;
+    
+    // Map timeframes to distinct seeds and variances so each chart looks completely unique
+    const timeframeConfig: Record<'1m' | '5m' | '15m' | '1h' | '1D', { seedOffset: number; varianceMultiplier: number }> = {
+      '1m': { seedOffset: 120, varianceMultiplier: 0.001 },
+      '5m': { seedOffset: 340, varianceMultiplier: 0.002 },
+      '15m': { seedOffset: 560, varianceMultiplier: 0.0045 },
+      '1h': { seedOffset: 780, varianceMultiplier: 0.008 },
+      '1D': { seedOffset: 990, varianceMultiplier: 0.018 },
+    };
+
+    const config = timeframeConfig[timeframe] || { seedOffset: 0, varianceMultiplier: 0.003 };
+
+    // Seed random seed based on symbol name AND timeframe configuration to make charts unique and persistent
+    let seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + config.seedOffset;
+    const random = () => {
+      const x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const count = 35;
+    const generatedCandles: Candle[] = [];
+    const variance = ltp * config.varianceMultiplier; 
+
+    const now = new Date();
+    let currentClose = ltp;
+    
+    // Generate candles backward from the active price to prevent sudden forced spikes
+    for (let i = count - 1; i >= 0; i--) {
+      const step = (random() - 0.5) * variance;
+      const close = Number(currentClose.toFixed(2));
+      let open = Number((currentClose - step).toFixed(2));
+      
+      // Keep price within a realistic band around current ltp
+      if (open < ltp * 0.7) open = Number((ltp * 0.7).toFixed(2));
+      if (open > ltp * 1.3) open = Number((ltp * 1.3).toFixed(2));
+
+      const high = Number((Math.max(open, close) + random() * (variance * 0.4)).toFixed(2));
+      const low = Number((Math.min(open, close) - random() * (variance * 0.4)).toFixed(2));
+      const volume = Math.round(100000 + random() * 800000);
+
+      // Create format label based on index & timeframe
+      let timeStr = '';
+      if (timeframe === '1D') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - (count - 1 - i));
+        timeStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      } else {
+        const m = new Date(now);
+        const minsToSubtract = (count - 1 - i) * (timeframe === '1m' ? 1 : timeframe === '5m' ? 5 : timeframe === '15m' ? 15 : 60);
+        m.setMinutes(m.getMinutes() - minsToSubtract);
+        timeStr = m.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+      }
+
+      generatedCandles.unshift({
+        time: timeStr,
+        open,
+        high,
+        low,
+        close,
+        volume
+      });
+
+      currentClose = open;
+    }
+
+    // Compute technical indicators over the generated candles
+    const withIndicators = computeIndicators(generatedCandles);
+    
+    setCandles(withIndicators);
+    previousAssetPrice.current = ltp;
+    previousAssetSymbol.current = symbol;
+  }, [activeAsset.symbol, timeframe]);
+
+  // Handle live ticking prices from the store
+  useEffect(() => {
+    if (activeAsset.symbol !== previousAssetSymbol.current) {
+      return;
+    }
+
+    const currentLtp = activeAsset.ltp;
+    if (currentLtp === previousAssetPrice.current || candles.length === 0) {
+      return;
+    }
+
+    setCandles(prev => {
+      const updated = [...prev];
+      const lastCandle = { ...updated[updated.length - 1] };
+      
+      // Update the live last candle metrics
+      lastCandle.close = currentLtp;
+      if (currentLtp > lastCandle.high) lastCandle.high = currentLtp;
+      if (currentLtp < lastCandle.low) lastCandle.low = currentLtp;
+      
+      // Update volume slightly for the tick
+      lastCandle.volume = lastCandle.volume + Math.round(Math.random() * 5000);
+
+      updated[updated.length - 1] = lastCandle;
+      
+      // Re-compute indicators so lines follow live ticks flawlessly
+      const withIndicators = computeIndicators(updated);
+      return withIndicators;
+    });
+
+    previousAssetPrice.current = currentLtp;
+  }, [activeAsset.ltp, activeAsset.symbol]);
 
   // Min and Max prices for nice Y-Axis auto fitting
   const { minPrice, maxPrice } = useMemo(() => {
@@ -243,7 +526,6 @@ export const StockChart: React.FC<StockChartProps> = ({
       let lowest = c.low;
       let highest = c.high;
 
-      // Include indicators in axis bounds if active
       if (showBB && c.bbLower && c.bbLower < lowest) lowest = c.bbLower;
       if (showBB && c.bbUpper && c.bbUpper > highest) highest = c.bbUpper;
       if (showEMA && c.ema && c.ema < lowest) lowest = c.ema;
@@ -272,31 +554,14 @@ export const StockChart: React.FC<StockChartProps> = ({
     const strokeColor = isGreen ? '#10b981' : '#ef4444';
     const fillColor = isGreen ? '#10b981' : '#ef4444';
 
-    // Map high and low to chart Y coordinates
-    const chartMin = minPrice;
-    const chartMax = maxPrice;
-    const scaleY = (val: number) => {
-      // Recharts passes internal coordinates, but we can compute relative coordinates in our SVG space
-      const ratio = (val - chartMin) / (chartMax - chartMin);
-      // y is the coordinate of the bottom, height is the size.
-      // Actually we can map them precisely. Let's draw candle relative to props.y and props.height
-      return val;
-    };
-
-    // Calculate wick lines relative to the candle center
     const cx = x + width / 2;
 
-    // In Recharts shapes, we can read standard svg properties calculated by Recharts
-    // x, y represent the visual coordinates for the bar/candle body.
-    // openY and closeY map to y and y + height
     const bodyY = props.y;
     const bodyHeight = props.height;
     
-    // We compute the visual coordinate ratio to project the wick high and low
     const candleTopY = Math.min(bodyY, bodyY + bodyHeight);
     const candleBottomY = Math.max(bodyY, bodyY + bodyHeight);
 
-    // Wick ratios
     const totalDiff = Math.abs(open - close) || 0.01;
     const highDiff = high - Math.max(open, close);
     const lowDiff = Math.min(open, close) - low;
@@ -307,7 +572,6 @@ export const StockChart: React.FC<StockChartProps> = ({
 
     return (
       <g>
-        {/* Wick line */}
         <line 
           x1={cx} 
           y1={wickTopY} 
@@ -317,7 +581,6 @@ export const StockChart: React.FC<StockChartProps> = ({
           strokeWidth={1.5} 
           strokeLinecap="round"
         />
-        {/* Candle Body rect */}
         <rect 
           x={x} 
           y={bodyY} 
@@ -332,20 +595,19 @@ export const StockChart: React.FC<StockChartProps> = ({
     );
   };
 
-  // Formatted active stats
   const activeChange = activeAsset.change;
   const isPositive = activeChange >= 0;
 
   return (
     <div className="bg-[#0b0e14] border border-white/5 rounded-2xl p-4 md:p-5 space-y-4 shadow-xl">
-      {/* Top Details & Interactive Selectors */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/5">
+      {/* Top Header - Asset details & Chart engine controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl shrink-0 ${isPositive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+          <div className={`p-2.5 rounded-xl shrink-0 ${isPositive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
             <Activity className={`w-5 h-5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'} animate-pulse`} />
           </div>
           <div>
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-2">
               <h3 className="text-sm font-bold text-white tracking-tight font-display">{activeAsset.symbol}</h3>
               <span className="text-[10px] font-mono text-gray-500">{activeAsset.name}</span>
             </div>
@@ -360,9 +622,8 @@ export const StockChart: React.FC<StockChartProps> = ({
           </div>
         </div>
 
-        {/* Chart Style & Timeframe Toggles */}
+        {/* Engine Controls with beautiful active states */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Timeframe selector chips */}
           <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
             {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
               <button
@@ -371,7 +632,7 @@ export const StockChart: React.FC<StockChartProps> = ({
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition-all ${
                   timeframe === tf 
                     ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
-                    : 'text-gray-500 hover:text-white hover:bg-white/5'
+                    : 'text-gray-500 hover:text-white'
                 }`}
               >
                 {tf}
@@ -379,7 +640,6 @@ export const StockChart: React.FC<StockChartProps> = ({
             ))}
           </div>
 
-          {/* Chart Type Toggles */}
           <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
             <button
               onClick={() => setChartType('candle')}
@@ -405,243 +665,251 @@ export const StockChart: React.FC<StockChartProps> = ({
         </div>
       </div>
 
-      {/* Main Interactive Chart Canvas Area */}
-      <div className="relative" style={{ height: `${height}px` }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart 
-            data={candles}
-            margin={{ top: 5, right: 0, left: -25, bottom: 5 }}
-          >
-            <defs>
-              {/* Dynamic gradient color fill for Area Chart */}
-              <linearGradient id={`gradientArea-${activeAsset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0.2}/>
-                <stop offset="95%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0}/>
-              </linearGradient>
+      {/* Grid Layout for Active Chart Terminal and Technical Gauge Tools */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
+        {/* Main Chart viewport container */}
+        <div className={`col-span-1 ${showControls ? 'xl:col-span-3' : 'xl:col-span-4'} relative`} style={{ height: `${height}px` }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart 
+              data={candles}
+              margin={{ top: 5, right: 0, left: -25, bottom: 5 }}
+            >
+              <defs>
+                <linearGradient id={`gradientArea-${activeAsset.symbol}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0}/>
+                </linearGradient>
 
-              {/* Bollinger Bands Shaded Area */}
-              <linearGradient id="bbShade" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.03}/>
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03}/>
-              </linearGradient>
-            </defs>
+                <linearGradient id="bbShade" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.03}/>
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03}/>
+                </linearGradient>
+              </defs>
 
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
-            
-            <XAxis 
-              dataKey="time" 
-              stroke="rgba(255,255,255,0.15)" 
-              fontSize={9} 
-              fontFamily="monospace"
-              tickLine={false}
-              axisLine={false}
-            />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
+              
+              <XAxis 
+                dataKey="time" 
+                stroke="rgba(255,255,255,0.15)" 
+                fontSize={9} 
+                fontFamily="monospace"
+                tickLine={false}
+                axisLine={false}
+              />
 
-            <YAxis 
-              domain={[minPrice, maxPrice]} 
-              stroke="rgba(255,255,255,0.15)" 
-              fontSize={9} 
-              fontFamily="monospace"
-              tickLine={false}
-              axisLine={false}
-              orientation="right"
-              align="right"
-            />
+              <YAxis 
+                domain={[minPrice, maxPrice]} 
+                stroke="rgba(255,255,255,0.15)" 
+                fontSize={9} 
+                fontFamily="monospace"
+                tickLine={false}
+                axisLine={false}
+                orientation="right"
+                align="right"
+              />
 
-            {/* Recharts Tooltip with Custom OHLC + Indicators Renderer */}
-            <Tooltip
-              cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-              contentStyle={{ backgroundColor: '#090c13', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px' }}
-              content={({ active, payload }) => {
-                if (!active || !payload || !payload.length) return null;
-                const d = payload[0].payload as Candle;
-                const isCandleGreen = d.close >= d.open;
-                return (
-                  <div className="space-y-1.5 text-xs font-mono">
-                    <div className="flex items-center justify-between gap-4 text-[10px] text-gray-500 border-b border-white/5 pb-1">
-                      <span>Time: {d.time}</span>
-                      <span className="bg-white/5 px-1 rounded font-bold uppercase">{timeframe}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                      <span className="text-gray-500">Open:</span>
-                      <span className="text-white text-right">₹{d.open.toFixed(2)}</span>
+              <Tooltip
+                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                contentStyle={{ backgroundColor: '#090c13', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px' }}
+                content={({ active, payload }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  const d = payload[0].payload as Candle;
+                  const isCandleGreen = d.close >= d.open;
+                  return (
+                    <div className="space-y-1.5 text-xs font-mono">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-gray-500 border-b border-white/5 pb-1">
+                        <span>Time: {d.time}</span>
+                        <span className="bg-white/5 px-1 rounded font-bold uppercase">{timeframe}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                        <span className="text-gray-500">Open:</span>
+                        <span className="text-white text-right">₹{d.open.toFixed(2)}</span>
 
-                      <span className="text-gray-500">High:</span>
-                      <span className="text-emerald-400 text-right">₹{d.high.toFixed(2)}</span>
+                        <span className="text-gray-500">High:</span>
+                        <span className="text-emerald-400 text-right">₹{d.high.toFixed(2)}</span>
 
-                      <span className="text-gray-500">Low:</span>
-                      <span className="text-rose-400 text-right">₹{d.low.toFixed(2)}</span>
+                        <span className="text-gray-500">Low:</span>
+                        <span className="text-rose-400 text-right">₹{d.low.toFixed(2)}</span>
 
-                      <span className="text-gray-500">Close:</span>
-                      <span className={`text-right font-bold ${isCandleGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        ₹{d.close.toFixed(2)}
-                      </span>
+                        <span className="text-gray-500">Close:</span>
+                        <span className={`text-right font-bold ${isCandleGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          ₹{d.close.toFixed(2)}
+                        </span>
 
-                      {showVolume && (
-                        <>
-                          <span className="text-gray-500">Volume:</span>
-                          <span className="text-white text-right">{(d.volume).toLocaleString('en-IN')}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Show Active Technical Indicators values in tooltips */}
-                    {(showEMA || showSMA || showBB) && (
-                      <div className="border-t border-white/5 pt-1.5 mt-1.5 space-y-0.5 text-[10px]">
-                        {showEMA && d.ema && (
-                          <div className="flex justify-between gap-2">
-                            <span className="text-sky-400">EMA (8):</span>
-                            <span className="text-white">₹{d.ema.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {showSMA && d.sma && (
-                          <div className="flex justify-between gap-2">
-                            <span className="text-amber-500">SMA (15):</span>
-                            <span className="text-white">₹{d.sma.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {showBB && d.bbBasis && (
-                          <div className="flex flex-col text-[9px] text-gray-400">
-                            <div className="flex justify-between">
-                              <span>BB Upper:</span>
-                              <span className="text-purple-400">₹{d.bbUpper?.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>BB Lower:</span>
-                              <span className="text-purple-400">₹{d.bbLower?.toFixed(2)}</span>
-                            </div>
-                          </div>
+                        {showVolume && (
+                          <>
+                            <span className="text-gray-500">Volume:</span>
+                            <span className="text-white text-right">{(d.volume).toLocaleString('en-IN')}</span>
+                          </>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              }}
-            />
 
-            {/* 1. Bollinger Bands Shaded Channel */}
-            {showBB && (
-              <Area
-                type="monotone"
-                dataKey="bbUpper"
-                stroke="transparent"
-                fill="url(#bbShade)"
-                fillOpacity={1}
+                      {(showEMA || showSMA || showBB) && (
+                        <div className="border-t border-white/5 pt-1.5 mt-1.5 space-y-0.5 text-[10px]">
+                          {showEMA && d.ema && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-sky-400">EMA (8):</span>
+                              <span className="text-white">₹{d.ema.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {showSMA && d.sma && (
+                            <div className="flex justify-between gap-2">
+                              <span className="text-amber-500">SMA (15):</span>
+                              <span className="text-white">₹{d.sma.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {showBB && d.bbBasis && (
+                            <div className="flex flex-col text-[9px] text-gray-400">
+                              <div className="flex justify-between">
+                                <span>BB Upper:</span>
+                                <span className="text-purple-400">₹{d.bbUpper?.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>BB Lower:</span>
+                                <span className="text-purple-400">₹{d.bbLower?.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
               />
-            )}
-            {showBB && (
-              <Line 
-                type="monotone" 
-                dataKey="bbUpper" 
-                stroke="#a855f7" 
-                strokeWidth={1} 
-                strokeDasharray="3 3"
-                dot={false} 
-                activeDot={false}
-              />
-            )}
-            {showBB && (
-              <Line 
-                type="monotone" 
-                dataKey="bbLower" 
-                stroke="#a855f7" 
-                strokeWidth={1} 
-                strokeDasharray="3 3"
-                dot={false} 
-                activeDot={false}
-              />
-            )}
-            {showBB && (
-              <Line 
-                type="monotone" 
-                dataKey="bbBasis" 
-                stroke="#a855f7" 
-                strokeWidth={1} 
-                opacity={0.5}
-                dot={false} 
-                activeDot={false}
-              />
-            )}
 
-            {/* 2. Technical Indicator EMA (8) Line */}
-            {showEMA && (
-              <Line 
-                type="monotone" 
-                dataKey="ema" 
-                stroke="#0ea5e9" 
-                strokeWidth={1.5} 
-                dot={false} 
-                activeDot={false}
-              />
-            )}
+              {showBB && (
+                <Area
+                  type="monotone"
+                  dataKey="bbUpper"
+                  stroke="transparent"
+                  fill="url(#bbShade)"
+                  fillOpacity={1}
+                />
+              )}
+              {showBB && (
+                <Line 
+                  type="monotone" 
+                  dataKey="bbUpper" 
+                  stroke="#a855f7" 
+                  strokeWidth={1} 
+                  strokeDasharray="3 3"
+                  dot={false} 
+                  activeDot={false}
+                />
+              )}
+              {showBB && (
+                <Line 
+                  type="monotone" 
+                  dataKey="bbLower" 
+                  stroke="#a855f7" 
+                  strokeWidth={1} 
+                  strokeDasharray="3 3"
+                  dot={false} 
+                  activeDot={false}
+                />
+              )}
+              {showBB && (
+                <Line 
+                  type="monotone" 
+                  dataKey="bbBasis" 
+                  stroke="#a855f7" 
+                  strokeWidth={1} 
+                  opacity={0.5}
+                  dot={false} 
+                  activeDot={false}
+                />
+              )}
 
-            {/* 3. Technical Indicator SMA (15) Line */}
-            {showSMA && (
-              <Line 
-                type="monotone" 
-                dataKey="sma" 
-                stroke="#f59e0b" 
-                strokeWidth={1.5} 
-                dot={false} 
-                activeDot={false}
-              />
-            )}
+              {showEMA && (
+                <Line 
+                  type="monotone" 
+                  dataKey="ema" 
+                  stroke="#0ea5e9" 
+                  strokeWidth={1.5} 
+                  dot={false} 
+                  activeDot={false}
+                />
+              )}
 
-            {/* 4. Chart Display: Candlestick or modern Area Chart */}
-            {chartType === 'area' ? (
-              <Area 
-                type="monotone" 
-                dataKey="close" 
-                stroke={isPositive ? '#10b981' : '#ef4444'} 
-                strokeWidth={2} 
-                fillOpacity={1} 
-                fill={`url(#gradientArea-${activeAsset.symbol})`} 
-                dot={false}
-              />
-            ) : (
-              // Recharts Bar chart utilizing custom SVG layout elements
-              <Bar 
-                dataKey="close" 
-                shape={<CustomCandleShape />} 
-                maxBarSize={12}
-              />
-            )}
+              {showSMA && (
+                <Line 
+                  type="monotone" 
+                  dataKey="sma" 
+                  stroke="#f59e0b" 
+                  strokeWidth={1.5} 
+                  dot={false} 
+                  activeDot={false}
+                />
+              )}
 
-            {/* 5. Mini volume bar overlays at the bottom */}
-            {showVolume && (
-              <Bar 
-                dataKey="volume" 
+              {chartType === 'area' ? (
+                <Area 
+                  type="monotone" 
+                  dataKey="close" 
+                  stroke={isPositive ? '#10b981' : '#ef4444'} 
+                  strokeWidth={2} 
+                  fillOpacity={1} 
+                  fill={`url(#gradientArea-${activeAsset.symbol})`} 
+                  dot={false}
+                />
+              ) : (
+                <Bar 
+                  dataKey="close" 
+                  shape={<CustomCandleShape />} 
+                  maxBarSize={12}
+                />
+              )}
+
+              {showVolume && (
+                <Bar 
+                  dataKey="volume" 
+                  yAxisId="volumeAxis" 
+                  opacity={0.12} 
+                  fill="#ffffff"
+                  maxBarSize={12}
+                />
+              )}
+
+              <YAxis 
                 yAxisId="volumeAxis" 
-                opacity={0.12} 
-                fill="#ffffff"
-                maxBarSize={12}
+                hide={true} 
+                domain={['auto', 'auto']} 
               />
-            )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
 
-            {/* Volume separate YAxis hidden bounds */}
-            <YAxis 
-              yAxisId="volumeAxis" 
-              hide={true} 
-              domain={['auto', 'auto']} 
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+        {/* Right side tools panel - Technical Analysis Gauge Indicator (Only visible if showControls is active) */}
+        {showControls && (
+          <div className="col-span-1 flex flex-col gap-3 h-full">
+            <div className="flex items-center justify-between text-xs font-mono text-gray-400 px-1">
+              <span className="flex items-center gap-1 uppercase tracking-widest text-[9px] font-bold">
+                <BarChart2 className="w-3.5 h-3.5 text-blue-500" /> Technical Gauges
+              </span>
+              <span className="bg-blue-500/10 text-blue-400 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase">
+                15m Feed
+              </span>
+            </div>
+
+            {/* Native Dynamic Analysis Gauge */}
+            <NativeTechnicalGauge candles={candles} activeAsset={activeAsset} height={height - 20} />
+          </div>
+        )}
       </div>
 
-      {/* Control panel & Legends for Technical Indicators */}
+      {/* Control panel & Indicators Toggles */}
       {showControls && (
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-mono text-gray-500 uppercase tracking-widest flex items-center gap-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-gray-500 uppercase tracking-widest flex items-center gap-1 mr-1">
               <Layers className="w-3.5 h-3.5" /> Indicators:
             </span>
 
-            {/* EMA Toggle Checkbox Button */}
             <button
               onClick={() => setShowEMA(!showEMA)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
                 showEMA 
-                  ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' 
+                  ? 'bg-sky-500/10 border-sky-500/20 text-sky-400 font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
               }`}
             >
@@ -649,12 +917,11 @@ export const StockChart: React.FC<StockChartProps> = ({
               EMA (8)
             </button>
 
-            {/* SMA Toggle Checkbox Button */}
             <button
               onClick={() => setShowSMA(!showSMA)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
                 showSMA 
-                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' 
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
               }`}
             >
@@ -662,12 +929,11 @@ export const StockChart: React.FC<StockChartProps> = ({
               SMA (15)
             </button>
 
-            {/* Bollinger Bands Toggle Button */}
             <button
               onClick={() => setShowBB(!showBB)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
                 showBB 
-                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' 
+                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
               }`}
             >
@@ -675,23 +941,22 @@ export const StockChart: React.FC<StockChartProps> = ({
               Bollinger Bands
             </button>
 
-            {/* Volume Toggle Button */}
             <button
               onClick={() => setShowVolume(!showVolume)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
                 showVolume 
-                  ? 'bg-white/10 border-white/20 text-white' 
+                  ? 'bg-white/10 border-white/20 text-white font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${showVolume ? 'bg-white' : 'bg-gray-600'}`} />
-              Volume
+              Volume Overlay
             </button>
           </div>
 
-          <div className="flex items-center gap-1 text-gray-500 font-sans">
-            <Info className="w-3.5 h-3.5" />
-            <span>Ticking in real-time matching live order books.</span>
+          <div className="flex items-center gap-1.5 text-gray-500 font-sans">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Interactive terminal syncing live NSE/BSE feeds.</span>
           </div>
         </div>
       )}

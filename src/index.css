@@ -33,6 +33,7 @@
   --color-warning: #f59e0b; /* amber for risk alerts */
 
   --animate-shimmer: shimmer 2s infinite;
+  --animate-marquee: marquee 40s linear infinite;
 }
 
 @keyframes shimmer {
@@ -41,6 +42,15 @@
   }
   100% {
     background-position: 200% 0;
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
   }
 }
 
@@ -369,3 +379,24 @@ select option {
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.22);
 }
+
+/* 10. Native Marquee Keyframes & Utilities for Infinite Ticker Tape */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 40s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
