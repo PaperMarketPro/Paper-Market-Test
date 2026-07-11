@@ -54,6 +54,7 @@ interface AppContextType {
   modifySLTarget: (positionId: string, stopLoss?: number, target?: number) => void;
   addJournalEntry: (entry: Omit<JournalEntry, 'id' | 'timestamp'>) => void;
   addStrategy: (strategy: Omit<Strategy, 'id' | 'backtestResults'>) => void;
+  deleteStrategy: (strategyId: string) => void;
   updateStrategyRiskParams: (strategyId: string, stopLossPercent: number, takeProfitPercent: number, maxPositionSize?: number) => void;
   runBacktest: (strategyId: string) => void;
   completeLesson: (courseId: string, lessonId: string) => void;
@@ -1108,6 +1109,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pushNotification('Strategy Saved', `Strategy '${strategyData.name}' created. Click Backtest to simulate results.`, 'alert');
   };
 
+  const deleteStrategy = (strategyId: string) => {
+    setStrategies(prev => prev.filter(s => s.id !== strategyId));
+    pushNotification('Strategy Deleted', 'Strategy removed from your saved list.', 'alert');
+  };
+
   const updateStrategyRiskParams = (strategyId: string, stopLossPercent: number, takeProfitPercent: number, maxPositionSize?: number) => {
     setStrategies(prev => prev.map(s => {
       if (s.id === strategyId) {
@@ -1348,6 +1354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addJournalEntry,
         updateInsights,
         addStrategy,
+        deleteStrategy,
         updateStrategyRiskParams,
         runBacktest,
         completeLesson,

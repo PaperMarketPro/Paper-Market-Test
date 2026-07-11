@@ -16,7 +16,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 
 export const StrategyBuilder: React.FC = () => {
-  const { strategies, addStrategy, runBacktest, toggleAutoTrade, updateStrategyRiskParams } = useApp();
+  const { strategies, addStrategy, deleteStrategy, runBacktest, toggleAutoTrade, updateStrategyRiskParams } = useApp();
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
   // Create New Strategy State
@@ -393,8 +393,21 @@ export const StrategyBuilder: React.FC = () => {
                 {/* Header info */}
                 <div className="flex justify-between items-start gap-4">
                   <div className="space-y-1 flex-1">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                      <Cpu className="w-4 h-4 text-sky-400" /> {s.name}
+                    <h3 className="text-sm font-bold text-white flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Cpu className="w-4 h-4 text-sky-400" /> {s.name}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete "${s.name}"?`)) {
+                            deleteStrategy(s.id);
+                          }
+                        }}
+                        className="p-1 text-gray-500 hover:text-red-400 rounded-lg hover:bg-white/5 transition duration-150 cursor-pointer"
+                        title="Delete Strategy"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </h3>
                     <p className="text-xs text-gray-400 leading-relaxed">{s.description}</p>
                   </div>
