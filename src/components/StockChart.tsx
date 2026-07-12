@@ -308,6 +308,83 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
   );
 };
 
+export const TradingViewChart: React.FC<{ symbol: string; timeframe: string }> = ({ symbol, timeframe }) => {
+  // Map timeframe to TradingView intervals: 1m -> 1, 5m -> 5, 15m -> 15, 1h -> 60, 1D -> D
+  const intervalMap: Record<string, string> = {
+    '1m': '1',
+    '5m': '5',
+    '15m': '15',
+    '1h': '60',
+    '1D': 'D'
+  };
+  const interval = intervalMap[timeframe] || '5';
+
+  // Extract clean symbol and map to standard TradingView ticker
+  const getTradingViewSymbol = (sym: string): string => {
+    let clean = sym.toUpperCase().trim();
+    
+    // Extract underlier for options
+    if (clean.includes(' CE') || clean.includes(' PE') || clean.includes(' CALL') || clean.includes(' PUT')) {
+      const parts = clean.split(' ');
+      clean = parts[0];
+    }
+    
+    // Futures clean-up
+    if (clean.endsWith('FUT')) {
+      clean = clean.replace('FUT', '').trim();
+    }
+
+    if (clean === 'NIFTY') clean = 'NIFTY 50';
+    if (clean === 'BANKNIFTY') clean = 'BANKNIFTY';
+    if (clean === 'FINNIFTY') clean = 'FINNIFTY';
+    if (clean === 'SENSEX') clean = 'SENSEX';
+    if (clean === 'MIDCPNIFTY') clean = 'MIDCPNIFTY';
+
+    const mapping: Record<string, string> = {
+      'NIFTY 50': 'NSE:NIFTY',
+      'BANKNIFTY': 'NSE:BANKNIFTY',
+      'FINNIFTY': 'NSE:CNXFINANCE',
+      'SENSEX': 'BSE:SENSEX',
+      'MIDCPNIFTY': 'NSE:MIDCPNIFTY',
+      'RELIANCE': 'NSE:RELIANCE',
+      'TCS': 'NSE:TCS',
+      'INFY': 'NSE:INFY',
+      'HDFCBANK': 'NSE:HDFCBANK',
+      'ICICIBANK': 'NSE:ICICIBANK',
+      'SBIN': 'NSE:SBIN',
+      'TATAMOTORS': 'NSE:TATAMOTORS',
+      'LT': 'NSE:LT',
+      'BHARTIARTL': 'NSE:BHARTIARTL',
+      'ITC': 'NSE:ITC',
+      'HINDUNILVR': 'NSE:HINDUNILVR',
+      'WIPRO': 'NSE:WIPRO',
+      'AXISBANK': 'NSE:AXISBANK',
+      'KOTAKBANK': 'NSE:KOTAKBANK',
+      'BAJFINANCE': 'NSE:BAJFINANCE',
+      'M&M': 'NSE:M_M',
+      'SUNPHARMA': 'NSE:SUNPHARMA'
+    };
+
+    return mapping[clean] || `NSE:${clean}`;
+  };
+
+  const tvSymbol = getTradingViewSymbol(symbol);
+  
+  return (
+    <div className="w-full h-full rounded-xl overflow-hidden border border-white/5 bg-[#0b0e14]">
+      <iframe
+        id={`tv-iframe-${tvSymbol}`}
+        name={`tv-iframe-${tvSymbol}`}
+        title={`TradingView Chart - ${tvSymbol}`}
+        src={`https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en&toolbarbg=131722&hide_side_toolbar=0&allow_symbol_change=1&details=0&calendar=0&hotlist=0&news=0`}
+        className="w-full h-full border-none"
+        style={{ colorScheme: 'dark' }}
+        allowFullScreen
+      />
+    </div>
+  );
+};
+
 export const StockChart: React.FC<StockChartProps> = ({ 
   asset, 
   height = 240, 
@@ -321,6 +398,16 @@ export const StockChart: React.FC<StockChartProps> = ({
   const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1h' | '1D'>('5m');
   const [chartType, setChartType] = useState<'candle' | 'area'>('candle');
   
+  // Chart engine state - default to TradingView as requested
+  const [chartSource, setChartSource] = useState<'native' | 'tradingview'>(() => {
+    return (localStorage.getItem('preferred_chart_source') as 'native' | 'tradingview') || 'tradingview';
+  });
+
+  const handleChartSourceChange = (src: 'native' | 'tradingview') => {
+    setChartSource(src);
+    localStorage.setItem('preferred_chart_source', src);
+  };
+
   // Technical Indicators Toggles
   const [showEMA, setShowEMA] = useState(true);
   const [showSMA, setShowSMA] = useState(false);
@@ -405,81 +492,101 @@ export const StockChart: React.FC<StockChartProps> = ({
     return data;
   };
 
-  // Generate historical baseline candles when symbol or timeframe changes (for native fallback)
+  // Generate or fetch historical baseline candles when symbol or timeframe changes
   useEffect(() => {
+    let isMounted = true;
     const symbol = activeAsset.symbol;
     const ltp = activeAsset.ltp;
-    
-    // Map timeframes to distinct seeds and variances so each chart looks completely unique
-    const timeframeConfig: Record<'1m' | '5m' | '15m' | '1h' | '1D', { seedOffset: number; varianceMultiplier: number }> = {
-      '1m': { seedOffset: 120, varianceMultiplier: 0.001 },
-      '5m': { seedOffset: 340, varianceMultiplier: 0.002 },
-      '15m': { seedOffset: 560, varianceMultiplier: 0.0045 },
-      '1h': { seedOffset: 780, varianceMultiplier: 0.008 },
-      '1D': { seedOffset: 990, varianceMultiplier: 0.018 },
-    };
 
-    const config = timeframeConfig[timeframe] || { seedOffset: 0, varianceMultiplier: 0.003 };
-
-    // Seed random seed based on symbol name AND timeframe configuration to make charts unique and persistent
-    let seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + config.seedOffset;
-    const random = () => {
-      const x = Math.sin(seed++) * 10000;
-      return x - Math.floor(x);
-    };
-
-    const count = 35;
-    const generatedCandles: Candle[] = [];
-    const variance = ltp * config.varianceMultiplier; 
-
-    const now = new Date();
-    let currentClose = ltp;
-    
-    // Generate candles backward from the active price to prevent sudden forced spikes
-    for (let i = count - 1; i >= 0; i--) {
-      const step = (random() - 0.5) * variance;
-      const close = Number(currentClose.toFixed(2));
-      let open = Number((currentClose - step).toFixed(2));
-      
-      // Keep price within a realistic band around current ltp
-      if (open < ltp * 0.7) open = Number((ltp * 0.7).toFixed(2));
-      if (open > ltp * 1.3) open = Number((ltp * 1.3).toFixed(2));
-
-      const high = Number((Math.max(open, close) + random() * (variance * 0.4)).toFixed(2));
-      const low = Number((Math.min(open, close) - random() * (variance * 0.4)).toFixed(2));
-      const volume = Math.round(100000 + random() * 800000);
-
-      // Create format label based on index & timeframe
-      let timeStr = '';
-      if (timeframe === '1D') {
-        const d = new Date(now);
-        d.setDate(d.getDate() - (count - 1 - i));
-        timeStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      } else {
-        const m = new Date(now);
-        const minsToSubtract = (count - 1 - i) * (timeframe === '1m' ? 1 : timeframe === '5m' ? 5 : timeframe === '15m' ? 15 : 60);
-        m.setMinutes(m.getMinutes() - minsToSubtract);
-        timeStr = m.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const loadCandles = async () => {
+      try {
+        const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`);
+        if (!res.ok) throw new Error("Network error loading candles");
+        const data = await res.json();
+        if (data.success && data.candles && data.candles.length > 0) {
+          if (isMounted) {
+            setCandles(computeIndicators(data.candles));
+            previousAssetPrice.current = ltp;
+            previousAssetSymbol.current = symbol;
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn("Using simulation fallback for candle history:", err);
       }
 
-      generatedCandles.unshift({
-        time: timeStr,
-        open,
-        high,
-        low,
-        close,
-        volume
-      });
+      // Generate fallback baseline candles if not connected or API fails
+      if (!isMounted) return;
 
-      currentClose = open;
-    }
+      const timeframeConfig: Record<'1m' | '5m' | '15m' | '1h' | '1D', { seedOffset: number; varianceMultiplier: number }> = {
+        '1m': { seedOffset: 120, varianceMultiplier: 0.001 },
+        '5m': { seedOffset: 340, varianceMultiplier: 0.002 },
+        '15m': { seedOffset: 560, varianceMultiplier: 0.0045 },
+        '1h': { seedOffset: 780, varianceMultiplier: 0.008 },
+        '1D': { seedOffset: 990, varianceMultiplier: 0.018 },
+      };
 
-    // Compute technical indicators over the generated candles
-    const withIndicators = computeIndicators(generatedCandles);
-    
-    setCandles(withIndicators);
-    previousAssetPrice.current = ltp;
-    previousAssetSymbol.current = symbol;
+      const config = timeframeConfig[timeframe] || { seedOffset: 0, varianceMultiplier: 0.003 };
+
+      let seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + config.seedOffset;
+      const random = () => {
+        const x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+      };
+
+      const count = 35;
+      const generatedCandles: Candle[] = [];
+      const variance = ltp * config.varianceMultiplier;
+
+      const now = new Date();
+      let currentClose = ltp;
+
+      for (let i = count - 1; i >= 0; i--) {
+        const step = (random() - 0.5) * variance;
+        const close = Number(currentClose.toFixed(2));
+        let open = Number((currentClose - step).toFixed(2));
+
+        if (open < ltp * 0.7) open = Number((ltp * 0.7).toFixed(2));
+        if (open > ltp * 1.3) open = Number((ltp * 1.3).toFixed(2));
+
+        const high = Number((Math.max(open, close) + random() * (variance * 0.4)).toFixed(2));
+        const low = Number((Math.min(open, close) - random() * (variance * 0.4)).toFixed(2));
+        const volume = Math.round(100000 + random() * 800000);
+
+        let timeStr = '';
+        if (timeframe === '1D') {
+          const d = new Date(now);
+          d.setDate(d.getDate() - (count - 1 - i));
+          timeStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        } else {
+          const m = new Date(now);
+          const minsToSubtract = (count - 1 - i) * (timeframe === '1m' ? 1 : timeframe === '5m' ? 5 : timeframe === '15m' ? 15 : 60);
+          m.setMinutes(m.getMinutes() - minsToSubtract);
+          timeStr = m.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
+        generatedCandles.unshift({
+          time: timeStr,
+          open,
+          high,
+          low,
+          close,
+          volume
+        });
+
+        currentClose = open;
+      }
+
+      setCandles(computeIndicators(generatedCandles));
+      previousAssetPrice.current = ltp;
+      previousAssetSymbol.current = symbol;
+    };
+
+    loadCandles();
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeAsset.symbol, timeframe]);
 
   // Handle live ticking prices from the store
@@ -546,7 +653,7 @@ export const StockChart: React.FC<StockChartProps> = ({
 
   // Render dynamic Candlestick using SVG inside Recharts ComposedChart
   const CustomCandleShape = (props: any) => {
-    const { x, y, width, payload } = props;
+    const { x, width, payload, yAxis } = props;
     if (!payload || payload.open === undefined) return null;
 
     const { open, close, high, low } = payload;
@@ -556,40 +663,46 @@ export const StockChart: React.FC<StockChartProps> = ({
 
     const cx = x + width / 2;
 
-    const bodyY = props.y;
-    const bodyHeight = props.height;
-    
-    const candleTopY = Math.min(bodyY, bodyY + bodyHeight);
-    const candleBottomY = Math.max(bodyY, bodyY + bodyHeight);
+    // Compute the uniform scale factor for the whole chart using Y-axis dimensions if available
+    const chartHeight = yAxis?.height ?? (height - 40);
+    const chartY = yAxis?.y ?? 10;
+    const pxPerUnit = chartHeight / (maxPrice - minPrice || 1);
 
-    const totalDiff = Math.abs(open - close) || 0.01;
-    const highDiff = high - Math.max(open, close);
-    const lowDiff = Math.min(open, close) - low;
+    const getY = (val: number) => {
+      return chartY + chartHeight - (val - minPrice) * pxPerUnit;
+    };
 
-    const pxPerUnit = bodyHeight / totalDiff;
-    const wickTopY = candleTopY - (highDiff * pxPerUnit);
-    const wickBottomY = candleBottomY + (lowDiff * pxPerUnit);
+    const yOpen = getY(open);
+    const yClose = getY(close);
+    const yHigh = getY(high);
+    const yLow = getY(low);
+
+    const candleTopY = Math.min(yOpen, yClose);
+    const candleBottomY = Math.max(yOpen, yClose);
+    const candleHeight = Math.max(Math.abs(yOpen - yClose), 1.5);
 
     return (
       <g>
+        {/* Wick */}
         <line 
           x1={cx} 
-          y1={wickTopY} 
+          y1={yHigh} 
           x2={cx} 
-          y2={wickBottomY} 
+          y2={yLow} 
           stroke={strokeColor} 
           strokeWidth={1.5} 
           strokeLinecap="round"
         />
+        {/* Body */}
         <rect 
           x={x} 
-          y={bodyY} 
+          y={candleTopY} 
           width={width} 
-          height={Math.max(bodyHeight, 2)} 
+          height={candleHeight} 
           fill={fillColor} 
           stroke={strokeColor}
           strokeWidth={0.5}
-          rx={1.5} 
+          rx={1} 
         />
       </g>
     );
@@ -624,6 +737,30 @@ export const StockChart: React.FC<StockChartProps> = ({
 
         {/* Engine Controls with beautiful active states */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Chart Engine Switcher */}
+          <div className="flex items-center bg-[#07090e] border border-white/10 p-1 rounded-xl">
+            <button
+              onClick={() => handleChartSourceChange('tradingview')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+                chartSource === 'tradingview' 
+                  ? 'bg-sky-500 text-white shadow-md' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-amber-300" /> TradingView
+            </button>
+            <button
+              onClick={() => handleChartSourceChange('native')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                chartSource === 'native' 
+                  ? 'bg-blue-600 text-white shadow-md' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Native
+            </button>
+          </div>
+
           <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
             {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
               <button
@@ -640,28 +777,30 @@ export const StockChart: React.FC<StockChartProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
-            <button
-              onClick={() => setChartType('candle')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                chartType === 'candle' 
-                  ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
-                  : 'text-gray-500 hover:text-white'
-              }`}
-            >
-              Candles
-            </button>
-            <button
-              onClick={() => setChartType('area')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                chartType === 'area' 
-                  ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
-                  : 'text-gray-500 hover:text-white'
-              }`}
-            >
-              Area
-            </button>
-          </div>
+          {chartSource === 'native' && (
+            <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+              <button
+                onClick={() => setChartType('candle')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  chartType === 'candle' 
+                    ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
+                    : 'text-gray-500 hover:text-white'
+                }`}
+              >
+                Candles
+              </button>
+              <button
+                onClick={() => setChartType('area')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  chartType === 'area' 
+                    ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
+                    : 'text-gray-500 hover:text-white'
+                }`}
+              >
+                Area
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -669,214 +808,218 @@ export const StockChart: React.FC<StockChartProps> = ({
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
         {/* Main Chart viewport container */}
         <div className={`col-span-1 ${showControls ? 'xl:col-span-3' : 'xl:col-span-4'} relative`} style={{ height: `${height}px` }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart 
-              data={candles}
-              margin={{ top: 5, right: 0, left: -25, bottom: 5 }}
-            >
-              <defs>
-                <linearGradient id={`gradientArea-${activeAsset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0}/>
-                </linearGradient>
+          {chartSource === 'tradingview' ? (
+            <TradingViewChart symbol={activeAsset.symbol} timeframe={timeframe} />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart 
+                data={candles}
+                margin={{ top: 5, right: 0, left: -25, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id={`gradientArea-${activeAsset.symbol}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0}/>
+                  </linearGradient>
 
-                <linearGradient id="bbShade" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.03}/>
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03}/>
-                </linearGradient>
-              </defs>
+                  <linearGradient id="bbShade" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.03}/>
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03}/>
+                  </linearGradient>
+                </defs>
 
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
-              
-              <XAxis 
-                dataKey="time" 
-                stroke="rgba(255,255,255,0.15)" 
-                fontSize={9} 
-                fontFamily="monospace"
-                tickLine={false}
-                axisLine={false}
-              />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
+                
+                <XAxis 
+                  dataKey="time" 
+                  stroke="rgba(255,255,255,0.15)" 
+                  fontSize={9} 
+                  fontFamily="monospace"
+                  tickLine={false}
+                  axisLine={false}
+                />
 
-              <YAxis 
-                domain={[minPrice, maxPrice]} 
-                stroke="rgba(255,255,255,0.15)" 
-                fontSize={9} 
-                fontFamily="monospace"
-                tickLine={false}
-                axisLine={false}
-                orientation="right"
-                align="right"
-              />
+                <YAxis 
+                  domain={[minPrice, maxPrice]} 
+                  stroke="rgba(255,255,255,0.15)" 
+                  fontSize={9} 
+                  fontFamily="monospace"
+                  tickLine={false}
+                  axisLine={false}
+                  orientation="right"
+                  align="right"
+                />
 
-              <Tooltip
-                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                contentStyle={{ backgroundColor: '#090c13', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px' }}
-                content={({ active, payload }) => {
-                  if (!active || !payload || !payload.length) return null;
-                  const d = payload[0].payload as Candle;
-                  const isCandleGreen = d.close >= d.open;
-                  return (
-                    <div className="space-y-1.5 text-xs font-mono">
-                      <div className="flex items-center justify-between gap-4 text-[10px] text-gray-500 border-b border-white/5 pb-1">
-                        <span>Time: {d.time}</span>
-                        <span className="bg-white/5 px-1 rounded font-bold uppercase">{timeframe}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                        <span className="text-gray-500">Open:</span>
-                        <span className="text-white text-right">₹{d.open.toFixed(2)}</span>
+                <Tooltip
+                  cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  contentStyle={{ backgroundColor: '#090c13', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px' }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const d = payload[0].payload as Candle;
+                    const isCandleGreen = d.close >= d.open;
+                    return (
+                      <div className="space-y-1.5 text-xs font-mono">
+                        <div className="flex items-center justify-between gap-4 text-[10px] text-gray-500 border-b border-white/5 pb-1">
+                          <span>Time: {d.time}</span>
+                          <span className="bg-white/5 px-1 rounded font-bold uppercase">{timeframe}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                          <span className="text-gray-500">Open:</span>
+                          <span className="text-white text-right">₹{d.open.toFixed(2)}</span>
 
-                        <span className="text-gray-500">High:</span>
-                        <span className="text-emerald-400 text-right">₹{d.high.toFixed(2)}</span>
+                          <span className="text-gray-500">High:</span>
+                          <span className="text-emerald-400 text-right">₹{d.high.toFixed(2)}</span>
 
-                        <span className="text-gray-500">Low:</span>
-                        <span className="text-rose-400 text-right">₹{d.low.toFixed(2)}</span>
+                          <span className="text-gray-500">Low:</span>
+                          <span className="text-rose-400 text-right">₹{d.low.toFixed(2)}</span>
 
-                        <span className="text-gray-500">Close:</span>
-                        <span className={`text-right font-bold ${isCandleGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          ₹{d.close.toFixed(2)}
-                        </span>
+                          <span className="text-gray-500">Close:</span>
+                          <span className={`text-right font-bold ${isCandleGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            ₹{d.close.toFixed(2)}
+                          </span>
 
-                        {showVolume && (
-                          <>
-                            <span className="text-gray-500">Volume:</span>
-                            <span className="text-white text-right">{(d.volume).toLocaleString('en-IN')}</span>
-                          </>
-                        )}
-                      </div>
-
-                      {(showEMA || showSMA || showBB) && (
-                        <div className="border-t border-white/5 pt-1.5 mt-1.5 space-y-0.5 text-[10px]">
-                          {showEMA && d.ema && (
-                            <div className="flex justify-between gap-2">
-                              <span className="text-sky-400">EMA (8):</span>
-                              <span className="text-white">₹{d.ema.toFixed(2)}</span>
-                            </div>
-                          )}
-                          {showSMA && d.sma && (
-                            <div className="flex justify-between gap-2">
-                              <span className="text-amber-500">SMA (15):</span>
-                              <span className="text-white">₹{d.sma.toFixed(2)}</span>
-                            </div>
-                          )}
-                          {showBB && d.bbBasis && (
-                            <div className="flex flex-col text-[9px] text-gray-400">
-                              <div className="flex justify-between">
-                                <span>BB Upper:</span>
-                                <span className="text-purple-400">₹{d.bbUpper?.toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>BB Lower:</span>
-                                <span className="text-purple-400">₹{d.bbLower?.toFixed(2)}</span>
-                              </div>
-                            </div>
+                          {showVolume && (
+                            <>
+                              <span className="text-gray-500">Volume:</span>
+                              <span className="text-white text-right">{(d.volume).toLocaleString('en-IN')}</span>
+                            </>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                }}
-              />
 
-              {showBB && (
-                <Area
-                  type="monotone"
-                  dataKey="bbUpper"
-                  stroke="transparent"
-                  fill="url(#bbShade)"
-                  fillOpacity={1}
+                        {(showEMA || showSMA || showBB) && (
+                          <div className="border-t border-white/5 pt-1.5 mt-1.5 space-y-0.5 text-[10px]">
+                            {showEMA && d.ema && (
+                              <div className="flex justify-between gap-2">
+                                <span className="text-sky-400">EMA (8):</span>
+                                <span className="text-white">₹{d.ema.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {showSMA && d.sma && (
+                              <div className="flex justify-between gap-2">
+                                <span className="text-amber-500">SMA (15):</span>
+                                <span className="text-white">₹{d.sma.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {showBB && d.bbBasis && (
+                              <div className="flex flex-col text-[9px] text-gray-400">
+                                <div className="flex justify-between">
+                                  <span>BB Upper:</span>
+                                  <span className="text-purple-400">₹{d.bbUpper?.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>BB Lower:</span>
+                                  <span className="text-purple-400">₹{d.bbLower?.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }}
                 />
-              )}
-              {showBB && (
-                <Line 
-                  type="monotone" 
-                  dataKey="bbUpper" 
-                  stroke="#a855f7" 
-                  strokeWidth={1} 
-                  strokeDasharray="3 3"
-                  dot={false} 
-                  activeDot={false}
-                />
-              )}
-              {showBB && (
-                <Line 
-                  type="monotone" 
-                  dataKey="bbLower" 
-                  stroke="#a855f7" 
-                  strokeWidth={1} 
-                  strokeDasharray="3 3"
-                  dot={false} 
-                  activeDot={false}
-                />
-              )}
-              {showBB && (
-                <Line 
-                  type="monotone" 
-                  dataKey="bbBasis" 
-                  stroke="#a855f7" 
-                  strokeWidth={1} 
-                  opacity={0.5}
-                  dot={false} 
-                  activeDot={false}
-                />
-              )}
 
-              {showEMA && (
-                <Line 
-                  type="monotone" 
-                  dataKey="ema" 
-                  stroke="#0ea5e9" 
-                  strokeWidth={1.5} 
-                  dot={false} 
-                  activeDot={false}
-                />
-              )}
+                {showBB && (
+                  <Area
+                    type="monotone"
+                    dataKey="bbUpper"
+                    stroke="transparent"
+                    fill="url(#bbShade)"
+                    fillOpacity={1}
+                  />
+                )}
+                {showBB && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bbUpper" 
+                    stroke="#a855f7" 
+                    strokeWidth={1} 
+                    strokeDasharray="3 3"
+                    dot={false} 
+                    activeDot={false}
+                  />
+                )}
+                {showBB && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bbLower" 
+                    stroke="#a855f7" 
+                    strokeWidth={1} 
+                    strokeDasharray="3 3"
+                    dot={false} 
+                    activeDot={false}
+                  />
+                )}
+                {showBB && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bbBasis" 
+                    stroke="#a855f7" 
+                    strokeWidth={1} 
+                    opacity={0.5}
+                    dot={false} 
+                    activeDot={false}
+                  />
+                )}
 
-              {showSMA && (
-                <Line 
-                  type="monotone" 
-                  dataKey="sma" 
-                  stroke="#f59e0b" 
-                  strokeWidth={1.5} 
-                  dot={false} 
-                  activeDot={false}
-                />
-              )}
+                {showEMA && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="ema" 
+                    stroke="#0ea5e9" 
+                    strokeWidth={1.5} 
+                    dot={false} 
+                    activeDot={false}
+                  />
+                )}
 
-              {chartType === 'area' ? (
-                <Area 
-                  type="monotone" 
-                  dataKey="close" 
-                  stroke={isPositive ? '#10b981' : '#ef4444'} 
-                  strokeWidth={2} 
-                  fillOpacity={1} 
-                  fill={`url(#gradientArea-${activeAsset.symbol})`} 
-                  dot={false}
-                />
-              ) : (
-                <Bar 
-                  dataKey="close" 
-                  shape={<CustomCandleShape />} 
-                  maxBarSize={12}
-                />
-              )}
+                {showSMA && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="sma" 
+                    stroke="#f59e0b" 
+                    strokeWidth={1.5} 
+                    dot={false} 
+                    activeDot={false}
+                  />
+                )}
 
-              {showVolume && (
-                <Bar 
-                  dataKey="volume" 
+                {chartType === 'area' ? (
+                  <Area 
+                    type="monotone" 
+                    dataKey="close" 
+                    stroke={isPositive ? '#10b981' : '#ef4444'} 
+                    strokeWidth={2} 
+                    fillOpacity={1} 
+                    fill={`url(#gradientArea-${activeAsset.symbol})`} 
+                    dot={false}
+                  />
+                ) : (
+                  <Bar 
+                    dataKey="close" 
+                    shape={<CustomCandleShape />} 
+                    maxBarSize={12}
+                  />
+                )}
+
+                {showVolume && (
+                  <Bar 
+                    dataKey="volume" 
+                    yAxisId="volumeAxis" 
+                    opacity={0.12} 
+                    fill="#ffffff"
+                    maxBarSize={12}
+                  />
+                )}
+
+                <YAxis 
                   yAxisId="volumeAxis" 
-                  opacity={0.12} 
-                  fill="#ffffff"
-                  maxBarSize={12}
+                  hide={true} 
+                  domain={['auto', 'auto']} 
                 />
-              )}
-
-              <YAxis 
-                yAxisId="volumeAxis" 
-                hide={true} 
-                domain={['auto', 'auto']} 
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Right side tools panel - Technical Analysis Gauge Indicator (Only visible if showControls is active) */}
@@ -898,7 +1041,7 @@ export const StockChart: React.FC<StockChartProps> = ({
       </div>
 
       {/* Control panel & Indicators Toggles */}
-      {showControls && (
+      {showControls && chartSource === 'native' && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-gray-500 uppercase tracking-widest flex items-center gap-1 mr-1">
@@ -957,6 +1100,19 @@ export const StockChart: React.FC<StockChartProps> = ({
           <div className="flex items-center gap-1.5 text-gray-500 font-sans">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
             <span>Interactive terminal syncing live NSE/BSE feeds.</span>
+          </div>
+        </div>
+      )}
+
+      {showControls && chartSource === 'tradingview' && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
+          <div className="flex items-center gap-1.5 text-gray-400 font-sans">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>Interactive TradingView terminal powered by real-time NSE/BSE exchange streams.</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-500 font-sans">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Virtual ledger synchronization remains active.</span>
           </div>
         </div>
       )}

@@ -64,6 +64,9 @@ interface AppContextType {
   clearAllNotifications: () => void;
   selectedAsset: Instrument;
   setSelectedAssetBySymbol: (symbol: string) => void;
+  upstoxStatus: { connected: boolean; user: any; config: any };
+  refreshUpstoxStatus: () => Promise<void>;
+  disconnectUpstox: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -449,55 +452,311 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedAssetSymbol(symbol);
   };
 
-  // Simulating live ticking prices
+  // Upstox integration state
+  const [upstoxStatus, setUpstoxStatus] = useState<{ connected: boolean; user: any; config: any }>({
+    connected: false,
+    user: null,
+    config: null
+  });
+
+  const fetchRealUpstoxLtp = async () => {
+    try {
+      const res = await fetch('/api/integrations/upstox/ltp');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.prices) {
+          setInstruments(prev =>
+            prev.map(inst => {
+              const realLtp = data.prices[inst.symbol];
+              if (realLtp && realLtp > 0) {
+                const sparkCopy = [...inst.sparkline.slice(1), realLtp];
+                return {
+                  ...inst,
+                  ltp: realLtp,
+                  high: realLtp > inst.high ? realLtp : inst.high,
+                  low: realLtp < inst.low ? realLtp : inst.low,
+                  sparkline: sparkCopy
+                };
+              }
+              return inst;
+            })
+          );
+          console.log("[Upstox LTP Synchronizer] Synced current market prices successfully.", data.prices);
+        }
+      }
+    } catch (err) {
+      console.error("[Upstox LTP Synchronizer] Error fetching LTP:", err);
+    }
+  };
+
+  const refreshUpstoxStatus = async () => {
+    try {
+      const res = await fetch('/api/integrations/upstox/status');
+      if (res.ok) {
+        const data = await res.json();
+        setUpstoxStatus({
+          connected: data.connected,
+          user: data.user,
+          config: data.config
+        });
+        if (data.connected) {
+          fetchRealUpstoxLtp();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to refresh Upstox status:", e);
+    }
+  };
+
+  const disconnectUpstox = async () => {
+    try {
+      const res = await fetch('/api/integrations/upstox/disconnect', { method: 'POST' });
+      if (res.ok) {
+        await refreshUpstoxStatus();
+        pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
+      }
+    } catch (e) {
+      console.error("Failed to disconnect Upstox:", e);
+    }
+  };
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      // Walk instruments
-      setInstruments(prev =>
-        prev.map(inst => {
-          const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-          // Recalculate sparkline
-          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-          const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
-          return {
-            ...inst,
-            ltp: nextLtp,
-            change: Number(priceChange.toFixed(2)),
-            high: nextLtp > inst.high ? nextLtp : inst.high,
-            low: nextLtp < inst.low ? nextLtp : inst.low,
-            sparkline: sparkCopy,
-          };
-        })
-      );
+    refreshUpstoxStatus();
+  }, []);
 
-      // Walk futures
-      setFutures(prev =>
-        prev.map(inst => {
-          const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-          const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
-          return {
-            ...inst,
-            ltp: nextLtp,
-            change: Number(priceChange.toFixed(2)),
-            high: nextLtp > inst.high ? nextLtp : inst.high,
-            low: nextLtp < inst.low ? nextLtp : inst.low,
-            sparkline: sparkCopy,
-          };
-        })
-      );
+  useEffect(() => {
+    if (upstoxStatus.connected) {
+      fetchRealUpstoxLtp();
+      const interval = setInterval(fetchRealUpstoxLtp, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [upstoxStatus.connected]);
 
-      // Walk option chain
-      setOptionChain(prev =>
-        prev.map(item => ({
-          ...item,
-          calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.8, item.calls.ltp * 1.2, 0.003) },
-          puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.8, item.puts.ltp * 1.2, 0.003) }
-        }))
-      );
-    }, 3000);
+  // Listen for success messages from OAuth popup
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        return;
+      }
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        refreshUpstoxStatus();
+        pushNotification('Upstox Linked!', `Successfully connected to Upstox Market Data Feed.`, 'badge');
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
-    return () => clearInterval(timer);
+  // Simulating live ticking prices via custom WebSocket server
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+    let fallbackInterval: any = null;
+
+    const startFallbackSimulation = () => {
+      if (fallbackInterval) return;
+      console.log("WebSocket inactive. Initializing client-side high-fidelity fallback simulation.");
+      fallbackInterval = setInterval(() => {
+        // Run local random walk updates for all instruments so the board stays live!
+        setInstruments(prev =>
+          prev.map(inst => {
+            const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
+            return {
+              ...inst,
+              ltp: nextLtp,
+              change: Number(priceChange.toFixed(2)),
+              high: nextLtp > inst.high ? nextLtp : inst.high,
+              low: nextLtp < inst.low ? nextLtp : inst.low,
+              sparkline: sparkCopy,
+            };
+          })
+        );
+
+        setFutures(prev =>
+          prev.map(inst => {
+            const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
+            return {
+              ...inst,
+              ltp: nextLtp,
+              change: Number(priceChange.toFixed(2)),
+              high: nextLtp > inst.high ? nextLtp : inst.high,
+              low: nextLtp < inst.low ? nextLtp : inst.low,
+              sparkline: sparkCopy,
+            };
+          })
+        );
+
+        setOptionChain(prev =>
+          prev.map(item => ({
+            ...item,
+            calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.92, item.calls.ltp * 1.08, 0.003) },
+            puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.92, item.puts.ltp * 1.08, 0.003) }
+          }))
+        );
+      }, 2500);
+    };
+
+    const stopFallbackSimulation = () => {
+      if (fallbackInterval) {
+        console.log("WebSocket link established. Stopping fallback simulation.");
+        clearInterval(fallbackInterval);
+        fallbackInterval = null;
+      }
+    };
+
+    const connectWS = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+      
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        stopFallbackSimulation();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'STATUS') {
+            setUpstoxStatus(prev => ({
+              ...prev,
+              connected: message.connected,
+              user: message.user
+            }));
+          } else if (message.type === 'TICK') {
+            // Update the real-time instrument matching message.symbol
+            setInstruments(prev =>
+              prev.map(inst => {
+                if (inst.symbol === message.symbol) {
+                  const sparkCopy = [...inst.sparkline.slice(1), message.ltp];
+                  return {
+                    ...inst,
+                    ltp: message.ltp,
+                    change: message.change,
+                    high: message.high,
+                    low: message.low,
+                    sparkline: sparkCopy
+                  };
+                }
+                return inst;
+              })
+            );
+
+            // Dynamically calculate option chain price updates relative to active spot underlier movement
+            setOptionChain(prev =>
+              prev.map(item => {
+                const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
+                if (underlierSymbol === message.symbol) {
+                  const strike = item.strikePrice;
+                  const spot = message.ltp;
+                  const distance = strike - spot;
+                  const strikeStep = (item.underlier === 'BANKNIFTY' || item.underlier === 'SENSEX' || item.underlier === 'FINNIFTY') ? 100 : 50;
+
+                  const callIntrinsic = Math.max(0, spot - strike);
+                  const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+                  const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+
+                  const putIntrinsic = Math.max(0, strike - spot);
+                  const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+                  const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+
+                  return {
+                    ...item,
+                    calls: { ...item.calls, ltp: callLtp < 1.0 ? 1.05 : callLtp },
+                    puts: { ...item.puts, ltp: putLtp < 1.0 ? 1.05 : putLtp }
+                  };
+                }
+                return item;
+              })
+            );
+
+          } else if (message.type === 'SIM_TICK') {
+            // Run a high-fidelity local walk update for message.symbol
+            setInstruments(prev =>
+              prev.map(inst => {
+                if (inst.symbol === message.symbol) {
+                  const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+                  const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+                  const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
+                  return {
+                    ...inst,
+                    ltp: nextLtp,
+                    change: Number(priceChange.toFixed(2)),
+                    high: nextLtp > inst.high ? nextLtp : inst.high,
+                    low: nextLtp < inst.low ? nextLtp : inst.low,
+                    sparkline: sparkCopy,
+                  };
+                }
+                return inst;
+              })
+            );
+
+            // Walk futures and option chains too to keep things ticking
+            setFutures(prev =>
+              prev.map(inst => {
+                if (inst.symbol.startsWith(message.symbol)) {
+                  const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+                  const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+                  const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
+                  return {
+                    ...inst,
+                    ltp: nextLtp,
+                    change: Number(priceChange.toFixed(2)),
+                    high: nextLtp > inst.high ? nextLtp : inst.high,
+                    low: nextLtp < inst.low ? nextLtp : inst.low,
+                    sparkline: sparkCopy,
+                  };
+                }
+                return inst;
+              })
+            );
+
+            setOptionChain(prev =>
+              prev.map(item => {
+                const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
+                if (underlierSymbol === message.symbol) {
+                  return {
+                    ...item,
+                    calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.95, item.calls.ltp * 1.05, 0.002) },
+                    puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.95, item.puts.ltp * 1.05, 0.002) }
+                  };
+                }
+                return item;
+              })
+            );
+          }
+        } catch (e) {
+          console.warn("Client WS parse error:", e);
+        }
+      };
+
+      ws.onclose = () => {
+        startFallbackSimulation();
+        reconnectTimeout = setTimeout(() => {
+          connectWS();
+        }, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.log("Client WS connection inactive or pending; using simulated prices.");
+        startFallbackSimulation();
+      };
+    };
+
+    // By default start fallback simulation immediately until WS opens
+    startFallbackSimulation();
+    connectWS();
+
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (fallbackInterval) clearInterval(fallbackInterval);
+    };
   }, []);
 
   // Sync index and asset updates with position prices (unrealized P&L simulation)
@@ -1364,6 +1623,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clearAllNotifications,
         selectedAsset,
         setSelectedAssetBySymbol,
+        upstoxStatus,
+        refreshUpstoxStatus,
+        disconnectUpstox,
       }}
     >
       {children}

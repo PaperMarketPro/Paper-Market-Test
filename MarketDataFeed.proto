@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package com.upstox.marketdatafeed;
+
+message FeedResponse {
+  enum Type {
+    initial_feed = 0;
+    live_feed = 1;
+  }
+  Type type = 1;
+  map<string, Feed> feeds = 2;
+}
+
+message Feed {
+  LTPC ltpc = 1;
+  FullFeed ff = 2;
+}
+
+message LTPC {
+  double ltp = 1;
+  int64 ltt = 2;
+  double ltq = 3;
+  double cp = 4;
+}
+
+message FullFeed {
+  LTPC ltpc = 1;
+  MarketOHLC marketOHLC = 2;
+  MarketBinary marketBinary = 3;
+}
+
+message MarketOHLC {
+  repeated OHLC ohlc = 1;
+}
+
+message OHLC {
+  string interval = 1;
+  double open = 2;
+  double high = 3;
+  double low = 4;
+  double close = 5;
+  int64 volume = 6;
+  int64 ts = 7;
+}
+
+message MarketBinary {
+  repeated Quote ask = 1;
+  repeated Quote bid = 2;
+}
+
+message Quote {
+  int32 quantity = 1;
+  double price = 2;
+  int32 orders = 3;
+}

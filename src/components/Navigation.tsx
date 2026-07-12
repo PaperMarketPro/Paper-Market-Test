@@ -49,6 +49,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
     { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
     { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },
     { key: 'strategy', label: 'Strategy Builder', icon: <Cpu className="w-4 h-4" /> },
+    { key: 'risk-management', label: 'Risk Management', icon: <Shield className="w-4 h-4" /> },
     { key: 'academy', label: 'Academy (Learn)', icon: <BookOpen className="w-4 h-4" /> },
     { key: 'profile', label: 'Subscription / Badges', icon: <Award className="w-4 h-4" /> },
     { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
@@ -132,6 +133,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
                currentTab === 'journal' ? 'AI Trading Journal' :
                currentTab === 'ai-coach' ? 'AI Coach Insights' :
                currentTab === 'strategy' ? 'Advanced strategy builder' :
+               currentTab === 'risk-management' ? 'Capital Protection & Sizing' :
                currentTab === 'academy' ? 'Academy learning suite' :
                currentTab === 'profile' ? 'Subscription / Badges' : 'Settings Workspace'}
             </h1>

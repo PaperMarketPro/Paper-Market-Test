@@ -23,6 +23,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'equity' | 'monthly'>('equity');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Filter indices list
+  const indicesList = instruments.filter(inst => 
+    ['NIFTY 50', 'BANKNIFTY', 'SENSEX', 'FINNIFTY'].includes(inst.symbol)
+  );
+
+  // Sparkline generator helper
+  const renderMiniSparkline = (points: number[], isPositive: boolean) => {
+    if (!points || points.length === 0) return null;
+    const min = Math.min(...points);
+    const max = Math.max(...points);
+    const range = max - min || 1;
+    const width = 45;
+    const height = 14;
+    const pathPoints = points.map((val, idx) => {
+      const x = (idx / (points.length - 1)) * width;
+      const y = height - ((val - min) / range) * height;
+      return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+
+    return (
+      <svg width={width} height={height} className="opacity-80">
+        <path
+          d={pathPoints}
+          fill="none"
+          stroke={isPositive ? '#10b981' : '#ef4444'}
+          strokeWidth="1.25"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  };
+
   // Search overlay states
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,6 +178,59 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-2xl pl-10 pr-4 py-3.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200 cursor-pointer"
               readOnly
             />
+          </div>
+
+          {/* Market Indices Quick Ticker cards */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
+                Live Market Indices
+              </span>
+              <span className="text-[9px] font-sans text-gray-500">
+                Tap to trade derivatives
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {indicesList.map(idxAsset => {
+                const isPositive = idxAsset.change >= 0;
+                return (
+                  <div
+                    key={idxAsset.symbol}
+                    onClick={() => {
+                      setSelectedAssetBySymbol(idxAsset.symbol);
+                      onNavigate('trade');
+                    }}
+                    className="bg-[#0b0e14]/60 hover:bg-[#0c1018] border border-white/5 hover:border-sky-500/25 rounded-2xl p-3 transition-all duration-200 cursor-pointer flex flex-col justify-between h-[85px] group relative overflow-hidden"
+                  >
+                    {/* Hover subtle glow accent */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-sky-500/0 group-hover:to-sky-500/5 transition duration-200" />
+                    
+                    <div className="flex justify-between items-start relative z-10 w-full">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-mono font-bold text-white tracking-tight block">
+                          {idxAsset.symbol}
+                        </span>
+                        <span className="text-[8px] text-gray-500 font-medium block truncate max-w-[70px]">
+                          {idxAsset.name.replace('Index', '').replace('NSE', '').trim()}
+                        </span>
+                      </div>
+                      <span className={`text-[8px] font-mono font-bold px-1 py-0.5 rounded ${
+                        isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                      }`}>
+                        {isPositive ? '+' : ''}{idxAsset.change.toFixed(2)}%
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-end mt-1.5 relative z-10 w-full">
+                      <span className="text-xs font-mono font-bold text-white tabular-numbers">
+                        ₹{idxAsset.ltp.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                      </span>
+                      {renderMiniSparkline(idxAsset.sparkline, isPositive)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* 5. SIMULATED PERFORMANCE MATRIX WITH AREA CHART */}

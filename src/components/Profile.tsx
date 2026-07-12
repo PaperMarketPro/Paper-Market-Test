@@ -18,7 +18,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'stats' }) => {
-  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, updateBalance, upgradeToPro, theme, toggleTheme } = useApp();
+  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, updateBalance, upgradeToPro, theme, toggleTheme, upstoxStatus, disconnectUpstox } = useApp();
   if (!user) return null;
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 

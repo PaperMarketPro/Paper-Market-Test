@@ -10,9 +10,393 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import http from "http";
+import { WebSocketServer, WebSocket as WS } from "ws";
+import protobuf from "protobufjs";
 
 // Load environment variables
 dotenv.config();
+
+// Upstox session credentials and mappings
+let upstoxAccessToken: string | null = null;
+let upstoxConnectedUser: any = null;
+let upstoxWs: WS | null = null;
+const clientWsSockets = new Set<any>();
+let simulationInterval: NodeJS.Timeout | null = null;
+
+// Initialize Firebase Admin securely
+import admin from "firebase-admin";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
+
+let db: Firestore | null = null;
+try {
+  admin.initializeApp({
+    projectId: "phonic-transit-7wfkz"
+  });
+  db = getFirestore("ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
+  console.log("[FIREBASE-ADMIN] Initialized targeting: ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
+} catch (err: any) {
+  console.warn("[FIREBASE-ADMIN] Local or mock environment initialization: ", err.message);
+}
+
+async function saveUpstoxTokenToFirestore(token: string, user: any) {
+  if (!db) return;
+  try {
+    const configDocRef = db.collection("config").doc("upstox");
+    await configDocRef.set({
+      accessToken: token,
+      user: user,
+      updatedAt: new Date().toISOString()
+    });
+    console.log("[FIRESTORE] Saved active Upstox credentials to database successfully.");
+  } catch (error: any) {
+    console.error("[FIRESTORE] Error saving Upstox token:", error.message);
+  }
+}
+
+async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; user: any } | null> {
+  if (!db) return null;
+  try {
+    const configDocRef = db.collection("config").doc("upstox");
+    const docSnap = await configDocRef.get();
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      if (data && data.accessToken) {
+        console.log("[FIRESTORE] Successfully loaded saved Upstox token.");
+        return { accessToken: data.accessToken, user: data.user };
+      }
+    }
+  } catch (error: any) {
+    console.error("[FIRESTORE] Error loading Upstox token:", error.message);
+  }
+  return null;
+}
+
+async function clearUpstoxTokenInFirestore() {
+  if (!db) return;
+  try {
+    const configDocRef = db.collection("config").doc("upstox");
+    await configDocRef.set({
+      accessToken: null,
+      user: null,
+      updatedAt: new Date().toISOString()
+    });
+    console.log("[FIRESTORE] Cleared Upstox credentials in database.");
+  } catch (error: any) {
+    console.error("[FIRESTORE] Error clearing Upstox token:", error.message);
+  }
+}
+
+const UPSTOX_INSTRUMENT_MAP: Record<string, string> = {
+  'NIFTY 50': 'NSE_INDEX|Nifty 50',
+  'BANKNIFTY': 'NSE_INDEX|Nifty Bank',
+  'FINNIFTY': 'NSE_INDEX|Nifty Fin Service',
+  'SENSEX': 'BSE_INDEX|SENSEX',
+  'MIDCPNIFTY': 'NSE_INDEX|Nifty Midcap 50',
+  'RELIANCE': 'NSE_EQ|INE002A01018',
+  'TCS': 'NSE_EQ|INE467B01029',
+  'INFY': 'NSE_EQ|INE009A01021',
+  'HDFCBANK': 'NSE_EQ|INE040A01034',
+  'ICICIBANK': 'NSE_EQ|INE090A01021',
+  'SBIN': 'NSE_EQ|INE062A01020',
+  'TATAMOTORS': 'NSE_EQ|INE155A01022',
+  'LT': 'NSE_EQ|INE018A01030',
+  'BHARTIARTL': 'NSE_EQ|INE397D01024',
+  'ITC': 'NSE_EQ|INE154A01025',
+  'HINDUNILVR': 'NSE_EQ|INE030A01027',
+  'WIPRO': 'NSE_EQ|INE075A01022',
+  'AXISBANK': 'NSE_EQ|INE238A01034',
+  'KOTAKBANK': 'NSE_EQ|INE237A01028',
+  'BAJFINANCE': 'NSE_EQ|INE296A01024',
+  'M&M': 'NSE_EQ|INE101A01026',
+  'SUNPHARMA': 'NSE_EQ|INE044A01045'
+};
+
+const UPSTOX_TRADING_SYMBOL_TO_FRONTEND_MAP: Record<string, string> = {
+  'Nifty 50': 'NIFTY 50',
+  'Nifty Bank': 'BANKNIFTY',
+  'Nifty Fin Service': 'FINNIFTY',
+  'SENSEX': 'SENSEX',
+  'Nifty Midcap 50': 'MIDCPNIFTY',
+  'RELIANCE': 'RELIANCE',
+  'TCS': 'TCS',
+  'INFY': 'INFY',
+  'HDFCBANK': 'HDFCBANK',
+  'ICICIBANK': 'ICICIBANK',
+  'SBIN': 'SBIN',
+  'TATAMOTORS': 'TATAMOTORS',
+  'TMPV': 'TATAMOTORS',
+  'LT': 'LT',
+  'BHARTIARTL': 'BHARTIARTL',
+  'ITC': 'ITC',
+  'HINDUNILVR': 'HINDUNILVR',
+  'WIPRO': 'WIPRO',
+  'AXISBANK': 'AXISBANK',
+  'KOTAKBANK': 'KOTAKBANK',
+  'BAJFINANCE': 'BAJFINANCE',
+  'M&M': 'M&M',
+  'SUNPHARMA': 'SUNPHARMA'
+};
+
+function matchUpstoxKeyToSymbol(key: string): string | null {
+  if (!key) return null;
+  const cleanKey = key.replace(":", "|");
+
+  // Direct match in instrument map values (e.g., 'NSE_INDEX|Nifty 50' or 'NSE_EQ|INE002A01018')
+  for (const [symbol, upstoxVal] of Object.entries(UPSTOX_INSTRUMENT_MAP)) {
+    if (upstoxVal.replace(":", "|") === cleanKey) {
+      return symbol;
+    }
+  }
+
+  // Split and match by trading symbol (e.g., 'NSE_EQ|RELIANCE' -> 'RELIANCE')
+  const parts = cleanKey.split("|");
+  if (parts.length > 1) {
+    const tradingSymbolOrIsin = parts[1];
+    
+    // Check in TRADING_SYMBOL_TO_FRONTEND map
+    if (UPSTOX_TRADING_SYMBOL_TO_FRONTEND_MAP[tradingSymbolOrIsin]) {
+      return UPSTOX_TRADING_SYMBOL_TO_FRONTEND_MAP[tradingSymbolOrIsin];
+    }
+
+    // Check if the trading symbol itself is directly the frontend symbol key
+    if (UPSTOX_INSTRUMENT_MAP[tradingSymbolOrIsin]) {
+      return tradingSymbolOrIsin;
+    }
+  }
+
+  return null;
+}
+
+function broadcastToClients(payload: any) {
+  const messageStr = JSON.stringify(payload);
+  clientWsSockets.forEach(ws => {
+    if (ws.readyState === WS.OPEN) {
+      ws.send(messageStr);
+    }
+  });
+}
+
+async function connectUpstoxFeed() {
+  try {
+    if (!upstoxAccessToken) return;
+
+    // 1. Authorize WebSocket connection
+    const authRes = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
+      headers: {
+        "Authorization": `Bearer ${upstoxAccessToken}`,
+        "Accept": "application/json"
+      }
+    });
+
+    if (!authRes.ok) {
+      console.error("Upstox WS authorize failed:", await authRes.text());
+      return;
+    }
+
+    const authData = await authRes.json();
+    const redirectUrl = authData?.data?.authorizedRedirectUri || authData?.data?.authorized_redirect_uri || authData?.data?.authorizedRedirectUrl;
+    if (!redirectUrl) {
+      console.error("Invalid authorize redirect URL from Upstox:", authData);
+      return;
+    }
+
+    console.log("Upstox WS Authorized. Connecting to:", redirectUrl);
+
+    // 2. Load the protobuf schema
+    const root = await protobuf.load("./MarketDataFeed.proto");
+    const FeedResponse = root.lookupType("com.upstox.marketdatafeed.FeedResponse");
+
+    // 3. Establish WS connection
+    upstoxWs = new WS(redirectUrl, {
+      headers: {
+        "Authorization": `Bearer ${upstoxAccessToken}`
+      }
+    });
+
+    upstoxWs.on("open", () => {
+      console.log("Upstox Live WebSocket connected successfully!");
+      // Send subscription request for all configured instrument keys
+      const subscriptionMessage = {
+        guid: "papermarket-subscription-v3",
+        method: "sub",
+        data: {
+          mode: "full",
+          instrumentKeys: Object.values(UPSTOX_INSTRUMENT_MAP)
+        }
+      };
+      upstoxWs?.send(JSON.stringify(subscriptionMessage));
+    });
+
+    upstoxWs.on("message", (data: Buffer) => {
+      try {
+        // Decode Protobuf binary buffer
+        const decodedMessage = FeedResponse.decode(data);
+        const feedObject = FeedResponse.toObject(decodedMessage, {
+          longs: String,
+          enums: String,
+          bytes: String,
+        }) as any;
+
+        if (feedObject && feedObject.feeds) {
+          const keys = Object.keys(feedObject.feeds);
+          if (keys.length > 0) {
+            console.log(`[UPSTOX FEED LIVE] Received real-time updates for ${keys.length} instruments (e.g. ${keys.slice(0, 3).join(", ")}).`);
+          }
+          // Process and map the feeds
+          keys.forEach(key => {
+            const feed = feedObject.feeds[key];
+            let ltp = 0;
+            let high = 0;
+            let low = 0;
+            let close = 0;
+
+            if (feed.ltpc) {
+              ltp = Number(feed.ltpc.ltp);
+              close = Number(feed.ltpc.cp);
+            }
+            if (feed.ff) {
+              if (feed.ff.ltpc) {
+                ltp = Number(feed.ff.ltpc.ltp);
+                close = Number(feed.ff.ltpc.cp);
+              }
+              if (feed.ff.marketOHLC && feed.ff.marketOHLC.ohlc) {
+                const d1 = feed.ff.marketOHLC.ohlc.find((o: any) => o.interval === "1d") || feed.ff.marketOHLC.ohlc[0];
+                if (d1) {
+                  high = Number(d1.high);
+                  low = Number(d1.low);
+                }
+              }
+            }
+
+            // Find reverse symbol from map using our robust matcher
+            const symbol = matchUpstoxKeyToSymbol(key);
+            if (symbol && ltp > 0) {
+              const change = close > 0 ? ((ltp - close) / close) * 100 : 0;
+              console.log(`[UPSTOX REALTIME TICK] ${symbol}: LTP = ${ltp}, High = ${high}, Low = ${low}, Change = ${change.toFixed(2)}%`);
+              const payload = {
+                type: "TICK",
+                symbol,
+                ltp,
+                high: high || ltp,
+                low: low || ltp,
+                change: Number(change.toFixed(2))
+              };
+
+              // Broadcast tick to all connected clients
+              broadcastToClients(payload);
+            }
+          });
+        }
+      } catch (err: any) {
+        console.error("Protobuf WS Decode Error:", err.message);
+      }
+    });
+
+    upstoxWs.on("close", (code, reason) => {
+      console.log(`Upstox Live WebSocket closed: Code ${code}, Reason: ${reason}`);
+      upstoxWs = null;
+      // Reconnect after delay if token is still valid
+      if (upstoxAccessToken) {
+        setTimeout(() => connectUpstoxFeed(), 5000);
+      }
+    });
+
+    upstoxWs.on("error", (error) => {
+      console.error("Upstox Live WebSocket Error:", error.message);
+    });
+
+  } catch (error: any) {
+    console.error("Failed to connect Upstox Feed:", error.message);
+  }
+}
+
+function reconnectUpstoxWebSocket() {
+  disconnectUpstoxWebSocket();
+  if (!upstoxAccessToken) return;
+
+  console.log("Initiating Upstox Live Market Data WebSocket connection...");
+  connectUpstoxFeed();
+}
+
+function disconnectUpstoxWebSocket() {
+  if (upstoxWs) {
+    try {
+      upstoxWs.close();
+    } catch (e) {}
+    upstoxWs = null;
+  }
+}
+
+async function verifyAndConnectProvidedToken(token: string) {
+  console.log("------------------------------------------------------------------");
+  console.log("[UPSTOX PRO VERIFICATION] VERIFYING USER-PROVIDED ACCESS TOKEN...");
+  console.log(`[UPSTOX PRO VERIFICATION] Token: ${token.slice(0, 15)}...${token.slice(-15)}`);
+  try {
+    const res = await fetch("https://api.upstox.com/v2/user/profile", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/json"
+      }
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[UPSTOX PRO VERIFICATION] Failed! HTTP status: ${res.status}`);
+      console.error("[UPSTOX PRO VERIFICATION] Response payload:", errText);
+      return false;
+    }
+
+    const data = await res.json();
+    console.log("[UPSTOX PRO VERIFICATION] Profile Response Status:", data.status);
+    if (data.status === "success" && data.data) {
+      upstoxAccessToken = token;
+      upstoxConnectedUser = {
+        email: data.data.email || "upstox_user@papermarket.local",
+        userName: data.data.user_name || "Upstox Pro Trader",
+        userId: data.data.user_id || "UPSTOX_USER",
+      };
+      console.log("[UPSTOX PRO VERIFICATION] Configured active connected profile:", upstoxConnectedUser);
+      console.log("[UPSTOX PRO VERIFICATION] Triggering real-time Live Feed connection...");
+      reconnectUpstoxWebSocket();
+      return true;
+    } else {
+      console.error("[UPSTOX PRO VERIFICATION] Error: Response format does not contain success status or data:", data);
+      return false;
+    }
+  } catch (err: any) {
+    console.error("[UPSTOX PRO VERIFICATION] Exception raised:", err.message);
+    return false;
+  } finally {
+    console.log("------------------------------------------------------------------");
+  }
+}
+
+function startSimulationLoop() {
+  if (simulationInterval) return;
+
+  simulationInterval = setInterval(() => {
+    // Only simulate if Upstox WS is NOT active
+    if (upstoxWs) return;
+
+    // Simulate tick updates for each symbol and broadcast
+    const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);
+    const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+
+    const payload = {
+      type: "SIM_TICK",
+      symbol: randomSymbol
+    };
+    broadcastToClients(payload);
+  }, 1000);
+}
+
+function stopSimulationLoop() {
+  if (simulationInterval) {
+    clearInterval(simulationInterval);
+    simulationInterval = null;
+  }
+}
 
 // Initialize Razorpay client with environment variables or fallback to provided test credentials
 const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "rzp_test_TC3Hx6D3Aywz7D";
@@ -46,13 +430,291 @@ function getGeminiClient(): GoogleGenAI | null {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
 
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Upstox Integration API Endpoints
+  app.get("/api/integrations/upstox/auth", (req, res) => {
+    const apiKey = process.env.UPSTOX_API_KEY;
+    const redirectUri = process.env.UPSTOX_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/integrations/upstox/callback`;
+
+    if (!apiKey) {
+      return res.status(400).json({ error: "UPSTOX_API_KEY is not configured in environment variables." });
+    }
+
+    const params = new URLSearchParams({
+      client_id: apiKey,
+      redirect_uri: redirectUri,
+      response_type: "code"
+    });
+
+    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
+    res.json({ url: authUrl });
+  });
+
+  app.get(["/api/integrations/upstox/callback", "/api/integrations/upstox/callback/"], async (req, res) => {
+    const { code } = req.query;
+
+    if (!code) {
+      return res.status(400).send("Authorization code is missing.");
+    }
+
+    try {
+      const apiKey = process.env.UPSTOX_API_KEY;
+      const apiSecret = process.env.UPSTOX_API_SECRET;
+      const redirectUri = process.env.UPSTOX_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/integrations/upstox/callback`;
+
+      const tokenResponse = await fetch("https://api.upstox.com/v2/login/authorization/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "accept": "application/json"
+        },
+        body: new URLSearchParams({
+          code: code as string,
+          client_id: apiKey || "",
+          client_secret: apiSecret || "",
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code"
+        }).toString()
+      });
+
+      if (!tokenResponse.ok) {
+        const errData = await tokenResponse.text();
+        throw new Error(`Upstox token exchange failed: ${errData}`);
+      }
+
+      const data = await tokenResponse.json();
+      upstoxAccessToken = data.access_token;
+      upstoxConnectedUser = {
+        email: data.email || "upstox_user@papermarket.local",
+        userName: data.user_name || "Upstox Pro Trader",
+        userId: data.user_id || "UPSTOX_USER",
+      };
+
+      // Save to Firestore for all users & devices persistence
+      await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
+
+      // Reconnect Upstox Live WebSocket
+      reconnectUpstoxWebSocket();
+
+      res.send(`
+        <html>
+          <head>
+            <style>
+              body {
+                background-color: #060913;
+                color: #f3f4f6;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+              }
+              .card {
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                padding: 2.5rem;
+                border-radius: 1.5rem;
+                text-align: center;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+                max-width: 400px;
+              }
+              .success-icon {
+                color: #10b981;
+                font-size: 3rem;
+                margin-bottom: 1rem;
+              }
+              h1 {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+              }
+              p {
+                color: #9ca3af;
+                font-size: 0.875rem;
+                line-height: 1.5;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="success-icon">✓</div>
+              <h1>Authentication Successful</h1>
+              <p>Upstox Developer API has been linked successfully to your Paper Market Pro account. This window will now self-close.</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', user: ${JSON.stringify(upstoxConnectedUser)} }, '*');
+                setTimeout(() => {
+                  window.close();
+                }, 1500);
+              } else {
+                setTimeout(() => {
+                  window.location.href = '/';
+                }, 2000);
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error: any) {
+      console.error("Upstox OAuth Error:", error);
+      res.status(500).send(`Upstox authentication failed: ${error.message}`);
+    }
+  });
+
+  app.get("/api/integrations/upstox/status", (req, res) => {
+    res.json({
+      connected: !!upstoxAccessToken,
+      wsConnected: !!upstoxWs && upstoxWs.readyState === WS.OPEN,
+      wsReadyState: upstoxWs ? upstoxWs.readyState : null,
+      user: upstoxConnectedUser,
+      config: {
+        apiKey: process.env.UPSTOX_API_KEY ? `${process.env.UPSTOX_API_KEY.slice(0, 6)}...` : null,
+        redirectUri: process.env.UPSTOX_REDIRECT_URI || null
+      }
+    });
+  });
+
+  app.post("/api/integrations/upstox/disconnect", async (req, res) => {
+    upstoxAccessToken = null;
+    upstoxConnectedUser = null;
+    disconnectUpstoxWebSocket();
+    await clearUpstoxTokenInFirestore();
+    res.json({ success: true, message: "Disconnected successfully." });
+  });
+
+  app.get("/api/integrations/upstox/candles", async (req, res) => {
+    const { symbol, timeframe } = req.query;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol is required" });
+    }
+
+    if (!upstoxAccessToken) {
+      return res.json({ fallback: true, message: "Upstox not connected. Using premium simulation." });
+    }
+
+    try {
+      const upstoxSymbol = UPSTOX_INSTRUMENT_MAP[symbol as string];
+      if (!upstoxSymbol) {
+        return res.json({ fallback: true, message: `Symbol ${symbol} has no Upstox mapping. Using simulation.` });
+      }
+
+      let upstoxInterval = "1minute";
+      if (timeframe === "1D") {
+        upstoxInterval = "day";
+      } else if (timeframe === "30m" || timeframe === "1h") {
+        upstoxInterval = "30minute";
+      }
+
+      const url = `https://api.upstox.com/v2/historical-candle/intraday/${encodeURIComponent(upstoxSymbol)}/${upstoxInterval}`;
+      const response = await fetch(url, {
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upstox candles request failed: ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      if (json.status !== "success" || !json.data || !json.data.candles) {
+        throw new Error("No candle data returned from Upstox.");
+      }
+
+      const candles = json.data.candles.map((c: any) => {
+        const date = new Date(c[0]);
+        let formattedTime = "";
+        if (timeframe === '1D') {
+          formattedTime = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        } else {
+          formattedTime = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
+        return {
+          time: formattedTime,
+          open: Number(c[1]),
+          high: Number(c[2]),
+          low: Number(c[3]),
+          close: Number(c[4]),
+          volume: Number(c[5])
+        };
+      }).reverse();
+
+      res.json({ success: true, candles });
+    } catch (error: any) {
+      console.warn(`Upstox Candle Fetch Warning for ${symbol}:`, error.message);
+      res.json({ fallback: true, message: error.message });
+    }
+  });
+
+  app.get("/api/integrations/upstox/ltp", async (req, res) => {
+    if (!upstoxAccessToken) {
+      return res.status(401).json({ error: "Upstox not connected" });
+    }
+
+    try {
+      const keys = Object.values(UPSTOX_INSTRUMENT_MAP);
+      
+      // Chunk keys into arrays of max 15 items to respect Upstox API limits of max 20 per request
+      const chunkSize = 15;
+      const chunks: string[][] = [];
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        chunks.push(keys.slice(i, i + chunkSize));
+      }
+
+      const prices: Record<string, number> = {};
+      const rawKeys: string[] = [];
+
+      // Fetch all chunks concurrently to keep performance high
+      await Promise.all(chunks.map(async (chunk) => {
+        try {
+          const instrumentKeyParam = chunk.map(k => encodeURIComponent(k)).join(",");
+          const url = `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${instrumentKeyParam}`;
+
+          const response = await fetch(url, {
+            headers: {
+              "Authorization": `Bearer ${upstoxAccessToken}`,
+              "Accept": "application/json"
+            }
+          });
+
+          if (!response.ok) {
+            console.error(`Upstox LTP chunk query failed with status: ${response.status}`);
+            return;
+          }
+
+          const json = await response.json();
+          if (json.status === "success" && json.data) {
+            Object.keys(json.data).forEach(upstoxKey => {
+              rawKeys.push(upstoxKey);
+              const symbol = matchUpstoxKeyToSymbol(upstoxKey);
+              if (symbol) {
+                prices[symbol] = json.data[upstoxKey].last_price;
+              }
+            });
+          }
+        } catch (chunkErr: any) {
+          console.error("Upstox LTP chunk fetch exception:", chunkErr.message);
+        }
+      }));
+
+      res.json({ success: true, prices, rawKeys });
+    } catch (error: any) {
+      console.error("Upstox LTP Fetch Error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // Razorpay Payment Gateway Integration Routes
@@ -154,9 +816,13 @@ Produce a JSON response matching this schema:
   "notes": "constructive 2-sentence critique analyzing the trade speed, risk profile, and alignment with proper trading methodology"
 }`;
 
-      const systemInstruction = `You are "AI Journalizer" - an elite algorithmic trade reviewer and behavioral finance expert.
+      const systemInstruction = `You are "AI Journalizer" - specifically acting as a highly experienced human trader reviewing a trade log.
 Analyze the provided closed trade parameters and generate a highly realistic, professional, and psychologically acute journal entry.
-Format the output strictly as JSON. No markdown other than the JSON string itself. Do not include any text before or after the JSON.`;
+
+CRITICAL VOICE AND STYLE GUIDELINES:
+1. STRICTLY FORBIDDEN: Do NOT sound like ChatGPT or Gemini. Avoid corporate jargon, preachy advice, or robotic intros/outros.
+2. The fields "entryReason", "exitReason", "lessonLearned", and "notes" must sound exactly like a real human trader writing in their personal trading diary after a long session. Keep them concise, punchy, and highly realistic. Use short phrases and conversational styles (e.g., "Smashed into major resistance on high volume, had to cut it," instead of "The exit was executed because the asset reached a designated resistance level.").
+3. Format the output strictly as JSON matching the requested schema. Do not include any text before or after the JSON.`;
 
       const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
@@ -235,11 +901,16 @@ Produce a JSON response matching this schema:
   "quizExplanation": "Deep psychological explanation of why the correct option is the optimal action"
 }`;
 
-      const systemInstruction = `You are "AI Trading Coach & Educator".
+      const systemInstruction = `You are "AI Trading Coach & Educator" - specifically acting as a seasoned trading partner who writes punchy, conversational, and deeply authentic notes.
 Based on the user's trading journal entries, evaluate their core psychological and tactical leaks.
 Design an engaging, personalized Markdown tutorial lesson to correct this behavior.
-Format the output strictly as JSON. No markdown other than the JSON string itself.
-CRITICAL LANGUAGE RULE: Detect the language of the user's trading journal entries. If they are written in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the lesson titles, problemAnalysis, coreConcept, exercises, and quizzes in that SAME language so the user gets a fully native learning experience!`;
+
+CRITICAL VOICE AND STYLE GUIDELINES:
+1. STRICTLY FORBIDDEN: Do NOT sound like ChatGPT or Gemini. Avoid academic jargon, preachy advice, or robotic intros/outros. Write the lesson as if a highly successful trader is messaging a buddy on Discord to help them fix an expensive leak.
+2. The 'coreConcept' section should be written in conversational Markdown. Use short paragraphs, casual contractions, and a direct tone. Break the concept down through raw real-world insights, not clinical bulleted guides.
+3. Keep the lesson punchy, realistic, empathetic, and grounded in real-market execution.
+4. Format the output strictly as JSON. No markdown other than the JSON string itself.
+5. CRITICAL LANGUAGE RULE: Detect the language of the user's trading journal entries. If they are written in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the lesson titles, problemAnalysis, coreConcept, exercises, and quizzes in that SAME language so the user gets a fully native learning experience!`;
 
       const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
@@ -366,10 +1037,15 @@ Format the output strictly as JSON matching this schema:
   "feedback": "string text"
 }`;
 
-      const systemInstruction = `You are "AI Research Quantitative Psychologist".
+      const systemInstruction = `You are "AI Research Quantitative Psychologist" - acting as an expert quantitative risk manager and human performance specialist who speaks with absolute directness and clarity.
 Analyze the trader's computed metrics and focus areas, research their psychological leaks, and return custom high-quality AI insights and feedback.
-Format the output strictly as JSON. No markdown other than the JSON string itself.
-CRITICAL LANGUAGE RULE: Detect the language of the user's journals, custom training directives, or specified focus area. If they are in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the insights (headline, description) and feedback in that SAME language!`;
+
+CRITICAL VOICE AND STYLE GUIDELINES:
+1. STRICTLY FORBIDDEN: Do NOT sound like ChatGPT or Gemini. Avoid generic headlines like "Understanding Risk Management" or preachy phrases like "It is vital to follow rules." 
+2. Write headlines and descriptions that are punchy, direct, and sound like they are authored by a human chief risk officer who has spent 15 years on the trading desk.
+3. Keep feedback conversational, realistic, and highly practical.
+4. Format the output strictly as JSON. No markdown other than the JSON string itself.
+5. CRITICAL LANGUAGE RULE: Detect the language of the user's journals, custom training directives, or specified focus area. If they are in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the insights (headline, description) and feedback in that SAME language!`;
 
       const response = await aiClient.models.generateContent({
         model: "gemini-3.5-flash",
@@ -450,15 +1126,15 @@ Tell me a bit more about what's going on. Are you holding onto a trade right now
     }
 
     try {
-      const systemInstruction = `You are "Mind Coach" - a world-class trading psychologist and human performance mentor. You are NOT an AI assistant, and you must never sound like one.
+      const systemInstruction = `You are "Mind Coach" - a seasoned, authentic, and street-smart human trading partner, psychologist, and market veteran. You are NOT an AI assistant, and you must never sound like one.
 Your mission is to help traders survive and thrive in the markets by overcoming emotional leaks: FOMO, revenge trading, overtrading, fear of loss, and greed.
 
 CRITICAL VOICE AND STYLE GUIDELINES:
-1. NEVER use AI boilerplates or robotic transition phrases (e.g., "I understand your frustration," "As an AI model," "Let's explore this step-by-step," "Here is what you should do"). Jump straight into the conversation.
-2. Speak like a real human mentor—authentic, empathetic, warm, grounded, but direct and completely honest. Use short, punchy paragraphs and highly conversational syntax (e.g., "Hey, I completely hear you," "Look, let's be real for a second," "I've been in that exact spot").
-3. AVOID long bulleted lists of advice unless explicitly requested. Real humans don't speak in neat bullet points; they converse in natural, flowing paragraphs. Limit any lists to 1 or 2 high-impact takeaways at most.
-4. Use authentic trading language and cognitive principles naturally (e.g., "drawdown," "chasing a runner," "risk parameters," "emotional capital").
-5. Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty rallies 2% without me, THEN I will close my charts and walk away until the afternoon session"). Do this collaboratively, like a seasoned mentor helping a friend, rather than an AI assignment.
+1. STRICTLY FORBIDDEN: NEVER use AI clichés or robotic transition/filler phrases (e.g., "Certainly!", "I'm sorry to hear that," "I understand your frustration," "As an AI model," "Let's explore this step-by-step," "Here is some advice," "I hope this helps," "Let me know if you have other questions"). Jump straight into the conversation with raw truth.
+2. Speak like an experienced trading buddy or private mentor sitting right next to them—authentic, raw, deeply empathetic, warm, but incredibly direct and honest. Use short, punchy paragraphs, casual contractions (don't, let's, we'll), and imperfect, natural conversational flow.
+3. ABSOLUTELY NO CHATGPT STYLE STRUCTURES: Do not write neat, perfectly balanced essays. Do not use neat bullet points or numbered lists unless absolutely necessary (if so, keep them to 1 or 2 informal points maximum). Real humans talk in fluid, natural paragraphs, not perfectly formatted blogs.
+4. Use authentic trading language and concepts naturally (e.g., "chasing candles," "revenge trade," "sizing down," "blowing an account," "slashed risk").
+5. Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty rallies 2% without me, THEN I will close my charts and walk away until the afternoon session"). Do this collaboratively, like a seasoned mentor helping a friend.
 6. CRITICAL LANGUAGE RULE: You MUST automatically detect the language of the user's message/input (e.g. Hindi, Hinglish, Spanish, French, German, Tamil, Telugu, etc.) and respond in that EXACT same language or style. If they speak in Hindi (e.g. "मेरा बहुत नुकसान हो गया है"), reply in fluent, warm, and encouraging Hindi. If they use Hinglish (e.g. "FOMO control kaise karu?"), reply in natural Hinglish. Keep your tone identical and consistent across all languages. Match their style perfectly.`;
 
       // Map client history to Gemini Content structure if present
@@ -779,7 +1455,7 @@ The backtest results for the **${strategy.name}** strategy on **${assetName}** p
       }
 
       try {
-        const auditPrompt = `You are an elite quantitative hedge fund analyst review team.
+        const auditPrompt = `You are a legendary quantitative trading desk head and hedge fund strategist reviewing a system backtest.
 Please evaluate this strategy's 12-month historical backtest simulated result.
 Asset traded: ${assetName}
 Strategy Name: ${strategy.name}
@@ -796,10 +1472,12 @@ Strategy Description: ${strategy.description}
 - Final Balance: ₹${stats.finalBalance.toLocaleString('en-IN')}
 
 Analyze this backtest mathematically. Provide:
-1. A 2-paragraph professional quantitative review of this backtest's performance, pinpointing if it was suited to market regimes (trends, volatility, or consolidation).
-2. exactly 2 actionable, specific recommendations to optimize the parameters (e.g. adding volume filters, tightening stop loss, or using indicator thresholds) to boost profit factor or decrease drawdowns.
+1. A 2-paragraph direct, rigorous quantitative review of this backtest's performance, assessing whether it thrived or got chopped up by recent market regimes (trends, range-bound, or volatile consolidations).
+2. Exactly 2 highly specific, actionable parameter optimization rules (e.g., dynamic ATR stops, volume threshold filters, or multi-timeframe regime overlays) to improve risk-adjusted returns.
 
-Write in a highly sophisticated, expert tone, formatted with beautiful scannable headings. Keep the feedback practical and mathematically rigorous. Do not mention any mock data or simulated generation; treat it as an actual high-fidelity trading ledger.`;
+CRITICAL STYLE GUIDELINES:
+- STRICTLY FORBIDDEN: Do NOT write like ChatGPT or Gemini. Avoid preachy generalities, generic trading definitions, or corporate filler. Do not start with robotic intro lines like "Based on the provided metrics, we have analyzed...". Jump straight to the audit.
+- Write in a highly sophisticated, expert tone, formatted with clean Markdown headers. Keep the feedback practical, dense with technical detail, and mathematically rigorous. Speak as one quantitative elite to another.`;
 
         const auditResponse = await aiClient.models.generateContent({
           model: "gemini-3.5-flash",
@@ -848,8 +1526,77 @@ Write in a highly sophisticated, expert tone, formatted with beautiful scannable
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Paper Market Pro Full-Stack server booted smoothly on port ${PORT}`);
+  // Create HTTP server wrapping Express
+  const server = http.createServer(app);
+
+  // Set up WebSocket Server for live market ticks
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (request, socket, head) => {
+    try {
+      const url = request.url || "";
+      const pathname = url.split("?")[0];
+      console.log(`[WS UPGRADE] Path: ${pathname}, URL: ${url}`);
+
+      if (pathname === "/api/ws" || pathname === "/api/ws/") {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit("connection", ws, request);
+        });
+      } else {
+        // Log unhandled paths (such as standard Vite dev WS connections which can be ignored)
+        console.log(`[WS UPGRADE IGNORED] Non-matching upgrade path: ${pathname}`);
+      }
+    } catch (err: any) {
+      console.error("[WS UPGRADE EXCEPTION]:", err.message);
+      try {
+        socket.destroy();
+      } catch (e) {}
+    }
+  });
+
+  wss.on("connection", (ws) => {
+    clientWsSockets.add(ws);
+    
+    // Send immediate status to the client
+    ws.send(JSON.stringify({
+      type: "STATUS",
+      connected: !!upstoxAccessToken,
+      user: upstoxConnectedUser
+    }));
+
+    // Start simulation loop if Upstox is disconnected or to supplement updates
+    startSimulationLoop();
+
+    ws.on("close", () => {
+      clientWsSockets.delete(ws);
+      if (clientWsSockets.size === 0) {
+        stopSimulationLoop();
+      }
+    });
+  });
+
+  server.listen(PORT, "0.0.0.0", async () => {
+    console.log(`Paper Market Pro Full-Stack server booted smoothly on http://0.0.0.0:${PORT}`);
+    
+    // Attempt to restore persistent credentials from Firestore first
+    try {
+      const savedData = await loadUpstoxTokenFromFirestore();
+      if (savedData && savedData.accessToken) {
+        console.log("[STARTUP] Found saved Upstox token in Firestore. Verifying credentials...");
+        const verified = await verifyAndConnectProvidedToken(savedData.accessToken);
+        if (verified) {
+          console.log("[STARTUP] Restored active global Upstox WebSocket feed session successfully!");
+          return;
+        }
+        console.warn("[STARTUP] Saved Firestore token verification failed. Falling back...");
+      }
+    } catch (fsErr: any) {
+      console.error("[STARTUP] Failed loading Upstox token from Firestore:", fsErr.message);
+    }
+
+    // Auto-verify and connect with the user's default/provided token as fallback on boot
+    const providedToken = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0VUFQVzYiLCJqdGkiOiI2YTUzNDhmZjA4OWEyZjI0OGM2Y2NjMzkiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6ZmFsc2UsImlhdCI6MTc4Mzg0MzA3MSwiaXNzIjoidWRhcGktZ2F0ZXdheS1zZXJ2aWNlIiwiZXhwIjoxNzgzODkzNjAwfQ.hyMkiLlwaZEpYWGR3k1DenCvfx_KfZZErje_wQfFWdU";
+    verifyAndConnectProvidedToken(providedToken);
   });
 }
 

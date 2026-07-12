@@ -26,6 +26,31 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
   const [stopLoss, setStopLoss] = useState<string>('');
   const [target, setTarget] = useState<string>('');
   
+  // Sizing Planner States
+  const [riskPercent, setRiskPercent] = useState<number>(1);
+  const [customBalanceInput, setCustomBalanceInput] = useState<string>('');
+  const [simSLPercent, setSimSLPercent] = useState<number>(2);
+
+  // Load any pre-configured sizing from RiskManagement
+  useEffect(() => {
+    const preQty = localStorage.getItem('risk_calc_qty');
+    const preSL = localStorage.getItem('risk_calc_sl');
+    const preTarget = localStorage.getItem('risk_calc_target');
+
+    if (preQty) {
+      setQty(parseInt(preQty) || 50);
+      localStorage.removeItem('risk_calc_qty');
+    }
+    if (preSL) {
+      setStopLoss(preSL);
+      localStorage.removeItem('risk_calc_sl');
+    }
+    if (preTarget) {
+      setTarget(preTarget);
+      localStorage.removeItem('risk_calc_target');
+    }
+  }, [selectedAsset]);
+  
   // Feedback states
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
@@ -39,6 +64,29 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
   }, [selectedAsset]);
 
   const activePrice = orderType === 'Market' ? selectedAsset.ltp : parseFloat(limitPrice) || selectedAsset.ltp;
+  
+  // Position Sizing calculations
+  const plannerBalance = customBalanceInput ? (parseFloat(customBalanceInput) || user.virtualBalance) : user.virtualBalance;
+  const plannerRiskCapital = plannerBalance * (riskPercent / 100);
+  
+  const formSLVal = parseFloat(stopLoss);
+  const hasFormSL = !isNaN(formSLVal) && formSLVal > 0;
+  
+  const slPriceForSizing = hasFormSL 
+    ? formSLVal 
+    : (direction === 'Buy' ? activePrice * (1 - simSLPercent / 100) : activePrice * (1 + simSLPercent / 100));
+    
+  const plannerRiskPerShare = Math.max(0.01, Math.abs(activePrice - slPriceForSizing));
+  const plannerRecommendedQty = Math.max(1, Math.floor(plannerRiskCapital / plannerRiskPerShare));
+  const plannerRequiredMargin = plannerRecommendedQty * activePrice;
+
+  const handleApplySizing = () => {
+    setQty(plannerRecommendedQty);
+    if (!hasFormSL) {
+      setStopLoss(slPriceForSizing.toFixed(2));
+    }
+  };
+
   const marginRequired = activePrice * qty;
   const estimatedBrokerage = direction === 'Buy' && orderType === 'Market' ? 20.00 : 0.00; // Zerodha delivery modeling
   const taxesAndCharges = Number((marginRequired * 0.0012).toFixed(2)); // STT, SEBI, GST estimation
@@ -137,6 +185,128 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
             <span className="font-sans leading-relaxed">
               Executing CE/PE and Limit orders simulates real-time matching with mock order books. All transaction records populate your private portfolio positions history instantly.
             </span>
+          </div>
+
+          {/* Position Size Calculator Panel */}
+          <div className="bg-[#0b0e14] border border-white/5 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+              <h4 className="text-xs font-bold text-white uppercase font-mono tracking-wider">📐 Sizing & Risk Protection Planner</h4>
+            </div>
+            
+            <p className="text-[10px] text-gray-400 leading-normal">
+              Ensure proper leverage by locking down your per-trade risk coefficient. Calculates target quantity matching your risk profile.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Risk Coefficient */}
+              <div className="space-y-1">
+                <span className="text-[9px] text-gray-500 font-mono uppercase block">Risk %: {riskPercent}%</span>
+                <div className="flex gap-1">
+                  {[0.5, 1, 2].map(v => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setRiskPercent(v)}
+                      className={`flex-1 py-1 text-[9px] font-bold rounded-lg transition ${
+                        riskPercent === v 
+                          ? 'bg-sky-500 text-white shadow' 
+                          : 'bg-white/5 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {v}%
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    value={riskPercent}
+                    onChange={e => setRiskPercent(parseFloat(e.target.value) || 1)}
+                    className="w-10 bg-white/5 border border-white/10 rounded-lg px-1.5 py-1 text-center text-[9px] text-white font-mono"
+                    placeholder="Custom"
+                  />
+                </div>
+              </div>
+
+              {/* Stop-Loss Simulation */}
+              <div className="space-y-1">
+                <span className="text-[9px] text-gray-500 font-mono uppercase block">
+                  {hasFormSL ? 'Active Stop-Loss (₹)' : 'Fallback SL %'}
+                </span>
+                {hasFormSL ? (
+                  <div className="bg-sky-500/10 border border-sky-500/20 text-sky-400 font-mono text-[10px] font-bold px-3 py-1.5 rounded-lg text-center">
+                    ₹{formSLVal.toFixed(2)}
+                  </div>
+                ) : (
+                  <div className="flex gap-1">
+                    {[1, 2, 3].map(v => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setSimSLPercent(v)}
+                        className={`flex-1 py-1 text-[9px] font-bold rounded-lg transition ${
+                          simSLPercent === v 
+                            ? 'bg-amber-500 text-white shadow' 
+                            : 'bg-white/5 text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {v}%
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Custom Balance Override */}
+              <div className="space-y-1">
+                <span className="text-[9px] text-gray-500 font-mono uppercase block">Capital Balance (₹)</span>
+                <input
+                  type="number"
+                  value={customBalanceInput}
+                  onChange={e => setCustomBalanceInput(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono placeholder-gray-600"
+                  placeholder={`Default: ₹${user.virtualBalance.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                />
+              </div>
+
+              {/* Recommended Quantity Display */}
+              <div className="space-y-1">
+                <span className="text-[9px] text-gray-500 font-mono uppercase block">Recommended Qty</span>
+                <div className="bg-white/3 border border-white/5 rounded-xl px-3 py-2 text-xs text-white font-mono font-bold flex justify-between items-center">
+                  <span className="text-sky-400">{plannerRecommendedQty}</span>
+                  <span className="text-[8px] text-gray-500 font-normal">units</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Calculations Breakdown */}
+            <div className="bg-white/1 rounded-xl p-3 border border-white/3 text-[9px] font-mono text-gray-400 space-y-1">
+              <div className="flex justify-between">
+                <span>Account Capital Risked:</span>
+                <span className="text-red-400 font-bold">₹{plannerRiskCapital.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Risk Per Share (₹):</span>
+                <span className="text-white">₹{plannerRiskPerShare.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Equivalent Stop-Loss:</span>
+                <span className="text-white">₹{slPriceForSizing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Required Margin for Sized Qty:</span>
+                <span className="text-emerald-400 font-bold">₹{plannerRequiredMargin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleApplySizing}
+              className="w-full bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-bold py-2.5 rounded-xl text-[10px] transition border border-sky-500/10 tracking-wider uppercase cursor-pointer"
+            >
+              Apply Recommended Sizing & Stop Loss to Ticket
+            </button>
           </div>
         </div>
 

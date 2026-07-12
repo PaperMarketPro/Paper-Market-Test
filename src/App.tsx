@@ -17,12 +17,26 @@ import { StrategyBuilder } from './components/StrategyBuilder';
 import { Academy } from './components/Academy';
 import { Profile } from './components/Profile';
 import { Analytics } from './components/Analytics';
+import { RiskManagement } from './components/RiskManagement';
 import { Position } from './types';
 
 function MainAppCoordinator() {
   const { user, isAuthLoading, logoutUser } = useApp();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
+
+  React.useEffect(() => {
+    const handleNavigateEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setCurrentTab(customEvent.detail);
+      }
+    };
+    window.addEventListener('navigate_tab', handleNavigateEvent);
+    return () => {
+      window.removeEventListener('navigate_tab', handleNavigateEvent);
+    };
+  }, []);
 
   const handleJournalShortcut = (pos: Position) => {
     setJournalPosition(pos);
@@ -86,6 +100,9 @@ function MainAppCoordinator() {
       )}
       {currentTab === 'strategy' && (
         <StrategyBuilder />
+      )}
+      {currentTab === 'risk-management' && (
+        <RiskManagement />
       )}
       {currentTab === 'academy' && (
         <Academy />
