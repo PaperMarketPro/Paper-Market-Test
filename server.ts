@@ -5,6 +5,7 @@
 
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
@@ -30,16 +31,24 @@ import { getFirestore, Firestore } from "firebase-admin/firestore";
 
 let db: Firestore | null = null;
 try {
-  admin.initializeApp({
-    projectId: "phonic-transit-7wfkz"
-  });
-  db = getFirestore("ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
+  const firebaseApp = admin.initializeApp({ projectId: "phonic-transit-7wfkz" });
+  db = getFirestore(firebaseApp, "ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
   console.log("[FIREBASE-ADMIN] Initialized targeting: ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
 } catch (err: any) {
   console.warn("[FIREBASE-ADMIN] Local or mock environment initialization: ", err.message);
 }
 
+const CACHE_PATH = path.join(process.cwd(), "upstox_token_cache.json");
+
 async function saveUpstoxTokenToFirestore(token: string, user: any) {
+  // Save locally first
+  try {
+    fs.writeFileSync(CACHE_PATH, JSON.stringify({ accessToken: token, user, updatedAt: new Date().toISOString() }), "utf8");
+    console.log("[CACHE] Saved active Upstox credentials to local cache file successfully.");
+  } catch (err: any) {
+    console.warn("[CACHE] Failed to save Upstox token to local cache:", err.message);
+  }
+
   if (!db) return;
   try {
     const configDocRef = db.collection("config").doc("upstox");
@@ -50,11 +59,24 @@ async function saveUpstoxTokenToFirestore(token: string, user: any) {
     });
     console.log("[FIRESTORE] Saved active Upstox credentials to database successfully.");
   } catch (error: any) {
-    console.error("[FIRESTORE] Error saving Upstox token:", error.message);
+    console.warn("[FIRESTORE] Optional Firestore persistence note:", error.message);
   }
 }
 
 async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; user: any } | null> {
+  // Load locally first
+  try {
+    if (fs.existsSync(CACHE_PATH)) {
+      const data = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
+      if (data && data.accessToken) {
+        console.log("[CACHE] Successfully loaded saved Upstox token from local cache file.");
+        return { accessToken: data.accessToken, user: data.user };
+      }
+    }
+  } catch (err: any) {
+    console.warn("[CACHE] Failed to load Upstox token from local cache:", err.message);
+  }
+
   if (!db) return null;
   try {
     const configDocRef = db.collection("config").doc("upstox");
@@ -67,12 +89,22 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
       }
     }
   } catch (error: any) {
-    console.error("[FIRESTORE] Error loading Upstox token:", error.message);
+    console.warn("[FIRESTORE] Optional Firestore retrieval note:", error.message);
   }
   return null;
 }
 
 async function clearUpstoxTokenInFirestore() {
+  // Clear locally
+  try {
+    if (fs.existsSync(CACHE_PATH)) {
+      fs.unlinkSync(CACHE_PATH);
+      console.log("[CACHE] Cleared active Upstox credentials in local cache file.");
+    }
+  } catch (err: any) {
+    console.warn("[CACHE] Failed to clear local cache file:", err.message);
+  }
+
   if (!db) return;
   try {
     const configDocRef = db.collection("config").doc("upstox");
@@ -83,7 +115,7 @@ async function clearUpstoxTokenInFirestore() {
     });
     console.log("[FIRESTORE] Cleared Upstox credentials in database.");
   } catch (error: any) {
-    console.error("[FIRESTORE] Error clearing Upstox token:", error.message);
+    console.warn("[FIRESTORE] Optional Firestore clearing note:", error.message);
   }
 }
 
@@ -379,16 +411,17 @@ function startSimulationLoop() {
     // Only simulate if Upstox WS is NOT active
     if (upstoxWs) return;
 
-    // Simulate tick updates for each symbol and broadcast
+    // Simulate tick updates for multiple symbols every 200ms to keep the UI incredibly fast, active and responsive for everyone
     const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);
-    const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
-
-    const payload = {
-      type: "SIM_TICK",
-      symbol: randomSymbol
-    };
-    broadcastToClients(payload);
-  }, 1000);
+    for (let i = 0; i < 6; i++) {
+      const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+      const payload = {
+        type: "SIM_TICK",
+        symbol: randomSymbol
+      };
+      broadcastToClients(payload);
+    }
+  }, 200);
 }
 
 function stopSimulationLoop() {
@@ -440,9 +473,18 @@ async function startServer() {
   });
 
   // Upstox Integration API Endpoints
-  app.get("/api/integrations/upstox/auth", (req, res) => {
+  app.get("/api/integrations/upstox/auth-url", (req, res) => {
     const apiKey = process.env.UPSTOX_API_KEY;
-    const redirectUri = process.env.UPSTOX_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/integrations/upstox/callback`;
+    let redirectUri = process.env.UPSTOX_REDIRECT_URI;
+    if (!redirectUri) {
+      if (process.env.APP_URL) {
+        redirectUri = `${process.env.APP_URL.replace(/\/$/, "")}/api/integrations/upstox/callback`;
+      } else {
+        const host = req.get('host') || "";
+        const protocol = host.includes("localhost") ? "http" : "https";
+        redirectUri = `${protocol}://${host}/api/integrations/upstox/callback`;
+      }
+    }
 
     if (!apiKey) {
       return res.status(400).json({ error: "UPSTOX_API_KEY is not configured in environment variables." });
@@ -458,6 +500,33 @@ async function startServer() {
     res.json({ url: authUrl });
   });
 
+  app.get("/api/integrations/upstox/auth", (req, res) => {
+    const apiKey = process.env.UPSTOX_API_KEY;
+    let redirectUri = process.env.UPSTOX_REDIRECT_URI;
+    if (!redirectUri) {
+      if (process.env.APP_URL) {
+        redirectUri = `${process.env.APP_URL.replace(/\/$/, "")}/api/integrations/upstox/callback`;
+      } else {
+        const host = req.get('host') || "";
+        const protocol = host.includes("localhost") ? "http" : "https";
+        redirectUri = `${protocol}://${host}/api/integrations/upstox/callback`;
+      }
+    }
+
+    if (!apiKey) {
+      return res.status(400).send("UPSTOX_API_KEY is not configured in environment variables.");
+    }
+
+    const params = new URLSearchParams({
+      client_id: apiKey,
+      redirect_uri: redirectUri,
+      response_type: "code"
+    });
+
+    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
+    res.redirect(authUrl);
+  });
+
   app.get(["/api/integrations/upstox/callback", "/api/integrations/upstox/callback/"], async (req, res) => {
     const { code } = req.query;
 
@@ -468,7 +537,16 @@ async function startServer() {
     try {
       const apiKey = process.env.UPSTOX_API_KEY;
       const apiSecret = process.env.UPSTOX_API_SECRET;
-      const redirectUri = process.env.UPSTOX_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/integrations/upstox/callback`;
+      let redirectUri = process.env.UPSTOX_REDIRECT_URI;
+      if (!redirectUri) {
+        if (process.env.APP_URL) {
+          redirectUri = `${process.env.APP_URL.replace(/\/$/, "")}/api/integrations/upstox/callback`;
+        } else {
+          const host = req.get('host') || "";
+          const protocol = host.includes("localhost") ? "http" : "https";
+          redirectUri = `${protocol}://${host}/api/integrations/upstox/callback`;
+        }
+      }
 
       const tokenResponse = await fetch("https://api.upstox.com/v2/login/authorization/token", {
         method: "POST",
@@ -591,6 +669,60 @@ async function startServer() {
     disconnectUpstoxWebSocket();
     await clearUpstoxTokenInFirestore();
     res.json({ success: true, message: "Disconnected successfully." });
+  });
+
+  app.post("/api/integrations/upstox/connect-manual", async (req, res) => {
+    const { token } = req.body;
+    if (!token || typeof token !== "string" || token.trim() === "") {
+      return res.status(400).json({ error: "Access token is required" });
+    }
+
+    const trimmedToken = token.trim();
+    try {
+      const verifyRes = await fetch("https://api.upstox.com/v2/user/profile", {
+        headers: {
+          "Authorization": `Bearer ${trimmedToken}`,
+          "Accept": "application/json"
+        }
+      });
+
+      if (!verifyRes.ok) {
+        const errText = await verifyRes.text();
+        let errMsg = "Verification failed.";
+        try {
+          const errObj = JSON.parse(errText);
+          if (errObj.errors && errObj.errors[0]) {
+            errMsg = errObj.errors[0].message || errMsg;
+          } else if (errObj.message) {
+            errMsg = errObj.message;
+          }
+        } catch (_) {}
+        return res.status(400).json({ error: `Upstox rejected token: ${errMsg}` });
+      }
+
+      const data = await verifyRes.json();
+      if (data.status === "success" && data.data) {
+        upstoxAccessToken = trimmedToken;
+        upstoxConnectedUser = {
+          email: data.data.email || "upstox_user@papermarket.local",
+          userName: data.data.user_name || "Upstox Pro Trader",
+          userId: data.data.user_id || "UPSTOX_USER",
+        };
+        
+        await saveUpstoxTokenToFirestore(trimmedToken, upstoxConnectedUser);
+        reconnectUpstoxWebSocket();
+
+        return res.json({
+          success: true,
+          message: "Successfully connected to Upstox Market Data Feed!",
+          user: upstoxConnectedUser
+        });
+      } else {
+        return res.status(400).json({ error: "Failed to parse profile data from Upstox." });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ error: `Token validation error: ${err.message}` });
+    }
   });
 
   app.get("/api/integrations/upstox/candles", async (req, res) => {

@@ -18,13 +18,62 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'stats' }) => {
-  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, updateBalance, upgradeToPro, theme, toggleTheme, upstoxStatus, disconnectUpstox } = useApp();
+  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, updateBalance, upgradeToPro, theme, toggleTheme, upstoxStatus, disconnectUpstox, refreshUpstoxStatus, connectUpstoxManually } = useApp();
   if (!user) return null;
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 
   React.useEffect(() => {
     setActiveSubTab(initialSubTab);
   }, [initialSubTab]);
+
+  // Upstox Manual Connection state
+  const [manualToken, setManualToken] = useState('');
+  const [isConnectingToken, setIsConnectingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
+
+  // Listen to popup authentication success message
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        refreshUpstoxStatus();
+        setTokenSuccess("Successfully authenticated via Upstox Developer login flow!");
+        setTokenError(null);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [refreshUpstoxStatus]);
+
+  const handleConnectOAuth = async () => {
+    try {
+      setTokenError(null);
+      setTokenSuccess(null);
+      const response = await fetch('/api/integrations/upstox/auth-url');
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to generate Upstox auth URL.');
+      }
+      const { url } = await response.json();
+
+      const width = 600;
+      const height = 750;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      const popup = window.open(
+        url,
+        'upstox_oauth_popup',
+        `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`
+      );
+
+      if (!popup) {
+        setTokenError("Popup was blocked by your browser. Please allow popups or use Option A (manual paste).");
+      }
+    } catch (err: any) {
+      setTokenError(err.message || "Failed to initiate OAuth flow.");
+    }
+  };
 
   // Subscription state
   const [showCheckout, setShowCheckout] = useState(false);

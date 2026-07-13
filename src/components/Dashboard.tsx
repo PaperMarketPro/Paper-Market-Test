@@ -18,7 +18,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const { user, positions, instruments, futures, optionChain, setSelectedAssetBySymbol } = useApp();
+  const { user, positions, instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useApp();
   if (!user) return null;
   const [activeTab, setActiveTab] = useState<'equity' | 'monthly'>('equity');
   const [isRefreshing, setIsRefreshing] = useState(false);

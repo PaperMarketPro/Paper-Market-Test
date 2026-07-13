@@ -321,31 +321,29 @@ export const TradingViewChart: React.FC<{ symbol: string; timeframe: string }> =
 
   // Extract clean symbol and map to standard TradingView ticker
   const getTradingViewSymbol = (sym: string): string => {
-    let clean = sym.toUpperCase().trim();
+    const clean = sym.toUpperCase().trim();
     
-    // Extract underlier for options
-    if (clean.includes(' CE') || clean.includes(' PE') || clean.includes(' CALL') || clean.includes(' PUT')) {
-      const parts = clean.split(' ');
-      clean = parts[0];
-    }
-    
-    // Futures clean-up
-    if (clean.endsWith('FUT')) {
-      clean = clean.replace('FUT', '').trim();
-    }
+    // Extract first word (e.g. "NIFTY" from "NIFTY 24-JUL FUT" or "NIFTY 50" or options like "NIFTY 24-JUL 24300 CE")
+    const parts = clean.split(' ');
+    const firstWord = parts[0];
 
-    if (clean === 'NIFTY') clean = 'NIFTY 50';
-    if (clean === 'BANKNIFTY') clean = 'BANKNIFTY';
-    if (clean === 'FINNIFTY') clean = 'FINNIFTY';
-    if (clean === 'SENSEX') clean = 'SENSEX';
-    if (clean === 'MIDCPNIFTY') clean = 'MIDCPNIFTY';
+    if (firstWord === 'NIFTY') {
+      return 'NSE:NIFTY';
+    }
+    if (firstWord === 'BANKNIFTY') {
+      return 'NSE:BANKNIFTY';
+    }
+    if (firstWord === 'FINNIFTY') {
+      return 'NSE:CNXFINANCE';
+    }
+    if (firstWord === 'SENSEX') {
+      return 'BSE:SENSEX';
+    }
+    if (firstWord === 'MIDCPNIFTY') {
+      return 'NSE:MIDCPNIFTY';
+    }
 
     const mapping: Record<string, string> = {
-      'NIFTY 50': 'NSE:NIFTY',
-      'BANKNIFTY': 'NSE:BANKNIFTY',
-      'FINNIFTY': 'NSE:CNXFINANCE',
-      'SENSEX': 'BSE:SENSEX',
-      'MIDCPNIFTY': 'NSE:MIDCPNIFTY',
       'RELIANCE': 'NSE:RELIANCE',
       'TCS': 'NSE:TCS',
       'INFY': 'NSE:INFY',
@@ -365,7 +363,7 @@ export const TradingViewChart: React.FC<{ symbol: string; timeframe: string }> =
       'SUNPHARMA': 'NSE:SUNPHARMA'
     };
 
-    return mapping[clean] || `NSE:${clean}`;
+    return mapping[firstWord] || `NSE:${firstWord}`;
   };
 
   const tvSymbol = getTradingViewSymbol(symbol);

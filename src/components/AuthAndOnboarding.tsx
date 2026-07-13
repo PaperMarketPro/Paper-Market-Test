@@ -92,19 +92,51 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
           throw new Error("Please enter your display name.");
         }
         // Create user in firebase Auth
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
-        // Initialize user database on Firestore
-        await initializeNewUser({
-          name: name.trim(),
-          email: email.trim(),
-          experience: exp,
-          goals: selectedGoals,
-          virtualBalance: startingCap,
-          initialBalance: startingCap
-        });
+        try {
+          await createUserWithEmailAndPassword(auth, email.trim(), password);
+          // Initialize user database on Firestore
+          await initializeNewUser({
+            name: name.trim(),
+            email: email.trim(),
+            experience: exp,
+            goals: selectedGoals,
+            virtualBalance: startingCap,
+            initialBalance: startingCap
+          });
+        } catch (fbErr: any) {
+          if (fbErr.code === 'auth/operation-not-allowed') {
+            console.warn("Firebase Auth Email/Password provider is disabled. Gracefully falling back to fully functional local sandbox session.");
+            initializeGuestUser({
+              name: name.trim(),
+              email: email.trim(),
+              experience: exp,
+              goals: selectedGoals,
+              virtualBalance: startingCap,
+              initialBalance: startingCap
+            });
+          } else {
+            throw fbErr;
+          }
+        }
       } else {
         // Log in user
-        await signInWithEmailAndPassword(auth, email.trim(), password);
+        try {
+          await signInWithEmailAndPassword(auth, email.trim(), password);
+        } catch (fbErr: any) {
+          if (fbErr.code === 'auth/operation-not-allowed') {
+            console.warn("Firebase Auth Email/Password provider is disabled. Gracefully falling back to fully functional local sandbox session.");
+            initializeGuestUser({
+              name: email.split('@')[0] || 'Guest Trader',
+              email: email.trim(),
+              experience: exp,
+              goals: selectedGoals,
+              virtualBalance: startingCap,
+              initialBalance: startingCap
+            });
+          } else {
+            throw fbErr;
+          }
+        }
       }
       onComplete();
     } catch (err: any) {
@@ -116,6 +148,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
       else if (err.code === 'auth/email-already-in-use') friendlyMsg = "This email is already registered. Please log in.";
       else if (err.code === 'auth/weak-password') friendlyMsg = "Password should be at least 6 characters.";
       else if (err.code === 'auth/operation-not-allowed') friendlyMsg = "Email/Password sign-in is not enabled in Firebase Auth Console. Click 'Continue in Local Guest Mode' below to start practicing risk-free instantly!";
+      else if (err.code === 'auth/network-request-failed') friendlyMsg = "Firebase Network Request Failed. This typically happens when an Ad Blocker, Brave Browser Shield, VPN, or local firewall blocks Firebase Authentication domains (googleapis.com / firebaseapp.com). Please disable your Ad Blocker, try a different browser, or click 'Continue in Local Guest Mode' below to start practicing instantly!";
       setErrorMsg(friendlyMsg);
     } finally {
       setIsLoading(false);
@@ -521,9 +554,77 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
             </div>
 
             {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3.5 rounded-xl flex items-start gap-2.5 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex flex-col gap-3 text-xs">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="font-medium leading-relaxed">{errorMsg}</span>
+                </div>
+                
+                {errorMsg.includes("not enabled in Firebase Auth Console") && (
+                  <div className="mt-2 bg-black/30 p-4 rounded-lg border border-red-500/10 space-y-3 text-gray-300">
+                    <p className="font-semibold text-white flex items-center gap-1.5 text-sm">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      How to enable Email Login in 10 seconds:
+                    </p>
+                    <ol className="list-decimal pl-4 space-y-1.5 leading-relaxed text-gray-300">
+                      <li>
+                        Click the button below to open your project's Auth Console in a new tab:
+                      </li>
+                      <li className="list-none pt-1">
+                        <a 
+                          href="https://console.firebase.google.com/project/phonic-transit-7wfkz/authentication/providers" 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-1.5 rounded-md font-bold text-xs transition cursor-pointer"
+                        >
+                          Open Firebase Auth Console <ArrowRight className="w-3.5 h-3.5" />
+                        </a>
+                      </li>
+                      <li>In the console, select the <strong>"Sign-in method"</strong> tab at the top.</li>
+                      <li>Under <strong>"Sign-in providers"</strong>, click <strong>"Add new provider"</strong>.</li>
+                      <li>Select <strong>"Email/Password"</strong>, turn on the first toggle (Email/Password), and click <strong>"Save"</strong>.</li>
+                    </ol>
+                    <div className="pt-2 text-[11px] text-amber-400 border-t border-white/5 flex flex-wrap gap-2 items-center justify-between">
+                      <span>Once saved, you can immediately create your account here!</span>
+                      <button
+                        type="button"
+                        onClick={handleGuestProceed}
+                        className="text-white hover:underline font-bold"
+                      >
+                        Skip & Continue as Guest →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {errorMsg.includes("Firebase Network Request Failed") && (
+                  <div className="mt-2 bg-black/30 p-4 rounded-lg border border-red-500/10 space-y-3 text-gray-300">
+                    <p className="font-semibold text-white flex items-center gap-1.5 text-sm">
+                      <AlertCircle className="w-4 h-4 text-red-400" />
+                      Resolving Firebase Network Blocking:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1.5 leading-relaxed text-gray-300">
+                      <li>
+                        <strong>Ad Blocker / Shields:</strong> Ad blockers (like uBlock Origin, AdBlock Plus) or built-in browser shields (like Brave Shields, Opera Ad blocker) can sometimes falsely flag Firebase Auth endpoints as trackers. Try pausing shields/blockers on this page.
+                      </li>
+                      <li>
+                        <strong>VPN/Firewall:</strong> If you are on an institutional or corporate network, Google's auth domains may be restricted. Try disconnecting from VPN or using a mobile hotspot.
+                      </li>
+                      <li>
+                        <strong>Practice Mode Option:</strong> If you cannot disable your blocker, you can bypass this entirely and play risk-free by clicking below!
+                      </li>
+                    </ul>
+                    <div className="pt-2 text-[11px] border-t border-white/5 flex flex-wrap gap-2 items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={handleGuestProceed}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shadow-md transition cursor-pointer"
+                      >
+                        ⚡ Continue in Local Guest Mode Now
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

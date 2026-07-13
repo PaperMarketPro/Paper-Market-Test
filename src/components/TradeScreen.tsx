@@ -49,7 +49,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
       setTarget(preTarget);
       localStorage.removeItem('risk_calc_target');
     }
-  }, [selectedAsset]);
+  }, [selectedAsset.symbol]);
   
   // Feedback states
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +61,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
     setTriggerPrice((selectedAsset.ltp * 0.99).toFixed(2));
     setStopLoss('');
     setTarget('');
-  }, [selectedAsset]);
+  }, [selectedAsset.symbol]);
 
   const activePrice = orderType === 'Market' ? selectedAsset.ltp : parseFloat(limitPrice) || selectedAsset.ltp;
   

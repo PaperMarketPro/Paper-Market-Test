@@ -67,6 +67,7 @@ interface AppContextType {
   upstoxStatus: { connected: boolean; user: any; config: any };
   refreshUpstoxStatus: () => Promise<void>;
   disconnectUpstox: () => Promise<void>;
+  connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -520,6 +521,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const connectUpstoxManually = async (token: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/integrations/upstox/connect-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        await refreshUpstoxStatus();
+        pushNotification('Upstox Linked!', `Successfully connected using manual access token.`, 'badge');
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Failed to link token" };
+      }
+    } catch (e: any) {
+      console.error("Failed to manually connect Upstox:", e);
+      return { success: false, error: e.message || "Network error occurred." };
+    }
+  };
+
   useEffect(() => {
     refreshUpstoxStatus();
   }, []);
@@ -647,6 +669,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               })
             );
 
+            // Update real-time futures matching message.symbol or index spot movement
+            setFutures(prev =>
+              prev.map(inst => {
+                const isMatch = inst.symbol.startsWith(message.symbol) || 
+                  (message.symbol === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
+                  (message.symbol === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'));
+                if (isMatch) {
+                  // Adjust future relative to spot tick or update directly
+                  const nextLtp = inst.symbol === message.symbol ? message.ltp : message.ltp * 1.0025; // standard premium
+                  const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+                  return {
+                    ...inst,
+                    ltp: nextLtp,
+                    change: message.change,
+                    high: nextLtp > inst.high ? nextLtp : inst.high,
+                    low: nextLtp < inst.low ? nextLtp : inst.low,
+                    sparkline: sparkCopy,
+                  };
+                }
+                return inst;
+              })
+            );
+
             // Dynamically calculate option chain price updates relative to active spot underlier movement
             setOptionChain(prev =>
               prev.map(item => {
@@ -699,7 +744,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Walk futures and option chains too to keep things ticking
             setFutures(prev =>
               prev.map(inst => {
-                if (inst.symbol.startsWith(message.symbol)) {
+                const isMatch = inst.symbol.startsWith(message.symbol) || 
+                  (message.symbol === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
+                  (message.symbol === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'));
+                if (isMatch) {
                   const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
                   const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
                   const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
@@ -761,25 +809,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync index and asset updates with position prices (unrealized P&L simulation)
   useEffect(() => {
-    setPositions(prev =>
-      prev.map(pos => {
-        const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
-        if (matchingAsset) {
-          return {
-            ...pos,
-            currentPrice: matchingAsset.ltp
-          };
-        }
+    if (positions.length === 0) return;
 
+    let changed = false;
+    const nextPositions = positions.map(pos => {
+      let nextPrice = pos.currentPrice;
+
+      const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
+      if (matchingAsset) {
+        nextPrice = matchingAsset.ltp;
+      } else {
         const matchingFuture = futures.find(f => f.symbol === pos.symbol);
         if (matchingFuture) {
-          return {
-            ...pos,
-            currentPrice: matchingFuture.ltp
-          };
-        }
-
-        if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
+          nextPrice = matchingFuture.ltp;
+        } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
           const parts = pos.symbol.split(' ');
           const strikeStr = parts[parts.length - 2];
           const typeStr = parts[parts.length - 1];
@@ -796,25 +839,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const callIntrinsic = Math.max(0, spot - strike);
               const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
               const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-              return {
-                ...pos,
-                currentPrice: callLtp < 1.0 ? 1.05 : callLtp
-              };
+              nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
             } else {
               const putIntrinsic = Math.max(0, strike - spot);
               const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
               const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-              return {
-                ...pos,
-                currentPrice: putLtp < 1.0 ? 1.05 : putLtp
-              };
+              nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
             }
           }
         }
+      }
 
-        return pos;
-      })
-    );
+      if (nextPrice !== pos.currentPrice) {
+        changed = true;
+        return { ...pos, currentPrice: nextPrice };
+      }
+      return pos;
+    });
+
+    if (changed) {
+      setPositions(nextPositions);
+    }
   }, [instruments, futures]);
 
   // AI Auto-Trader Real-Time Strategy Execution Engine
@@ -1626,6 +1671,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         upstoxStatus,
         refreshUpstoxStatus,
         disconnectUpstox,
+        connectUpstoxManually,
       }}
     >
       {children}

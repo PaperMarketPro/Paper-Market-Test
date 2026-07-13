@@ -17,7 +17,7 @@ interface MarketsProps {
 }
 
 export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
-  const { instruments, futures, optionChain, setSelectedAssetBySymbol } = useApp();
+  const { instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useApp();
   const [activeTab, setActiveTab] = useState<'watchlist' | 'options' | 'indices'>(
     mode === 'fno' ? 'options' : 'watchlist'
   );
