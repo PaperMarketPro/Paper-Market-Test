@@ -24,6 +24,7 @@ let upstoxConnectedUser: any = null;
 let upstoxWs: WS | null = null;
 const clientWsSockets = new Set<any>();
 let simulationInterval: NodeJS.Timeout | null = null;
+let upstoxReconnectTimeout: NodeJS.Timeout | null = null;
 
 // Initialize Firebase Admin securely
 import admin from "firebase-admin";
@@ -209,6 +210,17 @@ function broadcastToClients(payload: any) {
   });
 }
 
+function scheduleUpstoxReconnect() {
+  if (upstoxReconnectTimeout) return; // already scheduled
+  if (!upstoxAccessToken) return; // no token, don't reconnect
+
+  console.log("[UPSTOX RECONNECT] Scheduling Upstox WebSocket reconnection in 10 seconds...");
+  upstoxReconnectTimeout = setTimeout(async () => {
+    upstoxReconnectTimeout = null;
+    await connectUpstoxFeed();
+  }, 10000);
+}
+
 async function connectUpstoxFeed() {
   try {
     if (!upstoxAccessToken) return;
@@ -222,7 +234,10 @@ async function connectUpstoxFeed() {
     });
 
     if (!authRes.ok) {
-      console.error("Upstox WS authorize failed:", await authRes.text());
+      const errText = await authRes.text();
+      console.error("Upstox WS authorize failed:", errText);
+      // We do not clear the token automatically to ensure the connection remains saved and can self-recover/reconnect
+      scheduleUpstoxReconnect();
       return;
     }
 
@@ -230,6 +245,7 @@ async function connectUpstoxFeed() {
     const redirectUrl = authData?.data?.authorizedRedirectUri || authData?.data?.authorized_redirect_uri || authData?.data?.authorizedRedirectUrl;
     if (!redirectUrl) {
       console.error("Invalid authorize redirect URL from Upstox:", authData);
+      scheduleUpstoxReconnect();
       return;
     }
 
@@ -328,10 +344,7 @@ async function connectUpstoxFeed() {
     upstoxWs.on("close", (code, reason) => {
       console.log(`Upstox Live WebSocket closed: Code ${code}, Reason: ${reason}`);
       upstoxWs = null;
-      // Reconnect after delay if token is still valid
-      if (upstoxAccessToken) {
-        setTimeout(() => connectUpstoxFeed(), 5000);
-      }
+      scheduleUpstoxReconnect();
     });
 
     upstoxWs.on("error", (error) => {
@@ -340,11 +353,16 @@ async function connectUpstoxFeed() {
 
   } catch (error: any) {
     console.error("Failed to connect Upstox Feed:", error.message);
+    scheduleUpstoxReconnect();
   }
 }
 
 function reconnectUpstoxWebSocket() {
   disconnectUpstoxWebSocket();
+  if (upstoxReconnectTimeout) {
+    clearTimeout(upstoxReconnectTimeout);
+    upstoxReconnectTimeout = null;
+  }
   if (!upstoxAccessToken) return;
 
   console.log("Initiating Upstox Live Market Data WebSocket connection...");
@@ -352,6 +370,10 @@ function reconnectUpstoxWebSocket() {
 }
 
 function disconnectUpstoxWebSocket() {
+  if (upstoxReconnectTimeout) {
+    clearTimeout(upstoxReconnectTimeout);
+    upstoxReconnectTimeout = null;
+  }
   if (upstoxWs) {
     try {
       upstoxWs.close();
@@ -384,11 +406,11 @@ async function verifyAndConnectProvidedToken(token: string) {
     if (data.status === "success" && data.data) {
       upstoxAccessToken = token;
       upstoxConnectedUser = {
-        email: data.data.email || "upstox_user@papermarket.local",
-        userName: data.data.user_name || "Upstox Pro Trader",
-        userId: data.data.user_id || "UPSTOX_USER",
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Account",
+        userId: "UPSTOX_USER",
       };
-      console.log("[UPSTOX PRO VERIFICATION] Configured active connected profile:", upstoxConnectedUser);
+      console.log("[UPSTOX PRO VERIFICATION] Configured active anonymized connected profile:", upstoxConnectedUser);
       console.log("[UPSTOX PRO VERIFICATION] Triggering real-time Live Feed connection...");
       reconnectUpstoxWebSocket();
       return true;
@@ -571,9 +593,9 @@ async function startServer() {
       const data = await tokenResponse.json();
       upstoxAccessToken = data.access_token;
       upstoxConnectedUser = {
-        email: data.email || "upstox_user@papermarket.local",
-        userName: data.user_name || "Upstox Pro Trader",
-        userId: data.user_id || "UPSTOX_USER",
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Account",
+        userId: "UPSTOX_USER",
       };
 
       // Save to Firestore for all users & devices persistence
@@ -655,7 +677,11 @@ async function startServer() {
       connected: !!upstoxAccessToken,
       wsConnected: !!upstoxWs && upstoxWs.readyState === WS.OPEN,
       wsReadyState: upstoxWs ? upstoxWs.readyState : null,
-      user: upstoxConnectedUser,
+      user: upstoxConnectedUser ? {
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Account",
+        userId: "UPSTOX_USER",
+      } : null,
       config: {
         apiKey: process.env.UPSTOX_API_KEY ? `${process.env.UPSTOX_API_KEY.slice(0, 6)}...` : null,
         redirectUri: process.env.UPSTOX_REDIRECT_URI || null
@@ -704,9 +730,9 @@ async function startServer() {
       if (data.status === "success" && data.data) {
         upstoxAccessToken = trimmedToken;
         upstoxConnectedUser = {
-          email: data.data.email || "upstox_user@papermarket.local",
-          userName: data.data.user_name || "Upstox Pro Trader",
-          userId: data.data.user_id || "UPSTOX_USER",
+          email: "pro_feed_user@papermarket.local",
+          userName: "Upstox Pro Account",
+          userId: "UPSTOX_USER",
         };
         
         await saveUpstoxTokenToFirestore(trimmedToken, upstoxConnectedUser);
@@ -749,9 +775,21 @@ async function startServer() {
         upstoxInterval = "30minute";
       }
 
-      const url = `https://api.upstox.com/v2/historical-candle/intraday/${encodeURIComponent(upstoxSymbol)}/${upstoxInterval}`;
+      let url = `https://api.upstox.com/v2/historical-candle/intraday/${encodeURIComponent(upstoxSymbol)}/${upstoxInterval}`;
+      if (upstoxInterval === "day") {
+        const toDateObj = new Date();
+        const toDate = toDateObj.toISOString().split('T')[0];
+        
+        const fromDateObj = new Date();
+        fromDateObj.setDate(fromDateObj.getDate() - 365); // 1 year of daily historical data
+        const fromDate = fromDateObj.toISOString().split('T')[0];
+        
+        url = `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(upstoxSymbol)}/${upstoxInterval}/${toDate}/${fromDate}`;
+      }
+
       const response = await fetch(url, {
         headers: {
+          "Authorization": `Bearer ${upstoxAccessToken}`,
           "Accept": "application/json"
         }
       });
@@ -1711,24 +1749,30 @@ CRITICAL STYLE GUIDELINES:
     console.log(`Paper Market Pro Full-Stack server booted smoothly on http://0.0.0.0:${PORT}`);
     
     // Attempt to restore persistent credentials from Firestore first
+    let hasSavedToken = false;
     try {
       const savedData = await loadUpstoxTokenFromFirestore();
       if (savedData && savedData.accessToken) {
-        console.log("[STARTUP] Found saved Upstox token in Firestore. Verifying credentials...");
-        const verified = await verifyAndConnectProvidedToken(savedData.accessToken);
-        if (verified) {
-          console.log("[STARTUP] Restored active global Upstox WebSocket feed session successfully!");
-          return;
-        }
-        console.warn("[STARTUP] Saved Firestore token verification failed. Falling back...");
+        console.log("[STARTUP] Found saved Upstox token in Firestore. Bootstrapping connection...");
+        upstoxAccessToken = savedData.accessToken;
+        upstoxConnectedUser = {
+          email: "pro_feed_user@papermarket.local",
+          userName: "Upstox Pro Account",
+          userId: "UPSTOX_USER",
+        };
+        hasSavedToken = true;
+        // Connect the feed
+        connectUpstoxFeed();
       }
     } catch (fsErr: any) {
       console.error("[STARTUP] Failed loading Upstox token from Firestore:", fsErr.message);
     }
 
-    // Auto-verify and connect with the user's default/provided token as fallback on boot
-    const providedToken = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0VUFQVzYiLCJqdGkiOiI2YTUzNDhmZjA4OWEyZjI0OGM2Y2NjMzkiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6ZmFsc2UsImlhdCI6MTc4Mzg0MzA3MSwiaXNzIjoidWRhcGktZ2F0ZXdheS1zZXJ2aWNlIiwiZXhwIjoxNzgzODkzNjAwfQ.hyMkiLlwaZEpYWGR3k1DenCvfx_KfZZErje_wQfFWdU";
-    verifyAndConnectProvidedToken(providedToken);
+    if (!hasSavedToken) {
+      // Auto-verify and connect with the user's default/provided token as fallback on boot only if no saved token exists
+      const providedToken = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0VUFQVzYiLCJqdGkiOiI2YTUzNDhmZjA4OWEyZjI0OGM2Y2NjMzkiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6ZmFsc2UsImlhdCI6MTc4Mzg0MzA3MSwiaXNzIjoidWRhcGktZ2F0ZXdheS1zZXJ2aWNlIiwiZXhwIjoxNzgzODkzNjAwfQ.hyMkiLlwaZEpYWGR3k1DenCvfx_KfZZErje_wQfFWdU";
+      verifyAndConnectProvidedToken(providedToken);
+    }
   });
 }
 

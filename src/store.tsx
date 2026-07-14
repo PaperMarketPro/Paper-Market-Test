@@ -64,7 +64,7 @@ interface AppContextType {
   clearAllNotifications: () => void;
   selectedAsset: Instrument;
   setSelectedAssetBySymbol: (symbol: string) => void;
-  upstoxStatus: { connected: boolean; user: any; config: any };
+  upstoxStatus: { connected: boolean; wsConnected?: boolean; user: any; config: any };
   refreshUpstoxStatus: () => Promise<void>;
   disconnectUpstox: () => Promise<void>;
   connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
@@ -454,8 +454,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Upstox integration state
-  const [upstoxStatus, setUpstoxStatus] = useState<{ connected: boolean; user: any; config: any }>({
+  const [upstoxStatus, setUpstoxStatus] = useState<{ connected: boolean; wsConnected?: boolean; user: any; config: any }>({
     connected: false,
+    wsConnected: false,
     user: null,
     config: null
   });
@@ -486,7 +487,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch (err) {
-      console.error("[Upstox LTP Synchronizer] Error fetching LTP:", err);
+      console.warn("[Upstox LTP Synchronizer] Error fetching LTP (expected during boot, offline, or restart):", err);
     }
   };
 
@@ -497,6 +498,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = await res.json();
         setUpstoxStatus({
           connected: data.connected,
+          wsConnected: data.wsConnected,
           user: data.user,
           config: data.config
         });
@@ -505,7 +507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch (e) {
-      console.error("Failed to refresh Upstox status:", e);
+      console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
     }
   };
 
@@ -517,7 +519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
       }
     } catch (e) {
-      console.error("Failed to disconnect Upstox:", e);
+      console.warn("Failed to disconnect Upstox:", e);
     }
   };
 
@@ -537,7 +539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, error: data.error || "Failed to link token" };
       }
     } catch (e: any) {
-      console.error("Failed to manually connect Upstox:", e);
+      console.warn("Failed to manually connect Upstox:", e);
       return { success: false, error: e.message || "Network error occurred." };
     }
   };

@@ -24,8 +24,23 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
   const [fnoSection, setFnoSection] = useState<'futures' | 'options'>('futures');
   const [selectedList, setSelectedList] = useState<'All' | 'My Watchlist'>('All');
   
-  // Custom watchlist list
-  const [myWatchlist, setMyWatchlist] = useState<string[]>(['RELIANCE', 'TCS', 'HDFCBANK']);
+  // Custom watchlist list with persistent localStorage caching
+  const [myWatchlist, setMyWatchlist] = useState<string[]>(() => {
+    const saved = localStorage.getItem('upstox_custom_watchlist');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore and fallback to default
+      }
+    }
+    return ['RELIANCE', 'TCS', 'HDFCBANK'];
+  });
+
+  // Save changes to localStorage whenever myWatchlist changes
+  React.useEffect(() => {
+    localStorage.setItem('upstox_custom_watchlist', JSON.stringify(myWatchlist));
+  }, [myWatchlist]);
   
   // Search & add state
   const [searchQuery, setSearchQuery] = useState('');

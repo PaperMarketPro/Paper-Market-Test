@@ -7,12 +7,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
 import { 
-  TrendingUp, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
-  ChevronDown, Layers, Calendar, Sparkles, BookOpen, CheckSquare, ShieldCheck
+  TrendingUp, TrendingDown, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
+  ChevronDown, Layers, Calendar, Sparkles, BookOpen, CheckSquare, ShieldCheck,
+  Trash2, Maximize2, Minimize2, Plus
 } from 'lucide-react';
 import { 
-  ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, Area, CartesianGrid 
+  ResponsiveContainer, ComposedChart, Line as RechartsLine, Bar as RechartsBar, XAxis, YAxis, Tooltip, Area as RechartsArea, CartesianGrid 
 } from 'recharts';
+import { createChart, ColorType, CrosshairMode, UTCTimestamp, CandlestickSeries, AreaSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 
 interface StockChartProps {
   asset?: Instrument;
@@ -308,77 +310,690 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
   );
 };
 
-export const TradingViewChart: React.FC<{ symbol: string; timeframe: string }> = ({ symbol, timeframe }) => {
-  // Map timeframe to TradingView intervals: 1m -> 1, 5m -> 5, 15m -> 15, 1h -> 60, 1D -> D
-  const intervalMap: Record<string, string> = {
-    '1m': '1',
-    '5m': '5',
-    '15m': '15',
-    '1h': '60',
-    '1D': 'D'
-  };
-  const interval = intervalMap[timeframe] || '5';
+// Helper to enrich candles with continuous sequential Unix timestamps for lightweight-charts
+const enrichCandlesWithTimestamps = (rawCandles: Candle[], tf: string) => {
+  const now = Math.floor(Date.now() / 1000);
+  const intervalSeconds = {
+    '1m': 60,
+    '5m': 300,
+    '15m': 900,
+    '1h': 3600,
+    '1D': 86400
+  }[tf] || 300;
 
-  // Extract clean symbol and map to standard TradingView ticker
-  const getTradingViewSymbol = (sym: string): string => {
-    const clean = sym.toUpperCase().trim();
+  const n = rawCandles.length;
+  return rawCandles.map((candle, idx) => {
+    const timestamp = now - (n - 1 - idx) * intervalSeconds;
+    return {
+      ...candle,
+      timestamp
+    };
+  });
+};
+
+// Quantitative Indicators calculations
+function calculateRSI(data: Candle[], period: number = 14): { time: string; value: number }[] {
+  if (data.length < period + 1) return [];
+  const rsiData: { time: string; value: number }[] = [];
+  
+  let gains = 0;
+  let losses = 0;
+  
+  for (let i = 1; i <= period; i++) {
+    const diff = data[i].close - data[i - 1].close;
+    if (diff > 0) {
+      gains += diff;
+    } else {
+      losses -= diff;
+    }
+  }
+  
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  
+  let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+  let rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
+  
+  rsiData.push({ time: data[period].time, value: Number(rsi.toFixed(2)) });
+  
+  for (let i = period + 1; i < data.length; i++) {
+    const diff = data[i].close - data[i - 1].close;
+    const gain = diff > 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
     
-    // Extract first word (e.g. "NIFTY" from "NIFTY 24-JUL FUT" or "NIFTY 50" or options like "NIFTY 24-JUL 24300 CE")
-    const parts = clean.split(' ');
-    const firstWord = parts[0];
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    
+    rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
+    
+    rsiData.push({ time: data[i].time, value: Number(rsi.toFixed(2)) });
+  }
+  
+  return rsiData;
+}
 
-    if (firstWord === 'NIFTY') {
-      return 'NSE:NIFTY';
+function findSupportResistanceLevels(candles: Candle[], windowSize: number = 5): { support: number[]; resistance: number[] } {
+  const support: number[] = [];
+  const resistance: number[] = [];
+  
+  if (candles.length < windowSize * 2 + 1) return { support, resistance };
+  
+  for (let i = windowSize; i < candles.length - windowSize; i++) {
+    const currentHigh = candles[i].high;
+    const currentLow = candles[i].low;
+    
+    let isSwingHigh = true;
+    let isSwingLow = true;
+    
+    for (let j = -windowSize; j <= windowSize; j++) {
+      if (j === 0) continue;
+      if (candles[i + j].high > currentHigh) {
+        isSwingHigh = false;
+      }
+      if (candles[i + j].low < currentLow) {
+        isSwingLow = false;
+      }
     }
-    if (firstWord === 'BANKNIFTY') {
-      return 'NSE:BANKNIFTY';
+    
+    if (isSwingHigh) {
+      resistance.push(Number(currentHigh.toFixed(2)));
     }
-    if (firstWord === 'FINNIFTY') {
-      return 'NSE:CNXFINANCE';
+    if (isSwingLow) {
+      support.push(Number(currentLow.toFixed(2)));
     }
-    if (firstWord === 'SENSEX') {
-      return 'BSE:SENSEX';
+  }
+  
+  const filterLevels = (levels: number[]) => {
+    if (levels.length === 0) return [];
+    levels.sort((a, b) => a - b);
+    const clustered: number[] = [levels[0]];
+    for (let i = 1; i < levels.length; i++) {
+      const prev = clustered[clustered.length - 1];
+      const diffPercent = Math.abs(levels[i] - prev) / prev;
+      if (diffPercent > 0.015) { // 1.5% cluster threshold
+        clustered.push(levels[i]);
+      } else {
+        clustered[clustered.length - 1] = Number(((prev + levels[i]) / 2).toFixed(2));
+      }
     }
-    if (firstWord === 'MIDCPNIFTY') {
-      return 'NSE:MIDCPNIFTY';
+    return clustered.slice(-3); // return 3 closest levels
+  };
+  
+  return {
+    support: filterLevels(support),
+    resistance: filterLevels(resistance)
+  };
+}
+
+export const TradingViewChart: React.FC<{
+  symbol: string;
+  timeframe: '1m' | '5m' | '15m' | '1h' | '1D';
+  candles: Candle[];
+  chartType: 'candle' | 'area';
+  showEMA: boolean;
+  showSMA: boolean;
+  showBB: boolean;
+  showVolume: boolean;
+  isPositive: boolean;
+  isExpanded?: boolean;
+  onCloseExpanded?: () => void;
+}> = ({
+  symbol,
+  timeframe,
+  candles,
+  chartType,
+  showEMA,
+  showSMA,
+  showBB,
+  showVolume,
+  isPositive,
+  isExpanded,
+  onCloseExpanded
+}) => {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const rsiContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
+  const rsiChartRef = useRef<any>(null);
+  const candlestickSeriesRef = useRef<any>(null);
+  const areaSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
+  const emaSeriesRef = useRef<any>(null);
+  const smaSeriesRef = useRef<any>(null);
+  const bbUpperSeriesRef = useRef<any>(null);
+  const bbLowerSeriesRef = useRef<any>(null);
+  const bbBasisSeriesRef = useRef<any>(null);
+
+  // Advanced TradingView States
+  const [activeTool, setActiveTool] = useState<'cursor' | 'draw-support' | 'draw-resistance'>('cursor');
+  const [customLines, setCustomLines] = useState<{ id: string; price: number; type: 'support' | 'resistance' }[]>([]);
+  const [showAutoSR, setShowAutoSR] = useState(false);
+  const [showRSI, setShowRSI] = useState(false);
+
+  const activeToolRef = useRef(activeTool);
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
+
+  // Initialize and synchronize chart
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    // 1. Create a clean new chart instance
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: '#090c13' },
+        textColor: '#9ca3af',
+        fontFamily: 'Inter, sans-serif',
+      },
+      grid: {
+        vertLines: { color: 'rgba(255, 255, 255, 0.02)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.02)' },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          color: 'rgba(255, 255, 255, 0.15)',
+          width: 1,
+          style: 3, // dashed
+          labelBackgroundColor: '#1e222d',
+        },
+        horzLine: {
+          color: 'rgba(255, 255, 255, 0.15)',
+          width: 1,
+          style: 3, // dashed
+          labelBackgroundColor: '#1e222d',
+        },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        alignLabels: true,
+      },
+      timeScale: {
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+
+    chartRef.current = chart;
+
+    if (candles.length === 0) {
+      // Setup cleanup for empty state
+      const handleResize = () => {
+        if (chartContainerRef.current) {
+          chart.applyOptions({
+            width: chartContainerRef.current.clientWidth,
+            height: chartContainerRef.current.clientHeight,
+          });
+        }
+      };
+      window.addEventListener('resize', handleResize);
+      const resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(chartContainerRef.current);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        resizeObserver.disconnect();
+        chart.remove();
+        chartRef.current = null;
+      };
     }
 
-    const mapping: Record<string, string> = {
-      'RELIANCE': 'NSE:RELIANCE',
-      'TCS': 'NSE:TCS',
-      'INFY': 'NSE:INFY',
-      'HDFCBANK': 'NSE:HDFCBANK',
-      'ICICIBANK': 'NSE:ICICIBANK',
-      'SBIN': 'NSE:SBIN',
-      'TATAMOTORS': 'NSE:TATAMOTORS',
-      'LT': 'NSE:LT',
-      'BHARTIARTL': 'NSE:BHARTIARTL',
-      'ITC': 'NSE:ITC',
-      'HINDUNILVR': 'NSE:HINDUNILVR',
-      'WIPRO': 'NSE:WIPRO',
-      'AXISBANK': 'NSE:AXISBANK',
-      'KOTAKBANK': 'NSE:KOTAKBANK',
-      'BAJFINANCE': 'NSE:BAJFINANCE',
-      'M&M': 'NSE:M_M',
-      'SUNPHARMA': 'NSE:SUNPHARMA'
+    // 2. Enrich candles with sequential timestamps for lightweight-charts
+    const enrichedCandles = enrichCandlesWithTimestamps(candles, timeframe);
+
+    // 3. Setup primary series based on chartType
+    const greenColor = '#10b981';
+    const redColor = '#ef4444';
+    let activeSeries: any = null;
+
+    if (chartType === 'candle') {
+      const candlestickSeries = chart.addSeries(CandlestickSeries, {
+        upColor: greenColor,
+        downColor: redColor,
+        borderUpColor: greenColor,
+        borderDownColor: redColor,
+        wickUpColor: greenColor,
+        wickDownColor: redColor,
+      });
+      candlestickSeriesRef.current = candlestickSeries;
+      activeSeries = candlestickSeries;
+
+      const seriesData = enrichedCandles.map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
+      candlestickSeries.setData(seriesData);
+    } else {
+      const areaSeries = chart.addSeries(AreaSeries, {
+        lineColor: isPositive ? greenColor : redColor,
+        topColor: isPositive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+        bottomColor: 'rgba(9, 12, 19, 0)',
+        lineWidth: 2,
+      });
+      areaSeriesRef.current = areaSeries;
+      activeSeries = areaSeries;
+
+      const seriesData = enrichedCandles.map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        value: c.close,
+      }));
+      areaSeries.setData(seriesData);
+    }
+
+    // 4. Setup volume overlay if visible
+    if (showVolume) {
+      const volumeSeries = chart.addSeries(HistogramSeries, {
+        color: 'rgba(255, 255, 255, 0.12)',
+        priceFormat: {
+          type: 'volume',
+        },
+        priceScaleId: 'volume',
+      });
+      volumeSeriesRef.current = volumeSeries;
+
+      chart.priceScale('volume').applyOptions({
+        scaleMargins: {
+          top: 0.8,
+          bottom: 0,
+        },
+      });
+
+      const volumeData = enrichedCandles.map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+      }));
+      volumeSeries.setData(volumeData);
+    }
+
+    // 5. Setup Technical Indicators (EMA, SMA, BB)
+    if (showEMA) {
+      const emaSeries = chart.addSeries(LineSeries, {
+        color: '#0ea5e9',
+        lineWidth: 2,
+        title: 'EMA(8)',
+      });
+      emaSeriesRef.current = emaSeries;
+
+      const emaData = enrichedCandles
+        .filter(c => c.ema !== undefined)
+        .map(c => ({
+          time: c.timestamp as UTCTimestamp,
+          value: c.ema!,
+        }));
+      emaSeries.setData(emaData);
+    }
+
+    if (showSMA) {
+      const smaSeries = chart.addSeries(LineSeries, {
+        color: '#f59e0b',
+        lineWidth: 2,
+        title: 'SMA(15)',
+      });
+      smaSeriesRef.current = smaSeries;
+
+      const smaData = enrichedCandles
+        .filter(c => c.sma !== undefined)
+        .map(c => ({
+          time: c.timestamp as UTCTimestamp,
+          value: c.sma!,
+        }));
+      smaSeries.setData(smaData);
+    }
+
+    if (showBB) {
+      const bbUpperSeries = chart.addSeries(LineSeries, {
+        color: '#a855f7',
+        lineWidth: 1,
+        lineStyle: 1, // dashed
+        title: 'BB Upper',
+      });
+      bbUpperSeriesRef.current = bbUpperSeries;
+
+      const bbLowerSeries = chart.addSeries(LineSeries, {
+        color: '#a855f7',
+        lineWidth: 1,
+        lineStyle: 1, // dashed
+        title: 'BB Lower',
+      });
+      bbLowerSeriesRef.current = bbLowerSeries;
+
+      const bbBasisSeries = chart.addSeries(LineSeries, {
+        color: 'rgba(168, 85, 247, 0.5)',
+        lineWidth: 1,
+        title: 'BB Basis',
+      });
+      bbBasisSeriesRef.current = bbBasisSeries;
+
+      const bbUpperData = enrichedCandles.filter(c => c.bbUpper !== undefined).map(c => ({ time: c.timestamp as UTCTimestamp, value: c.bbUpper! }));
+      const bbLowerData = enrichedCandles.filter(c => c.bbLower !== undefined).map(c => ({ time: c.timestamp as UTCTimestamp, value: c.bbLower! }));
+      const bbBasisData = enrichedCandles.filter(c => c.bbBasis !== undefined).map(c => ({ time: c.timestamp as UTCTimestamp, value: c.bbBasis! }));
+
+      bbUpperSeries.setData(bbUpperData);
+      bbLowerSeries.setData(bbLowerData);
+      bbBasisSeries.setData(bbBasisData);
+    }
+
+    // 6. Support auto-drawn support and resistance pivot lines
+    if (showAutoSR && activeSeries) {
+      const levels = findSupportResistanceLevels(enrichedCandles);
+      levels.support.forEach(level => {
+        activeSeries.createPriceLine({
+          price: level,
+          color: '#10b981',
+          lineWidth: 1.5,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: 'Auto Support',
+        });
+      });
+      levels.resistance.forEach(level => {
+        activeSeries.createPriceLine({
+          price: level,
+          color: '#ef4444',
+          lineWidth: 1.5,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: 'Auto Resistance',
+        });
+      });
+    }
+
+    // 7. Support custom user-drawn lines
+    if (activeSeries) {
+      customLines.forEach(cl => {
+        activeSeries.createPriceLine({
+          price: cl.price,
+          color: cl.type === 'support' ? '#10b981' : '#ef4444',
+          lineWidth: 2,
+          lineStyle: 0, // Solid
+          axisLabelVisible: true,
+          title: cl.type === 'support' ? 'Support' : 'Resistance',
+        });
+      });
+    }
+
+    // 8. Secondary RSI Chart Panel
+    let rsiChart: any = null;
+    if (showRSI && rsiContainerRef.current) {
+      rsiChart = createChart(rsiContainerRef.current, {
+        layout: {
+          background: { type: ColorType.Solid, color: '#090c13' },
+          textColor: '#9ca3af',
+          fontFamily: 'Inter, sans-serif',
+        },
+        grid: {
+          vertLines: { color: 'rgba(255, 255, 255, 0.02)' },
+          horzLines: { color: 'rgba(255, 255, 255, 0.02)' },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            color: 'rgba(255, 255, 255, 0.15)',
+            width: 1,
+            style: 3,
+          },
+          horzLine: {
+            color: 'rgba(255, 255, 255, 0.15)',
+            width: 1,
+            style: 3,
+          }
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          visible: true,
+        },
+        timeScale: {
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          visible: false, // hide time scale on the RSI chart to avoid duplicate labels
+        },
+      });
+      rsiChartRef.current = rsiChart;
+
+      const rsiSeries = rsiChart.addSeries(LineSeries, {
+        color: '#a855f7',
+        lineWidth: 1.5,
+        title: 'RSI(14)',
+      });
+
+      // Add horizontal guidelines at 30, 50, 70 limits
+      rsiSeries.createPriceLine({
+        price: 70,
+        color: 'rgba(239, 68, 68, 0.3)',
+        lineWidth: 1,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: '70 (Overbought)',
+      });
+      rsiSeries.createPriceLine({
+        price: 50,
+        color: 'rgba(255, 255, 255, 0.1)',
+        lineWidth: 1,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: '50 (Neutral)',
+      });
+      rsiSeries.createPriceLine({
+        price: 30,
+        color: 'rgba(16, 185, 129, 0.3)',
+        lineWidth: 1,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: '30 (Oversold)',
+      });
+
+      const rsiDataRaw = calculateRSI(enrichedCandles, 14);
+      const rsiSeriesData = rsiDataRaw.map(r => {
+        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
+        return {
+          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          value: r.value,
+        };
+      }).filter(d => d.time > 0);
+
+      rsiSeries.setData(rsiSeriesData);
+
+      // Synchronize time scales
+      chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) {
+          rsiChart.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+
+      rsiChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) {
+          chart.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+    }
+
+    // Auto fit visible content nicely
+    chart.timeScale().fitContent();
+
+    // 9. Click Handler for Drawing tools
+    const clickHandler = (param: any) => {
+      if (!param.point || !activeSeries) return;
+      const price = activeSeries.coordinateToPrice(param.point.y);
+      if (price === null || price === undefined) return;
+
+      if (activeToolRef.current === 'draw-support') {
+        const roundedPrice = Number(price.toFixed(2));
+        setCustomLines(prev => [...prev, { id: `cl-${Date.now()}`, price: roundedPrice, type: 'support' }]);
+        setActiveTool('cursor');
+      } else if (activeToolRef.current === 'draw-resistance') {
+        const roundedPrice = Number(price.toFixed(2));
+        setCustomLines(prev => [...prev, { id: `cl-${Date.now()}`, price: roundedPrice, type: 'resistance' }]);
+        setActiveTool('cursor');
+      }
+    };
+    chart.subscribeClick(clickHandler);
+
+    // 10. Handle resize and cleanup
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
+      }
+      if (rsiChart && rsiContainerRef.current) {
+        rsiChart.applyOptions({
+          width: rsiContainerRef.current.clientWidth,
+          height: rsiContainerRef.current.clientHeight,
+        });
+      }
     };
 
-    return mapping[firstWord] || `NSE:${firstWord}`;
-  };
+    window.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(chartContainerRef.current);
 
-  const tvSymbol = getTradingViewSymbol(symbol);
-  
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
+      chart.unsubscribeClick(clickHandler);
+      chart.remove();
+      chartRef.current = null;
+      if (rsiChart) {
+        rsiChart.remove();
+        rsiChartRef.current = null;
+      }
+      candlestickSeriesRef.current = null;
+      areaSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      emaSeriesRef.current = null;
+      smaSeriesRef.current = null;
+      bbUpperSeriesRef.current = null;
+      bbLowerSeriesRef.current = null;
+      bbBasisSeriesRef.current = null;
+    };
+  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, customLines]);
+
   return (
-    <div className="w-full h-full rounded-xl overflow-hidden border border-white/5 bg-[#0b0e14]">
-      <iframe
-        id={`tv-iframe-${tvSymbol}`}
-        name={`tv-iframe-${tvSymbol}`}
-        title={`TradingView Chart - ${tvSymbol}`}
-        src={`https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&theme=dark&style=1&timezone=Asia%2FKolkata&locale=en&toolbarbg=131722&hide_side_toolbar=0&allow_symbol_change=1&details=0&calendar=0&hotlist=0&news=0`}
-        className="w-full h-full border-none"
-        style={{ colorScheme: 'dark' }}
-        allowFullScreen
-      />
+    <div className="flex h-full w-full bg-[#090c13] rounded-xl overflow-hidden border border-white/5 relative">
+      {/* TradingView Advanced Vertical Sidebar Toolbar */}
+      <div className="w-12 border-r border-white/5 bg-[#07090e]/85 flex flex-col items-center py-3.5 gap-4 shrink-0">
+        {/* Navigation Cursor / Move mode */}
+        <button
+          onClick={() => setActiveTool('cursor')}
+          title="Cursor / Select Mode"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
+            activeTool === 'cursor' ? 'bg-sky-500/20 text-sky-400 font-bold' : 'text-gray-500 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Eye className="w-4 h-4" />
+        </button>
+
+        {/* Support Line Tool */}
+        <button
+          onClick={() => setActiveTool(activeTool === 'draw-support' ? 'cursor' : 'draw-support')}
+          title="Draw Support Line (Click on Chart)"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            activeTool === 'draw-support' ? 'bg-emerald-500/20 text-emerald-400 font-bold' : 'text-gray-500 hover:text-emerald-400 hover:bg-white/5'
+          }`}
+        >
+          {activeTool === 'draw-support' && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          )}
+          <TrendingUp className="w-4 h-4" />
+        </button>
+
+        {/* Resistance Line Tool */}
+        <button
+          onClick={() => setActiveTool(activeTool === 'draw-resistance' ? 'cursor' : 'draw-resistance')}
+          title="Draw Resistance Line (Click on Chart)"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            activeTool === 'draw-resistance' ? 'bg-rose-500/20 text-rose-400 font-bold' : 'text-gray-500 hover:text-rose-400 hover:bg-white/5'
+          }`}
+        >
+          {activeTool === 'draw-resistance' && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+          )}
+          <TrendingDown className="w-4 h-4" />
+        </button>
+
+        {/* Clear user drawn S/R lines */}
+        {customLines.length > 0 && (
+          <button
+            onClick={() => setCustomLines([])}
+            title={`Clear Custom S/R Lines (${customLines.length})`}
+            className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all border-0 bg-transparent cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+
+        <div className="w-6 h-px bg-white/5 my-0.5" />
+
+        {/* Auto S/R pivots calculation */}
+        <button
+          onClick={() => setShowAutoSR(!showAutoSR)}
+          title="Toggle Auto-S/R Pivot Zones"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
+            showAutoSR ? 'bg-sky-500/15 text-sky-400 font-bold' : 'text-gray-500 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+        </button>
+
+        {/* Synchronized RSI Panel Toggle */}
+        <button
+          onClick={() => setShowRSI(!showRSI)}
+          title="Toggle RSI Oscillator Panel"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
+            showRSI ? 'bg-purple-500/15 text-purple-400 font-bold' : 'text-gray-500 hover:text-purple-400 hover:bg-white/5'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+        </button>
+
+        {/* Maximized Fullscreen Toggle inside app */}
+        {isExpanded && onCloseExpanded ? (
+          <button
+            onClick={onCloseExpanded}
+            title="Exit Fullscreen"
+            className="p-2 rounded-lg text-sky-400 hover:bg-sky-500/10 transition-all border-0 bg-transparent cursor-pointer mt-auto"
+          >
+            <Minimize2 className="w-4 h-4" />
+          </button>
+        ) : (
+          null
+        )}
+      </div>
+
+      {/* Main Chart Workspace */}
+      <div className="flex-1 flex flex-col h-full bg-[#090c13] min-w-0">
+        <div className="flex-1 relative min-h-[140px]">
+          <div ref={chartContainerRef} className="absolute inset-0" />
+
+          {/* Prompt drawing assistance overlays */}
+          {activeTool !== 'cursor' && (
+            <div className="absolute top-3 left-3 bg-[#0c0f17]/95 border border-sky-500/25 px-3 py-1.5 rounded-xl shadow-2xl z-20 pointer-events-none flex items-center gap-2 text-xs text-white">
+              <span className={`w-2.5 h-2.5 rounded-full ${activeTool === 'draw-support' ? 'bg-emerald-500 animate-ping' : 'bg-rose-500 animate-ping'}`} />
+              <span className="font-medium">
+                {activeTool === 'draw-support' 
+                  ? '🎯 DRAWING SUPPORT: Click anywhere on chart to place a green line' 
+                  : '🎯 DRAWING RESISTANCE: Click anywhere on chart to place a red line'}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Relative Strength Index Subpanel */}
+        {showRSI && (
+          <div className="h-28 border-t border-white/5 bg-[#090c13] relative shrink-0">
+            <div ref={rsiContainerRef} className="absolute inset-0" />
+            <div className="absolute top-2.5 left-2.5 text-[9px] font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/10 pointer-events-none tracking-wider select-none">
+              RSI (14)
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -396,16 +1011,13 @@ export const StockChart: React.FC<StockChartProps> = ({
   const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1h' | '1D'>('5m');
   const [chartType, setChartType] = useState<'candle' | 'area'>('candle');
   
-  // Chart engine state - default to TradingView as requested
-  const [chartSource, setChartSource] = useState<'native' | 'tradingview'>(() => {
-    return (localStorage.getItem('preferred_chart_source') as 'native' | 'tradingview') || 'tradingview';
-  });
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Chart engine state locked to TradingView for a professional charting experience with advanced drawing tools and indicators
+  const chartSource = 'tradingview';
 
-  const handleChartSourceChange = (src: 'native' | 'tradingview') => {
-    setChartSource(src);
-    localStorage.setItem('preferred_chart_source', src);
-  };
-
+  // Auto-switch to Native chart has been removed because the new interactive lightweight-charts engine supports all instruments flawlessly.
+  
   // Technical Indicators Toggles
   const [showEMA, setShowEMA] = useState(true);
   const [showSMA, setShowSMA] = useState(false);
@@ -733,40 +1345,17 @@ export const StockChart: React.FC<StockChartProps> = ({
           </div>
         </div>
 
-        {/* Engine Controls with beautiful active states */}
+        {/* Advanced Toolbar Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Chart Engine Switcher */}
-          <div className="flex items-center bg-[#07090e] border border-white/10 p-1 rounded-xl">
-            <button
-              onClick={() => handleChartSourceChange('tradingview')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
-                chartSource === 'tradingview' 
-                  ? 'bg-sky-500 text-white shadow-md' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Sparkles className="w-3 h-3 text-amber-300" /> TradingView
-            </button>
-            <button
-              onClick={() => handleChartSourceChange('native')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                chartSource === 'native' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              Native
-            </button>
-          </div>
-
+          {/* Timeframe selector */}
           <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
             {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition-all border-0 bg-transparent cursor-pointer ${
                   timeframe === tf 
-                    ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
+                    ? 'bg-sky-500 text-white shadow-md' 
                     : 'text-gray-500 hover:text-white'
                 }`}
               >
@@ -775,30 +1364,38 @@ export const StockChart: React.FC<StockChartProps> = ({
             ))}
           </div>
 
-          {chartSource === 'native' && (
-            <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
-              <button
-                onClick={() => setChartType('candle')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  chartType === 'candle' 
-                    ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
-                    : 'text-gray-500 hover:text-white'
-                }`}
-              >
-                Candles
-              </button>
-              <button
-                onClick={() => setChartType('area')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  chartType === 'area' 
-                    ? 'bg-blue-600 dark:bg-sky-500 text-white shadow-md' 
-                    : 'text-gray-500 hover:text-white'
-                }`}
-              >
-                Area
-              </button>
-            </div>
-          )}
+          {/* Chart Type Selector */}
+          <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+            <button
+              onClick={() => setChartType('candle')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                chartType === 'candle' 
+                  ? 'bg-sky-500 text-white shadow-md' 
+                  : 'text-gray-500 hover:text-white'
+              }`}
+            >
+              Candles
+            </button>
+            <button
+              onClick={() => setChartType('area')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                chartType === 'area' 
+                  ? 'bg-sky-500 text-white shadow-md' 
+                  : 'text-gray-500 hover:text-white'
+              }`}
+            >
+              Area
+            </button>
+          </div>
+
+          {/* Immersive Fullscreen Button */}
+          <button
+            onClick={() => setIsExpanded(true)}
+            title="Open Immersive Fullscreen Drawing Terminal"
+            className="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-[#07090e] border border-white/10 text-sky-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1 cursor-pointer"
+          >
+            <Maximize2 className="w-3.5 h-3.5" /> Maximize
+          </button>
         </div>
       </div>
 
@@ -806,218 +1403,17 @@ export const StockChart: React.FC<StockChartProps> = ({
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
         {/* Main Chart viewport container */}
         <div className={`col-span-1 ${showControls ? 'xl:col-span-3' : 'xl:col-span-4'} relative`} style={{ height: `${height}px` }}>
-          {chartSource === 'tradingview' ? (
-            <TradingViewChart symbol={activeAsset.symbol} timeframe={timeframe} />
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart 
-                data={candles}
-                margin={{ top: 5, right: 0, left: -25, bottom: 5 }}
-              >
-                <defs>
-                  <linearGradient id={`gradientArea-${activeAsset.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor={isPositive ? '#10b981' : '#ef4444'} stopOpacity={0}/>
-                  </linearGradient>
-
-                  <linearGradient id="bbShade" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.03}/>
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03}/>
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" />
-                
-                <XAxis 
-                  dataKey="time" 
-                  stroke="rgba(255,255,255,0.15)" 
-                  fontSize={9} 
-                  fontFamily="monospace"
-                  tickLine={false}
-                  axisLine={false}
-                />
-
-                <YAxis 
-                  domain={[minPrice, maxPrice]} 
-                  stroke="rgba(255,255,255,0.15)" 
-                  fontSize={9} 
-                  fontFamily="monospace"
-                  tickLine={false}
-                  axisLine={false}
-                  orientation="right"
-                  align="right"
-                />
-
-                <Tooltip
-                  cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  contentStyle={{ backgroundColor: '#090c13', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px' }}
-                  content={({ active, payload }) => {
-                    if (!active || !payload || !payload.length) return null;
-                    const d = payload[0].payload as Candle;
-                    const isCandleGreen = d.close >= d.open;
-                    return (
-                      <div className="space-y-1.5 text-xs font-mono">
-                        <div className="flex items-center justify-between gap-4 text-[10px] text-gray-500 border-b border-white/5 pb-1">
-                          <span>Time: {d.time}</span>
-                          <span className="bg-white/5 px-1 rounded font-bold uppercase">{timeframe}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                          <span className="text-gray-500">Open:</span>
-                          <span className="text-white text-right">₹{d.open.toFixed(2)}</span>
-
-                          <span className="text-gray-500">High:</span>
-                          <span className="text-emerald-400 text-right">₹{d.high.toFixed(2)}</span>
-
-                          <span className="text-gray-500">Low:</span>
-                          <span className="text-rose-400 text-right">₹{d.low.toFixed(2)}</span>
-
-                          <span className="text-gray-500">Close:</span>
-                          <span className={`text-right font-bold ${isCandleGreen ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            ₹{d.close.toFixed(2)}
-                          </span>
-
-                          {showVolume && (
-                            <>
-                              <span className="text-gray-500">Volume:</span>
-                              <span className="text-white text-right">{(d.volume).toLocaleString('en-IN')}</span>
-                            </>
-                          )}
-                        </div>
-
-                        {(showEMA || showSMA || showBB) && (
-                          <div className="border-t border-white/5 pt-1.5 mt-1.5 space-y-0.5 text-[10px]">
-                            {showEMA && d.ema && (
-                              <div className="flex justify-between gap-2">
-                                <span className="text-sky-400">EMA (8):</span>
-                                <span className="text-white">₹{d.ema.toFixed(2)}</span>
-                              </div>
-                            )}
-                            {showSMA && d.sma && (
-                              <div className="flex justify-between gap-2">
-                                <span className="text-amber-500">SMA (15):</span>
-                                <span className="text-white">₹{d.sma.toFixed(2)}</span>
-                              </div>
-                            )}
-                            {showBB && d.bbBasis && (
-                              <div className="flex flex-col text-[9px] text-gray-400">
-                                <div className="flex justify-between">
-                                  <span>BB Upper:</span>
-                                  <span className="text-purple-400">₹{d.bbUpper?.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>BB Lower:</span>
-                                  <span className="text-purple-400">₹{d.bbLower?.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }}
-                />
-
-                {showBB && (
-                  <Area
-                    type="monotone"
-                    dataKey="bbUpper"
-                    stroke="transparent"
-                    fill="url(#bbShade)"
-                    fillOpacity={1}
-                  />
-                )}
-                {showBB && (
-                  <Line 
-                    type="monotone" 
-                    dataKey="bbUpper" 
-                    stroke="#a855f7" 
-                    strokeWidth={1} 
-                    strokeDasharray="3 3"
-                    dot={false} 
-                    activeDot={false}
-                  />
-                )}
-                {showBB && (
-                  <Line 
-                    type="monotone" 
-                    dataKey="bbLower" 
-                    stroke="#a855f7" 
-                    strokeWidth={1} 
-                    strokeDasharray="3 3"
-                    dot={false} 
-                    activeDot={false}
-                  />
-                )}
-                {showBB && (
-                  <Line 
-                    type="monotone" 
-                    dataKey="bbBasis" 
-                    stroke="#a855f7" 
-                    strokeWidth={1} 
-                    opacity={0.5}
-                    dot={false} 
-                    activeDot={false}
-                  />
-                )}
-
-                {showEMA && (
-                  <Line 
-                    type="monotone" 
-                    dataKey="ema" 
-                    stroke="#0ea5e9" 
-                    strokeWidth={1.5} 
-                    dot={false} 
-                    activeDot={false}
-                  />
-                )}
-
-                {showSMA && (
-                  <Line 
-                    type="monotone" 
-                    dataKey="sma" 
-                    stroke="#f59e0b" 
-                    strokeWidth={1.5} 
-                    dot={false} 
-                    activeDot={false}
-                  />
-                )}
-
-                {chartType === 'area' ? (
-                  <Area 
-                    type="monotone" 
-                    dataKey="close" 
-                    stroke={isPositive ? '#10b981' : '#ef4444'} 
-                    strokeWidth={2} 
-                    fillOpacity={1} 
-                    fill={`url(#gradientArea-${activeAsset.symbol})`} 
-                    dot={false}
-                  />
-                ) : (
-                  <Bar 
-                    dataKey="close" 
-                    shape={<CustomCandleShape />} 
-                    maxBarSize={12}
-                  />
-                )}
-
-                {showVolume && (
-                  <Bar 
-                    dataKey="volume" 
-                    yAxisId="volumeAxis" 
-                    opacity={0.12} 
-                    fill="#ffffff"
-                    maxBarSize={12}
-                  />
-                )}
-
-                <YAxis 
-                  yAxisId="volumeAxis" 
-                  hide={true} 
-                  domain={['auto', 'auto']} 
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
+          <TradingViewChart 
+            symbol={activeAsset.symbol} 
+            timeframe={timeframe} 
+            candles={candles}
+            chartType={chartType}
+            showEMA={showEMA}
+            showSMA={showSMA}
+            showBB={showBB}
+            showVolume={showVolume}
+            isPositive={isPositive}
+          />
         </div>
 
         {/* Right side tools panel - Technical Analysis Gauge Indicator (Only visible if showControls is active) */}
@@ -1039,7 +1435,7 @@ export const StockChart: React.FC<StockChartProps> = ({
       </div>
 
       {/* Control panel & Indicators Toggles */}
-      {showControls && chartSource === 'native' && (
+      {showControls && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-gray-500 uppercase tracking-widest flex items-center gap-1 mr-1">
@@ -1048,7 +1444,7 @@ export const StockChart: React.FC<StockChartProps> = ({
 
             <button
               onClick={() => setShowEMA(!showEMA)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showEMA 
                   ? 'bg-sky-500/10 border-sky-500/20 text-sky-400 font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
@@ -1060,7 +1456,7 @@ export const StockChart: React.FC<StockChartProps> = ({
 
             <button
               onClick={() => setShowSMA(!showSMA)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showSMA 
                   ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
@@ -1072,7 +1468,7 @@ export const StockChart: React.FC<StockChartProps> = ({
 
             <button
               onClick={() => setShowBB(!showBB)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showBB 
                   ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
@@ -1084,7 +1480,7 @@ export const StockChart: React.FC<StockChartProps> = ({
 
             <button
               onClick={() => setShowVolume(!showVolume)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showVolume 
                   ? 'bg-white/10 border-white/20 text-white font-bold shadow-md' 
                   : 'bg-[#07090e] border-white/5 hover:text-white'
@@ -1097,20 +1493,101 @@ export const StockChart: React.FC<StockChartProps> = ({
 
           <div className="flex items-center gap-1.5 text-gray-500 font-sans">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Interactive terminal syncing live NSE/BSE feeds.</span>
+            <span>Interactive TradingView chart with advanced custom drawing indicators.</span>
           </div>
         </div>
       )}
 
-      {showControls && chartSource === 'tradingview' && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
-          <div className="flex items-center gap-1.5 text-gray-400 font-sans">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Interactive TradingView terminal powered by real-time NSE/BSE exchange streams.</span>
+      {/* Immersive Fullscreen Modal Overlay */}
+      {isExpanded && (
+        <div className="fixed inset-0 z-50 bg-[#060913] flex flex-col p-6 space-y-4">
+          <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-500/10 rounded-xl">
+                <Activity className="w-5 h-5 text-sky-400 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-base font-bold text-white font-display leading-none">{activeAsset.symbol}</h3>
+                  <span className="text-xs text-gray-400">{activeAsset.name}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm font-bold text-white font-mono leading-none">
+                    ₹{activeAsset.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className={`text-xs font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isPositive ? '+' : ''}{activeChange.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Timeframe Selector in expanded view */}
+              <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+                {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all border-0 bg-transparent cursor-pointer ${
+                      timeframe === tf 
+                        ? 'bg-sky-500 text-white shadow-md' 
+                        : 'text-gray-500 hover:text-white'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chart Type Selector in expanded view */}
+              <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+                <button
+                  onClick={() => setChartType('candle')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                    chartType === 'candle' 
+                      ? 'bg-sky-500 text-white shadow-md' 
+                      : 'text-gray-500 hover:text-white'
+                    }`}
+                >
+                  Candles
+                </button>
+                <button
+                  onClick={() => setChartType('area')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                    chartType === 'area' 
+                      ? 'bg-sky-500 text-white shadow-md' 
+                      : 'text-gray-500 hover:text-white'
+                  }`}
+                >
+                  Area
+                </button>
+              </div>
+
+              <button 
+                onClick={() => setIsExpanded(false)}
+                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition border-0 cursor-pointer flex items-center gap-1.5"
+              >
+                <Minimize2 className="w-4 h-4" /> Close Fullscreen
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-gray-500 font-sans">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Virtual ledger synchronization remains active.</span>
+          
+          {/* Main Fullscreen workspace */}
+          <div className="flex-1 min-h-0 bg-[#090c13] rounded-2xl border border-white/5 overflow-hidden">
+            <TradingViewChart 
+              symbol={activeAsset.symbol} 
+              timeframe={timeframe} 
+              candles={candles}
+              chartType={chartType}
+              showEMA={showEMA}
+              showSMA={showSMA}
+              showBB={showBB}
+              showVolume={showVolume}
+              isPositive={isPositive}
+              isExpanded={true}
+              onCloseExpanded={() => setIsExpanded(false)}
+            />
           </div>
         </div>
       )}
