@@ -638,6 +638,37 @@ export const INITIAL_INSTRUMENTS: Instrument[] = [
   }
 ];
 
+// Dynamically generate Near (July) and Next (August) Month Futures for all market instruments
+export function generateFuturesForInstruments(insts: Instrument[]): Instrument[] {
+  const list: Instrument[] = [];
+  insts.forEach(inst => {
+    const shortName = inst.name.replace(' Ltd.', '').replace(' Corporation', '').replace(' Company', '');
+    // Near Month (30-JUL-26) Expiry FUT with a minor standard premium
+    list.push({
+      symbol: `${inst.symbol} 30-JUL-26 FUT`,
+      name: `${shortName} Futures`,
+      ltp: Number((inst.ltp * 1.0025).toFixed(2)),
+      change: inst.change,
+      high: Number((inst.high * 1.0025).toFixed(2)),
+      low: Number((inst.low * 1.0025).toFixed(2)),
+      volume: Math.round(inst.volume * 0.15),
+      sparkline: inst.sparkline.map(v => Number((v * 1.0025).toFixed(2))),
+    });
+    // Next Month (27-AUG-26) Expiry FUT with slightly larger premium
+    list.push({
+      symbol: `${inst.symbol} 27-AUG-26 FUT`,
+      name: `${shortName} Futures`,
+      ltp: Number((inst.ltp * 1.005).toFixed(2)),
+      change: inst.change,
+      high: Number((inst.high * 1.005).toFixed(2)),
+      low: Number((inst.low * 1.005).toFixed(2)),
+      volume: Math.round(inst.volume * 0.08),
+      sparkline: inst.sparkline.map(v => Number((v * 1.005).toFixed(2))),
+    });
+  });
+  return list;
+}
+
 // Option Chain for NIFTY (Strike prices surrounding Spot LTP ~ 24325)
 export const MOCK_OPTION_CHAIN: OptionChainItem[] = [
   {

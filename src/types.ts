@@ -3,6 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface LLMConfig {
+  selectedModel: 'gemini-3.5-flash' | 'gemini-3.1-pro-preview';
+  temperature: number; // 0.1 to 1.0
+  systemPersona: 'Market Veteran' | 'Quantitative Analyst' | 'Clinical Psychologist';
+  customGrounding: string;
+  injectCognitiveRules: boolean;
+}
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -17,6 +25,7 @@ export interface UserProfile {
   level: number;
   isPro: boolean;
   role: 'user' | 'admin';
+  llmConfig?: LLMConfig;
 }
 
 export interface Instrument {

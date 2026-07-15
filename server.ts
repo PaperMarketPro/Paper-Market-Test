@@ -494,6 +494,46 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+function getLLMParameters(llmConfig: any, cognitiveRules: any, defaultModel: string, defaultTemp: number, defaultSystemInstruction: string) {
+  const model = llmConfig?.selectedModel === "gemini-3.1-pro-preview" ? "gemini-3.1-pro-preview" : defaultModel;
+  const temperature = llmConfig?.temperature !== undefined ? Number(llmConfig.temperature) : defaultTemp;
+  
+  let systemInstruction = defaultSystemInstruction;
+
+  let personaPreamble = "";
+  if (llmConfig?.systemPersona === "Market Veteran") {
+    personaPreamble = "SYSTEM PERSONA ACTIVE: Prop-desk market veteran. Speak with raw tape-reading realism, using direct trading terminology (e.g. 'paper cuts', 'revenge trading', 'blowing accounts') and focus heavily on execution mechanics and survival.";
+  } else if (llmConfig?.systemPersona === "Quantitative Analyst") {
+    personaPreamble = "SYSTEM PERSONA ACTIVE: Algorithmic trading desk head. Focus purely on mathematical expectancy, drawdowns, profit factors, risk-of-ruin metrics, and highly precise statistical trade structures.";
+  } else if (llmConfig?.systemPersona === "Clinical Psychologist") {
+    personaPreamble = "SYSTEM PERSONA ACTIVE: Licensed clinical trading psychologist. Focus on calming mental exercises, identifying emotional triggers (FOMO, greed, loss-fear), cognitive framing, and disciplined routine adherence.";
+  }
+
+  let groundingContext = "";
+  if (llmConfig?.customGrounding && llmConfig.customGrounding.trim() !== "") {
+    groundingContext = `ADDITIONAL GROUNDING/TRAINING DIRECTIVES FROM THE TRADER:\n"${llmConfig.customGrounding}"`;
+  }
+
+  let cognitiveGrounding = "";
+  if (llmConfig?.injectCognitiveRules && Array.isArray(cognitiveRules) && cognitiveRules.length > 0) {
+    cognitiveGrounding = `TRADER'S ACTIVE COGNITIVE COMMITMENTS (Do NOT contradict these rules; reinforce them):\n` +
+      cognitiveRules.map((c: any) => `- Trigger condition: "${c.trigger}" => Mandated Action: "${c.action}"`).join('\n');
+  }
+
+  const parts = [
+    personaPreamble,
+    systemInstruction,
+    groundingContext,
+    cognitiveGrounding
+  ].filter(p => p !== "").join("\n\n---\n\n");
+
+  return {
+    model,
+    temperature,
+    systemInstruction: parts
+  };
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -954,7 +994,7 @@ async function startServer() {
 
   // A. AI Journal Auto-Log API
   app.post("/api/journal/auto-generate", async (req, res) => {
-    const { symbol, direction, entryPrice, exitPrice, realizedPnl, quantity, closedTimestamp, additionalNotes } = req.body;
+    const { symbol, direction, entryPrice, exitPrice, realizedPnl, quantity, closedTimestamp, additionalNotes, llmConfig, cognitiveRules } = req.body;
 
     if (!symbol || !direction) {
       return res.status(400).json({ error: "Symbol and Direction are required." });
@@ -999,7 +1039,7 @@ Produce a JSON response matching this schema:
   "notes": "constructive 2-sentence critique analyzing the trade speed, risk profile, and alignment with proper trading methodology"
 }`;
 
-      const systemInstruction = `You are "AI Journalizer" - specifically acting as a highly experienced human trader reviewing a trade log.
+      const baseSystemInstruction = `You are "AI Journalizer" - specifically acting as a highly experienced human trader reviewing a trade log.
 Analyze the provided closed trade parameters and generate a highly realistic, professional, and psychologically acute journal entry.
 
 CRITICAL VOICE AND STYLE GUIDELINES:
@@ -1007,12 +1047,14 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 2. The fields "entryReason", "exitReason", "lessonLearned", and "notes" must sound exactly like a real human trader writing in their personal trading diary after a long session. Keep them concise, punchy, and highly realistic. Use short phrases and conversational styles (e.g., "Smashed into major resistance on high volume, had to cut it," instead of "The exit was executed because the asset reached a designated resistance level.").
 3. Format the output strictly as JSON matching the requested schema. Do not include any text before or after the JSON.`;
 
+      const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.5-flash", 0.4, baseSystemInstruction);
+
       const response = await aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
+        model,
         contents: prompt,
         config: {
           systemInstruction,
-          temperature: 0.4,
+          temperature,
           responseMimeType: "application/json"
         }
       });
@@ -1027,7 +1069,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 
   // B. AI Coach Teach on Journals API
   app.post("/api/coach/teach", async (req, res) => {
-    const { journals } = req.body;
+    const { journals, llmConfig, cognitiveRules } = req.body;
 
     if (!journals || !Array.isArray(journals) || journals.length === 0) {
       return res.status(400).json({ error: "No journals available to teach on. Please log some journals first." });
@@ -1084,7 +1126,7 @@ Produce a JSON response matching this schema:
   "quizExplanation": "Deep psychological explanation of why the correct option is the optimal action"
 }`;
 
-      const systemInstruction = `You are "AI Trading Coach & Educator" - specifically acting as a seasoned trading partner who writes punchy, conversational, and deeply authentic notes.
+      const baseSystemInstruction = `You are "AI Trading Coach & Educator" - specifically acting as a seasoned trading partner who writes punchy, conversational, and deeply authentic notes.
 Based on the user's trading journal entries, evaluate their core psychological and tactical leaks.
 Design an engaging, personalized Markdown tutorial lesson to correct this behavior.
 
@@ -1095,12 +1137,14 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 4. Format the output strictly as JSON. No markdown other than the JSON string itself.
 5. CRITICAL LANGUAGE RULE: Detect the language of the user's trading journal entries. If they are written in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the lesson titles, problemAnalysis, coreConcept, exercises, and quizzes in that SAME language so the user gets a fully native learning experience!`;
 
+      const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.5-flash", 0.6, baseSystemInstruction);
+
       const response = await aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
+        model,
         contents: prompt,
         config: {
           systemInstruction,
-          temperature: 0.6,
+          temperature,
           responseMimeType: "application/json"
         }
       });
@@ -1115,7 +1159,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 
   // C. AI Coach Train Scorecard API
   app.post("/api/coach/train-scorecard", async (req, res) => {
-    const { journals, positions, focusArea, customPrompt } = req.body;
+    const { journals, positions, focusArea, customPrompt, llmConfig, cognitiveRules } = req.body;
 
     // Calculate real-time metrics based on user's actual ledger logs
     let totalTrades = (positions || []).filter((p: any) => p.status === 'Closed').length;
@@ -1220,7 +1264,7 @@ Format the output strictly as JSON matching this schema:
   "feedback": "string text"
 }`;
 
-      const systemInstruction = `You are "AI Research Quantitative Psychologist" - acting as an expert quantitative risk manager and human performance specialist who speaks with absolute directness and clarity.
+      const baseSystemInstruction = `You are "AI Research Quantitative Psychologist" - acting as an expert quantitative risk manager and human performance specialist who speaks with absolute directness and clarity.
 Analyze the trader's computed metrics and focus areas, research their psychological leaks, and return custom high-quality AI insights and feedback.
 
 CRITICAL VOICE AND STYLE GUIDELINES:
@@ -1230,12 +1274,14 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 4. Format the output strictly as JSON. No markdown other than the JSON string itself.
 5. CRITICAL LANGUAGE RULE: Detect the language of the user's journals, custom training directives, or specified focus area. If they are in another language (e.g. Hindi, Hinglish, Spanish, etc.), generate the insights (headline, description) and feedback in that SAME language!`;
 
+      const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.5-flash", 0.5, baseSystemInstruction);
+
       const response = await aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
+        model,
         contents: prompt,
         config: {
           systemInstruction,
-          temperature: 0.5,
+          temperature,
           responseMimeType: "application/json"
         }
       });
@@ -1266,7 +1312,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 
   // 1. AI Trading Mind Coach API
   app.post("/api/coach/chat", async (req, res) => {
-    const { message, history } = req.body;
+    const { message, history, llmConfig, cognitiveRules } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: "Message is required." });
@@ -1309,7 +1355,7 @@ Tell me a bit more about what's going on. Are you holding onto a trade right now
     }
 
     try {
-      const systemInstruction = `You are "Mind Coach" - a seasoned, authentic, and street-smart human trading partner, psychologist, and market veteran. You are NOT an AI assistant, and you must never sound like one.
+      const baseSystemInstruction = `You are "Mind Coach" - a seasoned, authentic, and street-smart human trading partner, psychologist, and market veteran. You are NOT an AI assistant, and you must never sound like one.
 Your mission is to help traders survive and thrive in the markets by overcoming emotional leaks: FOMO, revenge trading, overtrading, fear of loss, and greed.
 
 CRITICAL VOICE AND STYLE GUIDELINES:
@@ -1332,12 +1378,14 @@ CRITICAL VOICE AND STYLE GUIDELINES:
       }
       contents.push({ role: 'user', parts: [{ text: message }] });
 
+      const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.5-flash", 0.75, baseSystemInstruction);
+
       const response = await aiClient.models.generateContent({
-        model: "gemini-3.5-flash",
+        model,
         contents,
         config: {
           systemInstruction,
-          temperature: 0.75,
+          temperature,
         }
       });
 
@@ -1351,7 +1399,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 
   // 2. Realistic 12-Month Historical Backtester & AI Audit API
   app.post("/api/strategy/backtest", async (req, res) => {
-    const { strategy, symbol } = req.body;
+    const { strategy, symbol, llmConfig, cognitiveRules } = req.body;
 
     if (!strategy) {
       return res.status(400).json({ error: "Strategy is required." });
@@ -1662,11 +1710,17 @@ CRITICAL STYLE GUIDELINES:
 - STRICTLY FORBIDDEN: Do NOT write like ChatGPT or Gemini. Avoid preachy generalities, generic trading definitions, or corporate filler. Do not start with robotic intro lines like "Based on the provided metrics, we have analyzed...". Jump straight to the audit.
 - Write in a highly sophisticated, expert tone, formatted with clean Markdown headers. Keep the feedback practical, dense with technical detail, and mathematically rigorous. Speak as one quantitative elite to another.`;
 
+        const baseSystemInstruction = `You are a legendary quantitative trading desk head and hedge fund strategist reviewing a system backtest.
+Analyze the backtest mathematically and speak in a highly sophisticated, expert tone. Jump straight into the audit without robotic intro lines.`;
+
+        const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.5-flash", 0.6, baseSystemInstruction);
+
         const auditResponse = await aiClient.models.generateContent({
-          model: "gemini-3.5-flash",
+          model,
           contents: auditPrompt,
           config: {
-            temperature: 0.6,
+            systemInstruction,
+            temperature,
           }
         });
 

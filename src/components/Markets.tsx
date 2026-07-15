@@ -800,43 +800,61 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                     ← Reconfigure Setup
                   </button>
                 </div>
-                {/* Index & Stock Underliers Selector */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest block">Select Underlier (Indices & Stocks)</span>
+                {/* Index & Stock Underliers Selector with real-time search */}
+                <div className="space-y-3 bg-white/[0.02] border border-white/5 rounded-xl p-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest block">Select Underlier (Indices & Stocks)</span>
+                    {/* Compact Search Bar for F&O Options Underlier */}
+                    <div className="relative w-full sm:w-56">
+                      <input
+                        type="text"
+                        placeholder="Search underlier (e.g., ZOMATO)..."
+                        value={fnoOptionsSearchQuery}
+                        onChange={e => setFnoOptionsSearchQuery(e.target.value)}
+                        className="w-full bg-[#07090e] border border-white/10 rounded-lg pl-7 pr-7 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2" />
+                      {fnoOptionsSearchQuery && (
+                        <button
+                          onClick={() => setFnoOptionsSearchQuery('')}
+                          className="absolute right-2 top-1 text-gray-500 hover:text-white border-0 bg-transparent cursor-pointer py-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                    {[
-                      { symbol: 'NIFTY 50', name: 'Nifty 50' },
-                      { symbol: 'BANKNIFTY', name: 'Bank Nifty' },
-                      { symbol: 'FINNIFTY', name: 'Fin Nifty' },
-                      { symbol: 'SENSEX', name: 'Sensex' },
-                      { symbol: 'MIDCPNIFTY', name: 'Midcap Nifty' },
-                      { symbol: 'RELIANCE', name: 'Reliance' },
-                      { symbol: 'TCS', name: 'TCS' },
-                      { symbol: 'INFY', name: 'Infosys' },
-                      { symbol: 'HDFCBANK', name: 'HDFC Bank' },
-                      { symbol: 'ICICIBANK', name: 'ICICI Bank' },
-                      { symbol: 'SBIN', name: 'SBI' },
-                      { symbol: 'TATAMOTORS', name: 'Tata Motors' },
-                      { symbol: 'LT', name: 'L&T' },
-                      { symbol: 'AXISBANK', name: 'Axis Bank' },
-                      { symbol: 'KOTAKBANK', name: 'Kotak Bank' },
-                      { symbol: 'ITC', name: 'ITC' }
-                    ].map(idxObj => (
-                      <button
-                        key={idxObj.symbol}
-                        onClick={() => {
-                          setSelectedOptionIndex(idxObj.symbol);
-                          setFnoOptionsSearchQuery('');
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border ${
-                          selectedOptionIndex === idxObj.symbol
-                            ? 'bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:text-black dark:border-sky-500 shadow-md'
-                            : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'
-                        }`}
-                      >
-                        {idxObj.name}
-                      </button>
-                    ))}
+                    {/* Filter and Map ALL 62 instruments from useApp store */}
+                    {instruments
+                      .filter(inst => {
+                        if (!fnoOptionsSearchQuery) return true;
+                        return inst.symbol.toLowerCase().includes(fnoOptionsSearchQuery.toLowerCase()) ||
+                               inst.name.toLowerCase().includes(fnoOptionsSearchQuery.toLowerCase());
+                      })
+                      .map(inst => {
+                        const displayName = inst.symbol === 'NIFTY 50' ? 'Nifty 50' : 
+                                            inst.symbol === 'BANKNIFTY' ? 'Bank Nifty' :
+                                            inst.symbol === 'FINNIFTY' ? 'Fin Nifty' :
+                                            inst.symbol === 'SENSEX' ? 'Sensex' :
+                                            inst.symbol === 'MIDCPNIFTY' ? 'Midcap Nifty' : inst.symbol;
+                        return (
+                          <button
+                            key={inst.symbol}
+                            onClick={() => {
+                              setSelectedOptionIndex(inst.symbol);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border ${
+                              selectedOptionIndex === inst.symbol
+                                ? 'bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:text-black dark:border-sky-500 shadow-md'
+                                : 'bg-white/5 text-gray-400 border-white/5 hover:text-white hover:border-white/10'
+                            }`}
+                          >
+                            {displayName}
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
 

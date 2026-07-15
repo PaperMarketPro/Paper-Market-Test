@@ -19,7 +19,7 @@ interface JournalProps {
 }
 
 export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPreselected }) => {
-  const { journals, positions, addJournalEntry } = useApp();
+  const { journals, positions, addJournalEntry, user, cognitiveRules } = useApp();
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,7 +134,9 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
           realizedPnl: pos.realizedPnl || 0,
           quantity: pos.quantity,
           closedTimestamp: pos.closedTimestamp,
-          additionalNotes: "Auto analyzed by AI Mind Engine."
+          additionalNotes: "Auto analyzed by AI Mind Engine.",
+          llmConfig: user?.llmConfig,
+          cognitiveRules: cognitiveRules
         })
       });
 

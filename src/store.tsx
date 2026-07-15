@@ -4,8 +4,8 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { UserProfile, Instrument, Order, Position, JournalEntry, AIInsight, Strategy, Course, Challenge, Badge, OptionChainItem, CognitiveRule } from './types';
-import { INITIAL_INSTRUMENTS, MOCK_OPTION_CHAIN, INITIAL_POSITIONS, CLOSED_POSITIONS, INITIAL_ORDERS, INITIAL_JOURNAL, INITIAL_AI_INSIGHTS, ACADEMY_COURSES, INITIAL_CHALLENGES, INITIAL_BADGES, randomWalk } from './mockData';
+import { UserProfile, Instrument, Order, Position, JournalEntry, AIInsight, Strategy, Course, Challenge, Badge, OptionChainItem, CognitiveRule, LLMConfig } from './types';
+import { INITIAL_INSTRUMENTS, MOCK_OPTION_CHAIN, INITIAL_POSITIONS, CLOSED_POSITIONS, INITIAL_ORDERS, INITIAL_JOURNAL, INITIAL_AI_INSIGHTS, ACADEMY_COURSES, INITIAL_CHALLENGES, INITIAL_BADGES, randomWalk, generateFuturesForInstruments } from './mockData';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -26,6 +26,7 @@ interface AppContextType {
   logoutUser: () => Promise<void>;
   initializeNewUser: (profileData: Partial<UserProfile>) => Promise<void>;
   initializeGuestUser: (profileData: Partial<UserProfile>) => void;
+  updateLLMConfig: (config: Partial<LLMConfig>) => void;
   theme: 'dark' | 'light';
   instruments: Instrument[];
   futures: Instrument[];
@@ -97,31 +98,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Financial arrays
   const [instruments, setInstruments] = useState<Instrument[]>(INITIAL_INSTRUMENTS);
-  const [futures, setFutures] = useState<Instrument[]>([
-    // Near Month - July 2026 (Expiry 30-JUL-26)
-    { symbol: 'NIFTY 30-JUL-26 FUT', name: 'NSE Nifty 50 Futures', ltp: 24385.50, change: 1.35, high: 24460.00, low: 24190.00, volume: 4500000, sparkline: [24200, 24250, 24310, 24385.50] },
-    { symbol: 'BANKNIFTY 30-JUL-26 FUT', name: 'NSE Bank Nifty Futures', ltp: 52550.00, change: -0.35, high: 52910.00, low: 52200.00, volume: 2200000, sparkline: [52800, 52600, 52450, 52550.00] },
-    { symbol: 'FINNIFTY 30-JUL-26 FUT', name: 'NSE Nifty Financial Services Futures', ltp: 21910.20, change: 0.40, high: 22080.00, low: 21790.00, volume: 1500000, sparkline: [21800, 21840, 21870, 21910.20] },
-    { symbol: 'RELIANCE 30-JUL-26 FUT', name: 'Reliance Industries Futures', ltp: 2995.00, change: 1.95, high: 3025.00, low: 2945.00, volume: 850000, sparkline: [2945, 2965, 2980, 2995.00] },
-    { symbol: 'TCS 30-JUL-26 FUT', name: 'Tata Consultancy Services Futures', ltp: 4140.20, change: 1.05, high: 4165.00, low: 4110.00, volume: 320000, sparkline: [4110, 4125, 4130, 4140.20] },
-    { symbol: 'INFY 30-JUL-26 FUT', name: 'Infosys Futures', ltp: 1650.10, change: -1.10, high: 1680.00, low: 1638.00, volume: 650000, sparkline: [1670, 1660, 1642, 1650.10] },
-    { symbol: 'SBIN 30-JUL-26 FUT', name: 'State Bank of India Futures', ltp: 846.50, change: 0.75, high: 855.00, low: 838.00, volume: 1100000, sparkline: [838, 842, 844, 846.50] },
-    { symbol: 'HDFCBANK 30-JUL-26 FUT', name: 'HDFC Bank Futures', ltp: 1722.40, change: 2.15, high: 1735.00, low: 1688.00, volume: 1400000, sparkline: [1690, 1705, 1715, 1722.40] },
-    { symbol: 'ICICIBANK 30-JUL-26 FUT', name: 'ICICI Bank Futures', ltp: 1216.50, change: -0.80, high: 1235.00, low: 1208.00, volume: 950000, sparkline: [1230, 1222, 1212, 1216.50] },
-    { symbol: 'TATAMOTORS 30-JUL-26 FUT', name: 'Tata Motors Futures', ltp: 990.80, change: 3.50, high: 1002.00, low: 958.00, volume: 1850000, sparkline: [960, 975, 982, 990.80] },
-
-    // Next Month - August 2026 (Expiry 27-AUG-26)
-    { symbol: 'NIFTY 27-AUG-26 FUT', name: 'NSE Nifty 50 Futures', ltp: 24450.00, change: 1.40, high: 24520.00, low: 24240.00, volume: 1500000, sparkline: [24250, 24310, 24370, 24450.00] },
-    { symbol: 'BANKNIFTY 27-AUG-26 FUT', name: 'NSE Bank Nifty Futures', ltp: 52690.00, change: -0.30, high: 53040.00, low: 52320.00, volume: 800000, sparkline: [52900, 52750, 52580, 52690.00] },
-    { symbol: 'FINNIFTY 27-AUG-26 FUT', name: 'NSE Nifty Financial Services Futures', ltp: 21970.50, change: 0.45, high: 22140.00, low: 21850.00, volume: 500000, sparkline: [21860, 21900, 21930, 21970.50] },
-    { symbol: 'RELIANCE 27-AUG-26 FUT', name: 'Reliance Industries Futures', ltp: 3010.50, change: 2.05, high: 3040.00, low: 2960.00, volume: 320000, sparkline: [2960, 2980, 2995, 3010.50] },
-    { symbol: 'TCS 27-AUG-26 FUT', name: 'Tata Consultancy Services Futures', ltp: 4155.00, change: 1.15, high: 4180.00, low: 4125.00, volume: 120000, sparkline: [4125, 4140, 4145, 4155.00] },
-    { symbol: 'INFY 27-AUG-26 FUT', name: 'Infosys Futures', ltp: 1658.20, change: -1.00, high: 1688.00, low: 1646.00, volume: 210000, sparkline: [1678, 1668, 1650, 1658.20] },
-    { symbol: 'SBIN 27-AUG-26 FUT', name: 'State Bank of India Futures', ltp: 851.00, change: 0.85, high: 860.00, low: 842.00, volume: 450000, sparkline: [842, 846, 848, 851.00] },
-    { symbol: 'HDFCBANK 27-AUG-26 FUT', name: 'HDFC Bank Futures', ltp: 1730.20, change: 2.20, high: 1742.00, low: 1696.00, volume: 550000, sparkline: [1698, 1712, 1722, 1730.20] },
-    { symbol: 'ICICIBANK 27-AUG-26 FUT', name: 'ICICI Bank Futures', ltp: 1222.00, change: -0.75, high: 1240.00, low: 1214.00, volume: 380000, sparkline: [1235, 1228, 1218, 1222.00] },
-    { symbol: 'TATAMOTORS 27-AUG-26 FUT', name: 'Tata Motors Futures', ltp: 995.50, change: 3.60, high: 1008.00, low: 963.00, volume: 680000, sparkline: [965, 980, 987, 995.50] }
-  ]);
+  const [futures, setFutures] = useState<Instrument[]>(() => generateFuturesForInstruments(INITIAL_INSTRUMENTS));
   const [optionChain, setOptionChain] = useState<OptionChainItem[]>(MOCK_OPTION_CHAIN);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [positions, setPositions] = useState<Position[]>(INITIAL_POSITIONS);
@@ -270,6 +247,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       level: 1,
       isPro: false,
       role: 'user',
+      llmConfig: {
+        selectedModel: 'gemini-3.5-flash',
+        temperature: 0.6,
+        systemPersona: 'Market Veteran',
+        customGrounding: '',
+        injectCognitiveRules: true
+      }
     };
 
     const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -360,6 +344,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       level: 1,
       isPro: false,
       role: 'user',
+      llmConfig: {
+        selectedModel: 'gemini-3.5-flash',
+        temperature: 0.6,
+        systemPersona: 'Market Veteran',
+        customGrounding: '',
+        injectCognitiveRules: true
+      }
     };
 
     setUser(initialProfile);
@@ -1021,6 +1012,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pushNotification('Balance Updated', `Your account balance has been updated to ₹${targetBalance.toLocaleString('en-IN')}.`, 'alert');
   };
 
+  const updateLLMConfig = (config: Partial<LLMConfig>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const currentConfig = prev.llmConfig || {
+        selectedModel: 'gemini-3.5-flash',
+        temperature: 0.6,
+        systemPersona: 'Market Veteran',
+        customGrounding: '',
+        injectCognitiveRules: true
+      };
+      return {
+        ...prev,
+        llmConfig: {
+          ...currentConfig,
+          ...config
+        }
+      };
+    });
+    pushNotification('AI Model Configured', `Your local LLM parameters have been re-calibrated.`, 'coach');
+  };
+
   // Add Notification Helper
   const pushNotification = (title: string, body: string, type: 'alert' | 'xp' | 'badge' | 'coach') => {
     const newNotif: AppNotification = {
@@ -1314,7 +1326,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             realizedPnl: closedPos.realizedPnl || 0,
             quantity: closedPos.quantity,
             closedTimestamp: closedPos.closedTimestamp,
-            additionalNotes: "Completely automated AI Journaling ledger entry."
+            additionalNotes: "Completely automated AI Journaling ledger entry.",
+            llmConfig: user?.llmConfig,
+            cognitiveRules: cognitiveRules
           })
         });
 
@@ -1505,7 +1519,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           strategy: strat,
-          symbol: selectedAssetSymbol
+          symbol: selectedAssetSymbol,
+          llmConfig: user?.llmConfig,
+          cognitiveRules: cognitiveRules
         })
       });
       const data = await res.json();
@@ -1651,6 +1667,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logoutUser,
         initializeNewUser,
         initializeGuestUser,
+        updateLLMConfig,
         theme,
         instruments,
         futures,

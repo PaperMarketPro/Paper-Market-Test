@@ -486,6 +486,9 @@ export const TradingViewChart: React.FC<{
   isPositive: boolean;
   isExpanded?: boolean;
   onCloseExpanded?: () => void;
+  emaPeriod: number;
+  smaPeriod: number;
+  bbPeriod: number;
 }> = ({
   symbol,
   timeframe,
@@ -497,7 +500,10 @@ export const TradingViewChart: React.FC<{
   showVolume,
   isPositive,
   isExpanded,
-  onCloseExpanded
+  onCloseExpanded,
+  emaPeriod,
+  smaPeriod,
+  bbPeriod
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
@@ -713,7 +719,7 @@ export const TradingViewChart: React.FC<{
       const emaSeries = chart.addSeries(LineSeries, {
         color: '#0ea5e9',
         lineWidth: 2,
-        title: 'EMA(8)',
+        title: `EMA(${emaPeriod})`,
       });
       emaSeriesRef.current = emaSeries;
 
@@ -730,7 +736,7 @@ export const TradingViewChart: React.FC<{
       const smaSeries = chart.addSeries(LineSeries, {
         color: '#f59e0b',
         lineWidth: 2,
-        title: 'SMA(15)',
+        title: `SMA(${smaPeriod})`,
       });
       smaSeriesRef.current = smaSeries;
 
@@ -1472,6 +1478,11 @@ export const StockChart: React.FC<StockChartProps> = ({
   const [showBB, setShowBB] = useState(false);
   const [showVolume, setShowVolume] = useState(true);
 
+  // Customizable indicator periods
+  const [emaPeriod, setEmaPeriod] = useState<number>(8);
+  const [smaPeriod, setSmaPeriod] = useState<number>(15);
+  const [bbPeriod, setBbPeriod] = useState<number>(20);
+
   // Store candles in local state so we can let the last one tick in real-time
   const [candles, setCandles] = useState<Candle[]>([]);
   const previousAssetPrice = useRef<number>(activeAsset.ltp);
@@ -1495,8 +1506,7 @@ export const StockChart: React.FC<StockChartProps> = ({
     // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
     const data = rawCandles.map(c => ({ ...c }));
 
-    // 1. EMA (Period 8)
-    const emaPeriod = 8;
+    // 1. EMA (Period dynamic)
     const k = 2 / (emaPeriod + 1);
     let emaVal = data[0].close;
     data[0].ema = Number(emaVal.toFixed(2));
@@ -1506,8 +1516,7 @@ export const StockChart: React.FC<StockChartProps> = ({
       data[i].ema = Number(emaVal.toFixed(2));
     }
 
-    // 2. SMA (Period 15)
-    const smaPeriod = 15;
+    // 2. SMA (Period dynamic)
     for (let i = 0; i < data.length; i++) {
       if (i < smaPeriod - 1) {
         data[i].sma = data[i].close; // fallback
@@ -1520,8 +1529,7 @@ export const StockChart: React.FC<StockChartProps> = ({
       }
     }
 
-    // 3. Bollinger Bands (Period 20, StdDev 2)
-    const bbPeriod = 20;
+    // 3. Bollinger Bands (Period dynamic, StdDev 2)
     const stdDevMultiplier = 2;
     for (let i = 0; i < data.length; i++) {
       if (i < bbPeriod - 1) {
@@ -1645,7 +1653,7 @@ export const StockChart: React.FC<StockChartProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeAsset.symbol, timeframe]);
+  }, [activeAsset.symbol, timeframe, emaPeriod, smaPeriod, bbPeriod]);
 
   // Handle live ticking prices from the store
   useEffect(() => {
@@ -1861,6 +1869,9 @@ export const StockChart: React.FC<StockChartProps> = ({
             showBB={showBB}
             showVolume={showVolume}
             isPositive={isPositive}
+            emaPeriod={emaPeriod}
+            smaPeriod={smaPeriod}
+            bbPeriod={bbPeriod}
           />
         </div>
 
@@ -1890,41 +1901,89 @@ export const StockChart: React.FC<StockChartProps> = ({
               <Layers className="w-3.5 h-3.5" /> Indicators:
             </span>
 
-            <button
-              onClick={() => setShowEMA(!showEMA)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
-                showEMA 
-                  ? 'bg-sky-500/10 border-sky-500/20 text-sky-400 font-bold shadow-md' 
-                  : 'bg-[#07090e] border-white/5 hover:text-white'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${showEMA ? 'bg-sky-400' : 'bg-gray-600'}`} />
-              EMA (8)
-            </button>
+            {/* EMA Control Button with custom input */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition border-solid ${
+              showEMA 
+                ? 'bg-sky-500/10 border-sky-500/20 text-sky-400 shadow-md' 
+                : 'bg-[#07090e] border-white/5 text-gray-400'
+            }`}>
+              <button
+                onClick={() => setShowEMA(!showEMA)}
+                className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showEMA ? 'bg-sky-400' : 'bg-gray-600'}`} />
+                <span>EMA</span>
+              </button>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={emaPeriod}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 2 && val <= 200) setEmaPeriod(val);
+                }}
+                className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-sky-500 py-0"
+                title="EMA Period (2 to 200)"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
 
-            <button
-              onClick={() => setShowSMA(!showSMA)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
-                showSMA 
-                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 font-bold shadow-md' 
-                  : 'bg-[#07090e] border-white/5 hover:text-white'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${showSMA ? 'bg-amber-500' : 'bg-gray-600'}`} />
-              SMA (15)
-            </button>
+            {/* SMA Control Button with custom input */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition border-solid ${
+              showSMA 
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 shadow-md' 
+                : 'bg-[#07090e] border-white/5 text-gray-400'
+            }`}>
+              <button
+                onClick={() => setShowSMA(!showSMA)}
+                className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showSMA ? 'bg-amber-500' : 'bg-gray-600'}`} />
+                <span>SMA</span>
+              </button>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={smaPeriod}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 2 && val <= 200) setSmaPeriod(val);
+                }}
+                className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-amber-500 py-0"
+                title="SMA Period (2 to 200)"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
 
-            <button
-              onClick={() => setShowBB(!showBB)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
-                showBB 
-                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 font-bold shadow-md' 
-                  : 'bg-[#07090e] border-white/5 hover:text-white'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${showBB ? 'bg-purple-500' : 'bg-gray-600'}`} />
-              Bollinger Bands
-            </button>
+            {/* Bollinger Bands Control Button with custom input */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition border-solid ${
+              showBB 
+                ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 shadow-md' 
+                : 'bg-[#07090e] border-white/5 text-gray-400'
+            }`}>
+              <button
+                onClick={() => setShowBB(!showBB)}
+                className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showBB ? 'bg-purple-500' : 'bg-gray-600'}`} />
+                <span>BB</span>
+              </button>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={bbPeriod}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 2 && val <= 200) setBbPeriod(val);
+                }}
+                className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-purple-500 py-0"
+                title="Bollinger Bands Period (2 to 200)"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
 
             <button
               onClick={() => setShowVolume(!showVolume)}
