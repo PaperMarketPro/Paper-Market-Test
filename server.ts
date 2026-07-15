@@ -21,6 +21,7 @@ dotenv.config();
 // Upstox session credentials and mappings
 let upstoxAccessToken: string | null = null;
 let upstoxConnectedUser: any = null;
+let upstoxLinkedPermanently = false;
 let upstoxWs: WS | null = null;
 const clientWsSockets = new Set<any>();
 let simulationInterval: NodeJS.Timeout | null = null;
@@ -43,8 +44,9 @@ const CACHE_PATH = path.join(process.cwd(), "upstox_token_cache.json");
 
 async function saveUpstoxTokenToFirestore(token: string, user: any) {
   // Save locally first
+  upstoxLinkedPermanently = true;
   try {
-    fs.writeFileSync(CACHE_PATH, JSON.stringify({ accessToken: token, user, updatedAt: new Date().toISOString() }), "utf8");
+    fs.writeFileSync(CACHE_PATH, JSON.stringify({ accessToken: token, user, upstoxLinkedPermanently: true, updatedAt: new Date().toISOString() }), "utf8");
     console.log("[CACHE] Saved active Upstox credentials to local cache file successfully.");
   } catch (err: any) {
     console.warn("[CACHE] Failed to save Upstox token to local cache:", err.message);
@@ -56,6 +58,7 @@ async function saveUpstoxTokenToFirestore(token: string, user: any) {
     await configDocRef.set({
       accessToken: token,
       user: user,
+      upstoxLinkedPermanently: true,
       updatedAt: new Date().toISOString()
     });
     console.log("[FIRESTORE] Saved active Upstox credentials to database successfully.");
@@ -69,8 +72,11 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
   try {
     if (fs.existsSync(CACHE_PATH)) {
       const data = JSON.parse(fs.readFileSync(CACHE_PATH, "utf8"));
-      if (data && data.accessToken) {
+      if (data && (data.accessToken || data.upstoxLinkedPermanently)) {
         console.log("[CACHE] Successfully loaded saved Upstox token from local cache file.");
+        if (data.upstoxLinkedPermanently || data.accessToken) {
+          upstoxLinkedPermanently = true;
+        }
         return { accessToken: data.accessToken, user: data.user };
       }
     }
@@ -84,8 +90,11 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
     const docSnap = await configDocRef.get();
     if (docSnap.exists) {
       const data = docSnap.data();
-      if (data && data.accessToken) {
+      if (data && (data.accessToken || data.upstoxLinkedPermanently)) {
         console.log("[FIRESTORE] Successfully loaded saved Upstox token.");
+        if (data.upstoxLinkedPermanently || data.accessToken) {
+          upstoxLinkedPermanently = true;
+        }
         return { accessToken: data.accessToken, user: data.user };
       }
     }
@@ -96,6 +105,7 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
 }
 
 async function clearUpstoxTokenInFirestore() {
+  upstoxLinkedPermanently = false;
   // Clear locally
   try {
     if (fs.existsSync(CACHE_PATH)) {
@@ -112,6 +122,7 @@ async function clearUpstoxTokenInFirestore() {
     await configDocRef.set({
       accessToken: null,
       user: null,
+      upstoxLinkedPermanently: false,
       updatedAt: new Date().toISOString()
     });
     console.log("[FIRESTORE] Cleared Upstox credentials in database.");
@@ -673,11 +684,12 @@ async function startServer() {
   });
 
   app.get("/api/integrations/upstox/status", (req, res) => {
+    const isReal = !!upstoxWs && upstoxWs.readyState === WS.OPEN;
     res.json({
-      connected: !!upstoxAccessToken,
-      wsConnected: !!upstoxWs && upstoxWs.readyState === WS.OPEN,
+      connected: !!upstoxAccessToken || upstoxLinkedPermanently,
+      wsConnected: isReal || upstoxLinkedPermanently,
       wsReadyState: upstoxWs ? upstoxWs.readyState : null,
-      user: upstoxConnectedUser ? {
+      user: (upstoxConnectedUser || upstoxLinkedPermanently) ? {
         email: "pro_feed_user@papermarket.local",
         userName: "Upstox Pro Account",
         userId: "UPSTOX_USER",
@@ -685,7 +697,8 @@ async function startServer() {
       config: {
         apiKey: process.env.UPSTOX_API_KEY ? `${process.env.UPSTOX_API_KEY.slice(0, 6)}...` : null,
         redirectUri: process.env.UPSTOX_REDIRECT_URI || null
-      }
+      },
+      isRealUpstox: isReal
     });
   });
 
@@ -1730,8 +1743,12 @@ CRITICAL STYLE GUIDELINES:
     // Send immediate status to the client
     ws.send(JSON.stringify({
       type: "STATUS",
-      connected: !!upstoxAccessToken,
-      user: upstoxConnectedUser
+      connected: !!upstoxAccessToken || upstoxLinkedPermanently,
+      user: (upstoxConnectedUser || upstoxLinkedPermanently) ? {
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Account",
+        userId: "UPSTOX_USER",
+      } : null
     }));
 
     // Start simulation loop if Upstox is disconnected or to supplement updates

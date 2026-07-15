@@ -78,22 +78,61 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       change: fut.change,
       type: 'Future' as const,
     })),
-    // 3. Option Chain Calls
-    ...optionChain.map(opt => ({
-      symbol: `NIFTY 24-JUL ${opt.strike} CE`,
-      name: `Nifty 50 ${opt.strike} Call Option`,
-      ltp: opt.calls.ltp,
-      change: opt.calls.delta * 100,
-      type: 'Option (CE)' as const,
-    })),
-    // 4. Option Chain Puts
-    ...optionChain.map(opt => ({
-      symbol: `NIFTY 24-JUL ${opt.strike} PE`,
-      name: `Nifty 50 ${opt.strike} Put Option`,
-      ltp: opt.puts.ltp,
-      change: opt.puts.delta * -100,
-      type: 'Option (PE)' as const,
-    })),
+    // 3 & 4. Option Chain Contracts (Dynamic Multi-Underlier & Multi-Expiry)
+    ...['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'SBIN', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS'].flatMap(underlier => {
+      const underlierInst = instruments.find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
+      const spot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
+      let strikeStep = 50;
+      if (underlier === 'BANKNIFTY') {
+        strikeStep = 100;
+      } else if (spot > 3000) {
+        strikeStep = 100;
+      } else if (spot > 500) {
+        strikeStep = 50;
+      } else {
+        strikeStep = 20;
+      }
+      
+      const atmStrike = Math.round(spot / strikeStep) * strikeStep;
+      const strikes = [atmStrike - strikeStep * 2, atmStrike - strikeStep, atmStrike, atmStrike + strikeStep, atmStrike + strikeStep * 2];
+      const expiries = ['16-JUL-26', '23-JUL-26', '30-JUL-26'];
+      
+      const underlierNameFull = underlier === 'NIFTY' ? 'Nifty 50' : underlier === 'BANKNIFTY' ? 'Bank Nifty' : underlier;
+
+      return expiries.flatMap(exp => 
+        strikes.flatMap(strike => {
+          const distance = strike - spot;
+          
+          const callIntrinsic = Math.max(0, spot - strike);
+          const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+          const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+          
+          const putIntrinsic = Math.max(0, strike - spot);
+          const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+          const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+
+          const callDelta = Number((1 / (1 + Math.exp(distance / (strikeStep * 1.5)))).toFixed(2));
+          const putDelta = Number((callDelta - 1).toFixed(2));
+
+          return [
+            {
+              symbol: `${underlier} ${exp} ${strike} CE`,
+              name: `${underlierNameFull} ${strike} Call Option (${exp})`,
+              ltp: callLtp < 1.0 ? 1.05 : callLtp,
+              change: callDelta * 100,
+              type: 'Option (CE)' as const,
+            },
+            {
+              symbol: `${underlier} ${exp} ${strike} PE`,
+              name: `${underlierNameFull} ${strike} Put Option (${exp})`,
+              ltp: putLtp < 1.0 ? 1.05 : putLtp,
+              change: putDelta * 100,
+              type: 'Option (PE)' as const,
+            }
+          ];
+        })
+      );
+    })
   ];
 
   // Apply tab filters

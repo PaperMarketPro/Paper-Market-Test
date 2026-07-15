@@ -9,7 +9,7 @@ import { Instrument } from '../types';
 import { 
   TrendingUp, TrendingDown, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
   ChevronDown, Layers, Calendar, Sparkles, BookOpen, CheckSquare, ShieldCheck,
-  Trash2, Maximize2, Minimize2, Plus
+  Trash2, Maximize2, Minimize2, Plus, Type, Target, Palette, Percent
 } from 'lucide-react';
 import { 
   ResponsiveContainer, ComposedChart, Line as RechartsLine, Bar as RechartsBar, XAxis, YAxis, Tooltip, Area as RechartsArea, CartesianGrid 
@@ -373,6 +373,54 @@ function calculateRSI(data: Candle[], period: number = 14): { time: string; valu
   return rsiData;
 }
 
+interface MACDResult {
+  time: string;
+  macd: number;
+  signal: number;
+  histogram: number;
+}
+
+function calculateMACD(data: Candle[]): MACDResult[] {
+  if (data.length < 26) return [];
+  
+  const closes = data.map(c => c.close);
+  const ema12 = computeEMAValues(closes, 12);
+  const ema26 = computeEMAValues(closes, 26);
+  
+  const macdValues: number[] = [];
+  for (let i = 0; i < data.length; i++) {
+    macdValues.push(ema12[i] - ema26[i]);
+  }
+  
+  const signalValues = computeEMAValues(macdValues, 9);
+  
+  const macdResults: MACDResult[] = [];
+  for (let i = 0; i < data.length; i++) {
+    const macd = macdValues[i];
+    const signal = signalValues[i];
+    const histogram = macd - signal;
+    macdResults.push({
+      time: data[i].time,
+      macd: Number(macd.toFixed(2)),
+      signal: Number(signal.toFixed(2)),
+      histogram: Number(histogram.toFixed(2))
+    });
+  }
+  
+  return macdResults;
+}
+
+function computeEMAValues(values: number[], period: number): number[] {
+  const k = 2 / (period + 1);
+  const ema: number[] = [];
+  if (values.length === 0) return [];
+  ema[0] = values[0];
+  for (let i = 1; i < values.length; i++) {
+    ema[i] = values[i] * k + ema[i - 1] * (1 - k);
+  }
+  return ema;
+}
+
 function findSupportResistanceLevels(candles: Candle[], windowSize: number = 5): { support: number[]; resistance: number[] } {
   const support: number[] = [];
   const resistance: number[] = [];
@@ -453,8 +501,10 @@ export const TradingViewChart: React.FC<{
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
+  const macdContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const rsiChartRef = useRef<any>(null);
+  const macdChartRef = useRef<any>(null);
   const candlestickSeriesRef = useRef<any>(null);
   const areaSeriesRef = useRef<any>(null);
   const volumeSeriesRef = useRef<any>(null);
@@ -465,10 +515,57 @@ export const TradingViewChart: React.FC<{
   const bbBasisSeriesRef = useRef<any>(null);
 
   // Advanced TradingView States
-  const [activeTool, setActiveTool] = useState<'cursor' | 'draw-support' | 'draw-resistance'>('cursor');
+  const [activeTool, setActiveTool] = useState<
+    'cursor' | 'draw-support' | 'draw-resistance' | 'draw-fib-start' | 'draw-fib-end' | 'draw-marker' | 'risk-reward-entry' | 'risk-reward-target' | 'risk-reward-sl'
+  >('cursor');
   const [customLines, setCustomLines] = useState<{ id: string; price: number; type: 'support' | 'resistance' }[]>([]);
   const [showAutoSR, setShowAutoSR] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
+  const [showMACD, setShowMACD] = useState(false);
+  const [chartTheme, setChartTheme] = useState<'charcoal' | 'forest' | 'cyberpunk' | 'light'>('charcoal');
+
+  // Fibonacci States
+  const [fibStartPrice, setFibStartPrice] = useState<number | null>(null);
+  const [fibLevelsList, setFibLevelsList] = useState<{ id: string; start: number; end: number }[]>([]);
+
+  // Risk/Reward States
+  const [rrEntryPrice, setRREntryPrice] = useState<number | null>(null);
+  const [rrTargetPrice, setRRTargetPrice] = useState<number | null>(null);
+  const [rrSetup, setRRSetup] = useState<{ entry: number; target: number; sl: number } | null>(null);
+
+  // Custom text markers state
+  const [customMarkers, setCustomMarkers] = useState<any[]>([]);
+  const [markerText, setMarkerText] = useState<string>('BREAKOUT');
+
+  const themeConfig = useMemo(() => {
+    switch (chartTheme) {
+      case 'forest':
+        return {
+          background: '#06120e',
+          grid: 'rgba(16, 185, 129, 0.04)',
+          textColor: '#6ee7b7',
+        };
+      case 'cyberpunk':
+        return {
+          background: '#0f0716',
+          grid: 'rgba(168, 85, 247, 0.04)',
+          textColor: '#d8b4fe',
+        };
+      case 'light':
+        return {
+          background: '#f8fafc',
+          grid: 'rgba(15, 23, 42, 0.04)',
+          textColor: '#334155',
+        };
+      case 'charcoal':
+      default:
+        return {
+          background: '#090c13',
+          grid: 'rgba(255, 255, 255, 0.02)',
+          textColor: '#9ca3af',
+        };
+    }
+  }, [chartTheme]);
 
   const activeToolRef = useRef(activeTool);
   useEffect(() => {
@@ -482,13 +579,13 @@ export const TradingViewChart: React.FC<{
     // 1. Create a clean new chart instance
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#090c13' },
-        textColor: '#9ca3af',
+        background: { type: ColorType.Solid, color: themeConfig.background },
+        textColor: themeConfig.textColor,
         fontFamily: 'Inter, sans-serif',
       },
       grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.02)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.02)' },
+        vertLines: { color: themeConfig.grid },
+        horzLines: { color: themeConfig.grid },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -718,18 +815,78 @@ export const TradingViewChart: React.FC<{
       });
     }
 
+    // 7.1 Fibonacci drawings
+    if (activeSeries) {
+      fibLevelsList.forEach(fib => {
+        const diff = fib.start - fib.end;
+        const ratios = [
+          { ratio: 0, color: '#ef4444', label: '0.000 (End)' },
+          { ratio: 0.236, color: '#f59e0b', label: '0.236' },
+          { ratio: 0.382, color: '#10b981', label: '0.382' },
+          { ratio: 0.5, color: '#0ea5e9', label: '0.500' },
+          { ratio: 0.618, color: '#6366f1', label: '0.618' },
+          { ratio: 0.786, color: '#a855f7', label: '0.786' },
+          { ratio: 1.0, color: '#ec4899', label: '1.000 (Start)' },
+        ];
+        ratios.forEach(r => {
+          const price = Number((fib.end + diff * r.ratio).toFixed(2));
+          activeSeries.createPriceLine({
+            price: price,
+            color: r.color,
+            lineWidth: 1.5,
+            lineStyle: 1, // dashed
+            axisLabelVisible: true,
+            title: `Fib ${r.label}: ₹${price}`,
+          });
+        });
+      });
+    }
+
+    // 7.2 Risk/Reward drawings
+    if (activeSeries && rrSetup) {
+      activeSeries.createPriceLine({
+        price: rrSetup.entry,
+        color: '#f59e0b', // Yellow
+        lineWidth: 2,
+        lineStyle: 2, // Dashed
+        axisLabelVisible: true,
+        title: 'Entry Price',
+      });
+      activeSeries.createPriceLine({
+        price: rrSetup.target,
+        color: '#10b981', // Green
+        lineWidth: 2.5,
+        lineStyle: 0, // Solid
+        axisLabelVisible: true,
+        title: 'Take Profit',
+      });
+      activeSeries.createPriceLine({
+        price: rrSetup.sl,
+        color: '#ef4444', // Red
+        lineWidth: 2.5,
+        lineStyle: 0, // Solid
+        axisLabelVisible: true,
+        title: 'Stop Loss',
+      });
+    }
+
+    // 7.3 Custom Text Candle Markers
+    if (activeSeries && customMarkers.length > 0) {
+      activeSeries.setMarkers(customMarkers);
+    }
+
     // 8. Secondary RSI Chart Panel
     let rsiChart: any = null;
     if (showRSI && rsiContainerRef.current) {
       rsiChart = createChart(rsiContainerRef.current, {
         layout: {
-          background: { type: ColorType.Solid, color: '#090c13' },
-          textColor: '#9ca3af',
+          background: { type: ColorType.Solid, color: themeConfig.background },
+          textColor: themeConfig.textColor,
           fontFamily: 'Inter, sans-serif',
         },
         grid: {
-          vertLines: { color: 'rgba(255, 255, 255, 0.02)' },
-          horzLines: { color: 'rgba(255, 255, 255, 0.02)' },
+          vertLines: { color: themeConfig.grid },
+          horzLines: { color: themeConfig.grid },
         },
         crosshair: {
           mode: CrosshairMode.Normal,
@@ -812,6 +969,116 @@ export const TradingViewChart: React.FC<{
       });
     }
 
+    // 8.1 Secondary MACD Chart Panel
+    let macdChart: any = null;
+    if (showMACD && macdContainerRef.current) {
+      macdChart = createChart(macdContainerRef.current, {
+        layout: {
+          background: { type: ColorType.Solid, color: themeConfig.background },
+          textColor: themeConfig.textColor,
+          fontFamily: 'Inter, sans-serif',
+        },
+        grid: {
+          vertLines: { color: themeConfig.grid },
+          horzLines: { color: themeConfig.grid },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            color: 'rgba(255, 255, 255, 0.15)',
+            width: 1,
+            style: 3,
+          },
+          horzLine: {
+            color: 'rgba(255, 255, 255, 0.15)',
+            width: 1,
+            style: 3,
+          }
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          visible: true,
+        },
+        timeScale: {
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          visible: false, // hide time scale
+        },
+      });
+      macdChartRef.current = macdChart;
+
+      const macdLineSeries = macdChart.addSeries(LineSeries, {
+        color: '#3b82f6', // blue
+        lineWidth: 1.5,
+        title: 'MACD',
+      });
+      const signalLineSeries = macdChart.addSeries(LineSeries, {
+        color: '#f97316', // orange
+        lineWidth: 1.5,
+        title: 'Signal',
+      });
+      const histogramSeries = macdChart.addSeries(HistogramSeries, {
+        color: 'rgba(255, 255, 255, 0.15)',
+        priceFormat: {
+          type: 'volume',
+        },
+      });
+
+      const macdDataRaw = calculateMACD(enrichedCandles);
+      const macdLineData = macdDataRaw.map(r => {
+        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
+        return {
+          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          value: r.macd,
+        };
+      }).filter(d => d.time > 0);
+
+      const signalLineData = macdDataRaw.map(r => {
+        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
+        return {
+          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          value: r.signal,
+        };
+      }).filter(d => d.time > 0);
+
+      const histogramData = macdDataRaw.map(r => {
+        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
+        return {
+          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          value: r.histogram,
+          color: r.histogram >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)',
+        };
+      }).filter(d => d.time > 0);
+
+      macdLineSeries.setData(macdLineData);
+      signalLineSeries.setData(signalLineData);
+      histogramSeries.setData(histogramData);
+
+      // Synchronize time scales
+      chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) {
+          macdChart.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+      macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+        if (range) {
+          chart.timeScale().setVisibleLogicalRange(range);
+        }
+      });
+
+      if (rsiChart) {
+        rsiChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range) {
+            macdChart.timeScale().setVisibleLogicalRange(range);
+          }
+        });
+        macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range) {
+            rsiChart.timeScale().setVisibleLogicalRange(range);
+          }
+        });
+      }
+    }
+
     // Auto fit visible content nicely
     chart.timeScale().fitContent();
 
@@ -829,6 +1096,50 @@ export const TradingViewChart: React.FC<{
         const roundedPrice = Number(price.toFixed(2));
         setCustomLines(prev => [...prev, { id: `cl-${Date.now()}`, price: roundedPrice, type: 'resistance' }]);
         setActiveTool('cursor');
+      } else if (activeToolRef.current === 'draw-fib-start') {
+        setFibStartPrice(Number(price.toFixed(2)));
+        setActiveTool('draw-fib-end');
+      } else if (activeToolRef.current === 'draw-fib-end') {
+        if (fibStartPrice !== null) {
+          setFibLevelsList(prev => [
+            ...prev,
+            { id: `fib-${Date.now()}`, start: fibStartPrice, end: Number(price.toFixed(2)) }
+          ]);
+        }
+        setFibStartPrice(null);
+        setActiveTool('cursor');
+      } else if (activeToolRef.current === 'risk-reward-entry') {
+        setRREntryPrice(Number(price.toFixed(2)));
+        setActiveTool('risk-reward-target');
+      } else if (activeToolRef.current === 'risk-reward-target') {
+        setRRTargetPrice(Number(price.toFixed(2)));
+        setActiveTool('risk-reward-sl');
+      } else if (activeToolRef.current === 'risk-reward-sl') {
+        if (rrEntryPrice !== null && rrTargetPrice !== null) {
+          setRRSetup({
+            entry: rrEntryPrice,
+            target: rrTargetPrice,
+            sl: Number(price.toFixed(2))
+          });
+        }
+        setRREntryPrice(null);
+        setRRTargetPrice(null);
+        setActiveTool('cursor');
+      } else if (activeToolRef.current === 'draw-marker') {
+        const time = param.time;
+        if (time) {
+          setCustomMarkers(prev => [
+            ...prev,
+            {
+              time: time,
+              position: 'aboveBar',
+              color: '#3b82f6',
+              shape: 'arrowDown',
+              text: markerText || 'NOTE',
+            }
+          ]);
+          setActiveTool('cursor');
+        }
       }
     };
     chart.subscribeClick(clickHandler);
@@ -847,6 +1158,12 @@ export const TradingViewChart: React.FC<{
           height: rsiContainerRef.current.clientHeight,
         });
       }
+      if (macdChart && macdContainerRef.current) {
+        macdChart.applyOptions({
+          width: macdContainerRef.current.clientWidth,
+          height: macdContainerRef.current.clientHeight,
+        });
+      }
     };
 
     window.addEventListener('resize', handleResize);
@@ -863,6 +1180,10 @@ export const TradingViewChart: React.FC<{
         rsiChart.remove();
         rsiChartRef.current = null;
       }
+      if (macdChart) {
+        macdChart.remove();
+        macdChartRef.current = null;
+      }
       candlestickSeriesRef.current = null;
       areaSeriesRef.current = null;
       volumeSeriesRef.current = null;
@@ -872,12 +1193,20 @@ export const TradingViewChart: React.FC<{
       bbLowerSeriesRef.current = null;
       bbBasisSeriesRef.current = null;
     };
-  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, customLines]);
+  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig]);
+
+  const riskRewardRatio = useMemo(() => {
+    if (!rrSetup) return null;
+    const targetDiff = Math.abs(rrSetup.target - rrSetup.entry);
+    const slDiff = Math.abs(rrSetup.entry - rrSetup.sl);
+    if (slDiff === 0) return 0;
+    return Number((targetDiff / slDiff).toFixed(2));
+  }, [rrSetup]);
 
   return (
     <div className="flex h-full w-full bg-[#090c13] rounded-xl overflow-hidden border border-white/5 relative">
       {/* TradingView Advanced Vertical Sidebar Toolbar */}
-      <div className="w-12 border-r border-white/5 bg-[#07090e]/85 flex flex-col items-center py-3.5 gap-4 shrink-0">
+      <div className="w-12 border-r border-white/5 bg-[#07090e]/85 flex flex-col items-center py-3.5 gap-3.5 shrink-0">
         {/* Navigation Cursor / Move mode */}
         <button
           onClick={() => setActiveTool('cursor')}
@@ -917,12 +1246,60 @@ export const TradingViewChart: React.FC<{
           <TrendingDown className="w-4 h-4" />
         </button>
 
-        {/* Clear user drawn S/R lines */}
-        {customLines.length > 0 && (
+        {/* Fibonacci Retracement Tool */}
+        <button
+          onClick={() => setActiveTool(activeTool === 'draw-fib-start' ? 'cursor' : 'draw-fib-start')}
+          title="Fibonacci Retracement Tool (High to Low)"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            activeTool === 'draw-fib-start' || activeTool === 'draw-fib-end' ? 'bg-amber-500/20 text-amber-400 font-bold' : 'text-gray-500 hover:text-amber-400 hover:bg-white/5'
+          }`}
+        >
+          {(activeTool === 'draw-fib-start' || activeTool === 'draw-fib-end') && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          )}
+          <Percent className="w-4 h-4" />
+        </button>
+
+        {/* Risk/Reward Calculator Tool */}
+        <button
+          onClick={() => setActiveTool(activeTool === 'risk-reward-entry' ? 'cursor' : 'risk-reward-entry')}
+          title="Risk/Reward Setup (Entry -> Target -> SL)"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            activeTool === 'risk-reward-entry' || activeTool === 'risk-reward-target' || activeTool === 'risk-reward-sl' ? 'bg-teal-500/20 text-teal-400 font-bold' : 'text-gray-500 hover:text-teal-400 hover:bg-white/5'
+          }`}
+        >
+          {(activeTool === 'risk-reward-entry' || activeTool === 'risk-reward-target' || activeTool === 'risk-reward-sl') && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+          )}
+          <Target className="w-4 h-4" />
+        </button>
+
+        {/* Custom Text Marker / Flag Tool */}
+        <button
+          onClick={() => setActiveTool(activeTool === 'draw-marker' ? 'cursor' : 'draw-marker')}
+          title="Add Text Marker (Type text and click candle)"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            activeTool === 'draw-marker' ? 'bg-sky-500/20 text-sky-400 font-bold' : 'text-gray-500 hover:text-sky-400 hover:bg-white/5'
+          }`}
+        >
+          {activeTool === 'draw-marker' && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+          )}
+          <Type className="w-4 h-4" />
+        </button>
+
+        {/* Clear user drawings / reset all button */}
+        {(customLines.length > 0 || fibLevelsList.length > 0 || rrSetup !== null || customMarkers.length > 0) && (
           <button
-            onClick={() => setCustomLines([])}
-            title={`Clear Custom S/R Lines (${customLines.length})`}
-            className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all border-0 bg-transparent cursor-pointer"
+            onClick={() => {
+              setCustomLines([]);
+              setFibLevelsList([]);
+              setRRSetup(null);
+              setCustomMarkers([]);
+              setActiveTool('cursor');
+            }}
+            title="Clear All Custom Annotations/Drawings"
+            className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/15 hover:text-rose-300 transition-all border-0 bg-transparent cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -952,6 +1329,30 @@ export const TradingViewChart: React.FC<{
           <Activity className="w-4 h-4" />
         </button>
 
+        {/* Synchronized MACD Panel Toggle */}
+        <button
+          onClick={() => setShowMACD(!showMACD)}
+          title="Toggle MACD Indicator Panel"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
+            showMACD ? 'bg-blue-500/15 text-blue-400 font-bold' : 'text-gray-500 hover:text-blue-400 hover:bg-white/5'
+          }`}
+        >
+          <BarChart2 className="w-4 h-4" />
+        </button>
+
+        {/* Chart Theme Switcher */}
+        <button
+          onClick={() => {
+            const themes: ('charcoal' | 'forest' | 'cyberpunk' | 'light')[] = ['charcoal', 'forest', 'cyberpunk', 'light'];
+            const nextIdx = (themes.indexOf(chartTheme) + 1) % themes.length;
+            setChartTheme(themes[nextIdx]);
+          }}
+          title={`Chart Theme: ${chartTheme.toUpperCase()}`}
+          className="p-2 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-white/5 transition-all border-0 bg-transparent cursor-pointer"
+        >
+          <Palette className="w-4 h-4" />
+        </button>
+
         {/* Maximized Fullscreen Toggle inside app */}
         {isExpanded && onCloseExpanded ? (
           <button
@@ -961,35 +1362,82 @@ export const TradingViewChart: React.FC<{
           >
             <Minimize2 className="w-4 h-4" />
           </button>
-        ) : (
-          null
-        )}
+        ) : null}
       </div>
 
       {/* Main Chart Workspace */}
-      <div className="flex-1 flex flex-col h-full bg-[#090c13] min-w-0">
+      <div className="flex-1 flex flex-col h-full bg-[#090c13] min-w-0" style={{ backgroundColor: themeConfig.background }}>
         <div className="flex-1 relative min-h-[140px]">
           <div ref={chartContainerRef} className="absolute inset-0" />
 
           {/* Prompt drawing assistance overlays */}
           {activeTool !== 'cursor' && (
             <div className="absolute top-3 left-3 bg-[#0c0f17]/95 border border-sky-500/25 px-3 py-1.5 rounded-xl shadow-2xl z-20 pointer-events-none flex items-center gap-2 text-xs text-white">
-              <span className={`w-2.5 h-2.5 rounded-full ${activeTool === 'draw-support' ? 'bg-emerald-500 animate-ping' : 'bg-rose-500 animate-ping'}`} />
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />
               <span className="font-medium">
-                {activeTool === 'draw-support' 
-                  ? '🎯 DRAWING SUPPORT: Click anywhere on chart to place a green line' 
-                  : '🎯 DRAWING RESISTANCE: Click anywhere on chart to place a red line'}
+                {activeTool === 'draw-support' && '🎯 DRAWING SUPPORT: Click anywhere on chart to place a green Support line'}
+                {activeTool === 'draw-resistance' && '🎯 DRAWING RESISTANCE: Click anywhere on chart to place a red Resistance line'}
+                {activeTool === 'draw-fib-start' && '📐 FIBONACCI RETRACEMENT: Click on the HIGH / Start price point'}
+                {activeTool === 'draw-fib-end' && '📐 FIBONACCI RETRACEMENT: Click on the LOW / End price point to draw levels'}
+                {activeTool === 'risk-reward-entry' && '🎯 RISK/REWARD SETUP: Click on the Entry price point'}
+                {activeTool === 'risk-reward-target' && '🎯 RISK/REWARD SETUP: Click on the Target / Take Profit price point'}
+                {activeTool === 'risk-reward-sl' && '🎯 RISK/REWARD SETUP: Click on the Stop Loss price point'}
+                {activeTool === 'draw-marker' && '💬 TEXT FLAG: Type annotation label in input box and click candle'}
               </span>
+            </div>
+          )}
+
+          {/* Custom marker label text overlay input */}
+          {activeTool === 'draw-marker' && (
+            <div className="absolute top-14 left-3 bg-[#0c0f17]/95 border border-sky-500/25 px-3 py-1.5 rounded-xl shadow-2xl z-20 flex items-center gap-2 text-xs text-white">
+              <span>Flag Label:</span>
+              <input
+                type="text"
+                value={markerText}
+                onChange={e => setMarkerText(e.target.value.toUpperCase())}
+                className="w-24 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white text-xs text-center focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+              <span className="text-gray-400 font-mono text-[10px]">(Then click candle)</span>
+            </div>
+          )}
+
+          {/* Risk/Reward active ratio display banner */}
+          {rrSetup && (
+            <div className="absolute top-3 right-3 bg-[#0c0f17]/95 border border-emerald-500/25 px-3 py-1.5 rounded-xl shadow-2xl z-20 flex items-center gap-3 text-xs text-white">
+              <span className="flex items-center gap-1.5 font-bold text-emerald-400">
+                <Target className="w-3.5 h-3.5" />
+                Risk/Reward Ratio: {riskRewardRatio}
+              </span>
+              <div className="w-px h-3 bg-white/10" />
+              <span className="text-gray-400">Entry: <span className="text-amber-400">₹{rrSetup.entry}</span></span>
+              <span className="text-gray-400">Target: <span className="text-emerald-400">₹{rrSetup.target}</span></span>
+              <span className="text-gray-400">SL: <span className="text-rose-400">₹{rrSetup.sl}</span></span>
+              <button
+                onClick={() => setRRSetup(null)}
+                className="ml-1 text-gray-500 hover:text-rose-400 bg-transparent border-0 cursor-pointer text-xs"
+              >
+                ✕
+              </button>
             </div>
           )}
         </div>
 
         {/* Relative Strength Index Subpanel */}
         {showRSI && (
-          <div className="h-28 border-t border-white/5 bg-[#090c13] relative shrink-0">
+          <div className="h-28 border-t border-white/5 relative shrink-0" style={{ backgroundColor: themeConfig.background }}>
             <div ref={rsiContainerRef} className="absolute inset-0" />
             <div className="absolute top-2.5 left-2.5 text-[9px] font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/10 pointer-events-none tracking-wider select-none">
               RSI (14)
+            </div>
+          </div>
+        )}
+
+        {/* Moving Average Convergence Divergence Subpanel */}
+        {showMACD && (
+          <div className="h-28 border-t border-white/5 relative shrink-0" style={{ backgroundColor: themeConfig.background }}>
+            <div ref={macdContainerRef} className="absolute inset-0" />
+            <div className="absolute top-2.5 left-2.5 text-[9px] font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-500/10 pointer-events-none tracking-wider select-none">
+              MACD (12, 26, 9)
             </div>
           </div>
         )}

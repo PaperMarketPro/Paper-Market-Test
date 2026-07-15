@@ -59,8 +59,16 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
   const [expandedAsset, setExpandedAsset] = useState<Instrument | null>(null);
 
   // Expiries scroll chips
-  const expiries = ['11-JUL-2026', '18-JUL-2026', '25-JUL-2026', '01-AUG-2026'];
-  const [selectedExpiry, setSelectedExpiry] = useState('11-JUL-2026');
+  const formatExpiryForSymbol = (expiryStr: string) => {
+    const parts = expiryStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[0]}-${parts[1]}-${parts[2].substring(2)}`;
+    }
+    return expiryStr;
+  };
+
+  const expiries = ['16-JUL-2026', '23-JUL-2026', '30-JUL-2026', '06-AUG-2026', '13-AUG-2026', '20-AUG-2026', '27-AUG-2026'];
+  const [selectedExpiry, setSelectedExpiry] = useState('16-JUL-2026');
 
   // Option Greeks toggle
   const [showGreeks, setShowGreeks] = useState(false);
@@ -81,7 +89,12 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
 
   const filteredInstruments = instruments.filter(inst => {
     if (mode === 'equity' && indicesList.includes(inst.symbol)) {
-      return false;
+      // If the user explicitly added this index to their watchlist, allow it to be shown in "My Watchlist" view
+      if (selectedList === 'My Watchlist' && myWatchlist.includes(inst.symbol)) {
+        // Keep it
+      } else {
+        return false;
+      }
     }
     const matchesWatchlist = selectedList === 'My Watchlist' ? myWatchlist.includes(inst.symbol) : true;
     const matchesSearch = inst.symbol.toLowerCase().includes(equitySearchQuery.toLowerCase()) ||
@@ -302,7 +315,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                             Execute Trade
                           </button>
                           
-                          {selectedList === 'My Watchlist' ? (
+                          {isMyItem ? (
                             <button
                               onClick={(e) => removeFromWatchlist(inst.symbol, e)}
                               className="px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition flex items-center justify-center cursor-pointer"
@@ -801,8 +814,13 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                       { symbol: 'TCS', name: 'TCS' },
                       { symbol: 'INFY', name: 'Infosys' },
                       { symbol: 'HDFCBANK', name: 'HDFC Bank' },
+                      { symbol: 'ICICIBANK', name: 'ICICI Bank' },
                       { symbol: 'SBIN', name: 'SBI' },
-                      { symbol: 'TATAMOTORS', name: 'Tata Motors' }
+                      { symbol: 'TATAMOTORS', name: 'Tata Motors' },
+                      { symbol: 'LT', name: 'L&T' },
+                      { symbol: 'AXISBANK', name: 'Axis Bank' },
+                      { symbol: 'KOTAKBANK', name: 'Kotak Bank' },
+                      { symbol: 'ITC', name: 'ITC' }
                     ].map(idxObj => (
                       <button
                         key={idxObj.symbol}
@@ -946,7 +964,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                                 <span className="text-gray-400">{showGreeks ? item.calls.theta.toFixed(1) : `${(item.calls.volume / 1000).toFixed(0)}k`}</span>
                               </div>
                               <div
-                                onClick={() => !hideCe && handleQuickTrade(`${underlierName} 24-JUL ${item.strike} CE`)}
+                                onClick={() => !hideCe && handleQuickTrade(`${underlierName} ${formatExpiryForSymbol(selectedExpiry)} ${item.strike} CE`)}
                                 className={`py-1 font-bold text-emerald-400 cursor-pointer hover:bg-emerald-500/10 rounded transition ${
                                   isCallItm ? 'bg-emerald-500/10' : ''
                                 } ${hideCe ? 'opacity-20 pointer-events-none' : ''}`}
@@ -961,7 +979,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
 
                               {/* PUT side metrics */}
                               <div
-                                onClick={() => !hidePe && handleQuickTrade(`${underlierName} 24-JUL ${item.strike} PE`)}
+                                onClick={() => !hidePe && handleQuickTrade(`${underlierName} ${formatExpiryForSymbol(selectedExpiry)} ${item.strike} PE`)}
                                 className={`py-1 font-bold text-red-400 cursor-pointer hover:bg-red-500/10 rounded transition ${
                                   isPutItm ? 'bg-red-500/10' : ''
                                 } ${hidePe ? 'opacity-20 pointer-events-none' : ''}`}
@@ -1029,12 +1047,21 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                       <span className="font-mono font-bold text-xs text-white">{inst.symbol}</span>
                       <span className="block text-[10px] text-gray-400">{inst.name}</span>
                     </div>
-                    <button
-                      onClick={() => addToWatchlist(inst.symbol)}
-                      className="px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[10px] font-bold hover:bg-sky-600 transition"
-                    >
-                      Add
-                    </button>
+                    {myWatchlist.includes(inst.symbol) ? (
+                      <button
+                        onClick={(e) => removeFromWatchlist(inst.symbol, e)}
+                        className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-[10px] font-bold hover:bg-red-500/30 transition cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => addToWatchlist(inst.symbol)}
+                        className="px-3 py-1.5 bg-sky-500 text-white rounded-lg text-[10px] font-bold hover:bg-sky-600 transition cursor-pointer"
+                      >
+                        Add
+                      </button>
+                    )}
                   </div>
                 ))}
 

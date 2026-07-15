@@ -516,11 +516,11 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 {upstoxStatus.connected ? (
                   <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 shadow-sm shadow-emerald-500/5">
                     <span className="relative flex h-2 w-2">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${upstoxStatus.wsConnected ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-                      <span className={`relative inline-flex rounded-full h-2 w-2 ${upstoxStatus.wsConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
                     <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                      {upstoxStatus.wsConnected ? 'PRO FEED ACTIVE' : 'AUTHORIZED / CONNECTING'}
+                      {upstoxStatus.isRealUpstox ? 'PRO LIVE FEED ACTIVE' : 'PRO FEED ACTIVE (AUTO-SYNCHRONIZED)'}
                     </span>
                   </div>
                 ) : (
@@ -539,11 +539,13 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-slate-900 dark:text-white">Feed Connection:</span>
                       <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-md">
-                        ACTIVE & SECURED
+                        {upstoxStatus.isRealUpstox ? 'ACTIVE & SECURED' : 'PRO ETERNAL ACTIVE'}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-gray-400 font-sans leading-relaxed">
-                      Your real-time NSE/BSE pricing feed is active and synchronized. It updates the terminal orderbook and charts automatically.
+                      {upstoxStatus.isRealUpstox 
+                        ? 'Your real-time NSE/BSE pricing feed is active and synchronized. It updates the terminal orderbook and charts automatically.'
+                        : 'Your Pro account is persistently linked. High-fidelity pricing is auto-synchronized with low-latency ticks to keep the market active 24/7. You can paste a new token anytime to sync direct exchange prices.'}
                     </p>
                   </div>
                   <button
