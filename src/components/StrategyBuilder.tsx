@@ -528,6 +528,19 @@ export const StrategyBuilder: React.FC = () => {
                         <span className="text-[9px] font-mono text-gray-500">Initial: ₹5,00,000</span>
                       </div>
 
+                      {results?.dataFeedSource && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-white/5 text-[9px] font-mono">
+                          <span className="text-gray-400">
+                            Feed: <span className={results.isRealMarketData ? "text-emerald-400 font-bold" : "text-amber-400"}>{results.dataFeedSource}</span>
+                          </span>
+                          {results.totalFrictionFees !== undefined && (
+                            <span className="text-gray-400">
+                              Friction Costs: <span className="text-red-400">₹{results.totalFrictionFees.toLocaleString('en-IN')}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-4 gap-2 text-center">
                         <div className="space-y-0.5">
                           <span className="block text-[8px] text-gray-500 uppercase">Win-Rate</span>

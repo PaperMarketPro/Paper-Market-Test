@@ -69,6 +69,9 @@ interface AppContextType {
   refreshUpstoxStatus: () => Promise<void>;
   disconnectUpstox: () => Promise<void>;
   connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
+  enforceMarketHours: boolean;
+  toggleEnforceMarketHours: () => void;
+  isMarketOpen: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -159,6 +162,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isRead: false
     }
   ]);
+
+  // Indian Market Hours Checking States
+  const [enforceMarketHours, setEnforceMarketHours] = useState<boolean>(true);
+
+  useEffect(() => {
+    localStorage.setItem('enforceMarketHours', 'true');
+  }, []);
+
+  const toggleEnforceMarketHours = () => {
+    // Strictly enforced for professional trading habit development
+  };
+
+  const [isMarketOpen, setIsMarketOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const updateMarketStatus = () => {
+      const getISTDateTime = () => {
+        const options = { timeZone: 'Asia/Kolkata', hour12: false };
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          ...options,
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          weekday: 'short'
+        });
+        
+        const parts = formatter.formatToParts(new Date());
+        const dateObj: Record<string, string> = {};
+        parts.forEach(p => {
+          dateObj[p.type] = p.value;
+        });
+        
+        return {
+          weekday: dateObj.weekday || 'Mon',
+          hour: parseInt(dateObj.hour || '0', 10),
+          minute: parseInt(dateObj.minute || '0', 10)
+        };
+      };
+
+      try {
+        const ist = getISTDateTime();
+        const day = ist.weekday;
+        
+        if (day === 'Sat' || day === 'Sun') {
+          setIsMarketOpen(false);
+          return;
+        }
+        
+        const currentMinutes = ist.hour * 60 + ist.minute;
+        const openMinutes = 9 * 60 + 15;
+        const closeMinutes = 15 * 60 + 30;
+        
+        setIsMarketOpen(currentMinutes >= openMinutes && currentMinutes <= closeMinutes);
+      } catch (e) {
+        // Fallback in case of parsing issue
+        const d = new Date();
+        const utcHour = d.getUTCHours();
+        const utcMin = d.getUTCMinutes();
+        const istHour = (utcHour + 5) % 24 + (utcMin + 30 >= 60 ? 1 : 0);
+        const istMin = (utcMin + 30) % 60;
+        const day = d.getUTCDay();
+        if (day === 0 || day === 6) {
+          setIsMarketOpen(false);
+        } else {
+          const currentMinutes = istHour * 60 + istMin;
+          setIsMarketOpen(currentMinutes >= 555 && currentMinutes <= 930);
+        }
+      }
+    };
+
+    updateMarketStatus();
+    const interval = setInterval(updateMarketStatus, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auth listener
   useEffect(() => {
@@ -502,7 +582,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshUpstoxStatus = async () => {
     try {
-      const res = await fetch('/api/integrations/upstox/status');
+      const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
       if (res.ok) {
         const data = await res.json();
         setUpstoxStatus({
@@ -879,6 +959,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const activeStrategies = strategies.filter(s => s.isAutoTradeActive);
     if (activeStrategies.length === 0) return;
 
+    // Skip trading if market is closed and strict enforcement is active
+    if (enforceMarketHours && !isMarketOpen) return;
+
     // Check every strategy against the currently selected asset's tick
     activeStrategies.forEach(strat => {
       const symbol = selectedAssetSymbol || 'RELIANCE';
@@ -1082,6 +1165,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     stopLoss?: number;
     target?: number;
   }) => {
+    // Strict Market Hours Enforcement Check
+    if (!isMarketOpen) {
+      pushNotification(
+        'Transaction Blocked', 
+        'Placing orders is strictly blocked outside Indian Stock Market hours (Monday to Friday, 9:15 AM - 3:30 PM IST).', 
+        'alert'
+      );
+      return { 
+        success: false, 
+        message: '❌ Transaction Blocked: Indian Stock Markets (NSE/BSE) are currently closed. Placing orders is locked outside of 9:15 AM - 3:30 PM IST (Mon-Fri).' 
+      };
+    }
+
     const asset = instruments.find(i => i.symbol === orderData.symbol);
     const executionPrice = orderData.price || (asset ? asset.ltp : 100);
     const orderCost = executionPrice * orderData.quantity;
@@ -1210,6 +1306,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Exit/Close Position manually (Positions Tab)
   const exitPosition = (positionId: string, quantityToExit?: number) => {
+    // Strict Market Hours Enforcement Check
+    if (!isMarketOpen) {
+      pushNotification(
+        'Transaction Blocked', 
+        'Closing positions is strictly blocked outside Indian Stock Market hours (Monday to Friday, 9:15 AM - 3:30 PM IST).', 
+        'alert'
+      );
+      return { 
+        success: false, 
+        message: '❌ Transaction Blocked: Indian Stock Markets (NSE/BSE) are currently closed. Closing positions is locked outside of 9:15 AM - 3:30 PM IST (Mon-Fri).' 
+      };
+    }
+
     const pos = positions.find(p => p.id === positionId);
     if (!pos) return { success: false, message: 'Position not found' };
 
@@ -1710,6 +1819,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshUpstoxStatus,
         disconnectUpstox,
         connectUpstoxManually,
+        enforceMarketHours,
+        toggleEnforceMarketHours,
+        isMarketOpen,
       }}
     >
       {children}

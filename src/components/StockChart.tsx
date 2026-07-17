@@ -9,7 +9,7 @@ import { Instrument } from '../types';
 import { 
   TrendingUp, TrendingDown, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
   ChevronDown, Layers, Calendar, Sparkles, BookOpen, CheckSquare, ShieldCheck,
-  Trash2, Maximize2, Minimize2, Plus, Type, Target, Palette, Percent
+  Trash2, Maximize2, Minimize2, Plus, Type, Target, Palette, Percent, GitCommit
 } from 'lucide-react';
 import { 
   ResponsiveContainer, ComposedChart, Line as RechartsLine, Bar as RechartsBar, XAxis, YAxis, Tooltip, Area as RechartsArea, CartesianGrid 
@@ -34,6 +34,11 @@ interface Candle {
   bbUpper?: number;
   bbLower?: number;
   bbBasis?: number;
+  ema50?: number;
+  ema200?: number;
+  vwap?: number;
+  supertrend?: number;
+  supertrendDirection?: 'up' | 'down';
 }
 
 /**
@@ -332,9 +337,9 @@ const enrichCandlesWithTimestamps = (rawCandles: Candle[], tf: string) => {
 };
 
 // Quantitative Indicators calculations
-function calculateRSI(data: Candle[], period: number = 14): { time: string; value: number }[] {
+function calculateRSI(data: (Candle & { timestamp?: number })[], period: number = 14): { time: string; timestamp?: number; value: number }[] {
   if (data.length < period + 1) return [];
-  const rsiData: { time: string; value: number }[] = [];
+  const rsiData: { time: string; timestamp?: number; value: number }[] = [];
   
   let gains = 0;
   let losses = 0;
@@ -354,7 +359,7 @@ function calculateRSI(data: Candle[], period: number = 14): { time: string; valu
   let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
   let rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
   
-  rsiData.push({ time: data[period].time, value: Number(rsi.toFixed(2)) });
+  rsiData.push({ time: data[period].time, timestamp: data[period].timestamp, value: Number(rsi.toFixed(2)) });
   
   for (let i = period + 1; i < data.length; i++) {
     const diff = data[i].close - data[i - 1].close;
@@ -367,7 +372,7 @@ function calculateRSI(data: Candle[], period: number = 14): { time: string; valu
     rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
     rsi = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
     
-    rsiData.push({ time: data[i].time, value: Number(rsi.toFixed(2)) });
+    rsiData.push({ time: data[i].time, timestamp: data[i].timestamp, value: Number(rsi.toFixed(2)) });
   }
   
   return rsiData;
@@ -375,12 +380,13 @@ function calculateRSI(data: Candle[], period: number = 14): { time: string; valu
 
 interface MACDResult {
   time: string;
+  timestamp?: number;
   macd: number;
   signal: number;
   histogram: number;
 }
 
-function calculateMACD(data: Candle[]): MACDResult[] {
+function calculateMACD(data: (Candle & { timestamp?: number })[]): MACDResult[] {
   if (data.length < 26) return [];
   
   const closes = data.map(c => c.close);
@@ -401,6 +407,7 @@ function calculateMACD(data: Candle[]): MACDResult[] {
     const histogram = macd - signal;
     macdResults.push({
       time: data[i].time,
+      timestamp: data[i].timestamp,
       macd: Number(macd.toFixed(2)),
       signal: Number(signal.toFixed(2)),
       histogram: Number(histogram.toFixed(2))
@@ -489,6 +496,9 @@ export const TradingViewChart: React.FC<{
   emaPeriod: number;
   smaPeriod: number;
   bbPeriod: number;
+  showSupertrend: boolean;
+  showVWAP: boolean;
+  showEma50_200: boolean;
 }> = ({
   symbol,
   timeframe,
@@ -503,7 +513,10 @@ export const TradingViewChart: React.FC<{
   onCloseExpanded,
   emaPeriod,
   smaPeriod,
-  bbPeriod
+  bbPeriod,
+  showSupertrend,
+  showVWAP,
+  showEma50_200
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
@@ -522,13 +535,26 @@ export const TradingViewChart: React.FC<{
 
   // Advanced TradingView States
   const [activeTool, setActiveTool] = useState<
-    'cursor' | 'draw-support' | 'draw-resistance' | 'draw-fib-start' | 'draw-fib-end' | 'draw-marker' | 'risk-reward-entry' | 'risk-reward-target' | 'risk-reward-sl'
+    'cursor' | 'draw-support' | 'draw-resistance' | 'draw-fib-start' | 'draw-fib-end' | 'draw-marker' | 'risk-reward-entry' | 'risk-reward-target' | 'risk-reward-sl' | 'draw-trendline-start' | 'draw-trendline-end'
   >('cursor');
   const [customLines, setCustomLines] = useState<{ id: string; price: number; type: 'support' | 'resistance' }[]>([]);
+  const [trendlineStart, setTrendlineStart] = useState<{ time: number; price: number } | null>(null);
+  const [trendlines, setTrendlines] = useState<{ id: string; start: { time: number; price: number }; end: { time: number; price: number } }[]>([]);
   const [showAutoSR, setShowAutoSR] = useState(false);
   const [showRSI, setShowRSI] = useState(false);
   const [showMACD, setShowMACD] = useState(false);
   const [chartTheme, setChartTheme] = useState<'charcoal' | 'forest' | 'cyberpunk' | 'light'>('charcoal');
+
+  const { theme } = useApp();
+
+  // Synchronize chart theme with global app theme automatically
+  useEffect(() => {
+    if (theme === 'light') {
+      setChartTheme('light');
+    } else if (theme === 'dark') {
+      setChartTheme(prev => prev === 'light' ? 'charcoal' : prev);
+    }
+  }, [theme]);
 
   // Fibonacci States
   const [fibStartPrice, setFibStartPrice] = useState<number | null>(null);
@@ -582,6 +608,11 @@ export const TradingViewChart: React.FC<{
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    const isLight = chartTheme === 'light';
+    const borderCol = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+    const crosshairCol = isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)';
+    const labelBg = isLight ? '#475569' : '#1e222d';
+
     // 1. Create a clean new chart instance
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -596,24 +627,24 @@ export const TradingViewChart: React.FC<{
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: 'rgba(255, 255, 255, 0.15)',
+          color: crosshairCol,
           width: 1,
           style: 3, // dashed
-          labelBackgroundColor: '#1e222d',
+          labelBackgroundColor: labelBg,
         },
         horzLine: {
-          color: 'rgba(255, 255, 255, 0.15)',
+          color: crosshairCol,
           width: 1,
           style: 3, // dashed
-          labelBackgroundColor: '#1e222d',
+          labelBackgroundColor: labelBg,
         },
       },
       rightPriceScale: {
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: borderCol,
         alignLabels: true,
       },
       timeScale: {
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: borderCol,
         timeVisible: true,
         secondsVisible: false,
       },
@@ -782,6 +813,56 @@ export const TradingViewChart: React.FC<{
       bbBasisSeries.setData(bbBasisData);
     }
 
+    // 5.1 Setup EMA 50 & 200 Multi-EMA
+    if (showEma50_200) {
+      const ema50Series = chart.addSeries(LineSeries, {
+        color: '#f97316', // Orange
+        lineWidth: 2,
+        title: 'EMA(50)',
+      });
+      const ema50Data = enrichedCandles
+        .filter(c => c.ema50 !== undefined)
+        .map(c => ({ time: c.timestamp as UTCTimestamp, value: c.ema50! }));
+      ema50Series.setData(ema50Data);
+
+      const ema200Series = chart.addSeries(LineSeries, {
+        color: '#ec4899', // Pink
+        lineWidth: 2,
+        title: 'EMA(200)',
+      });
+      const ema200Data = enrichedCandles
+        .filter(c => c.ema200 !== undefined)
+        .map(c => ({ time: c.timestamp as UTCTimestamp, value: c.ema200! }));
+      ema200Series.setData(ema200Data);
+    }
+
+    // 5.2 Setup VWAP
+    if (showVWAP) {
+      const vwapSeries = chart.addSeries(LineSeries, {
+        color: '#06b6d4', // Cyan
+        lineWidth: 2,
+        title: 'VWAP',
+      });
+      const vwapData = enrichedCandles
+        .filter(c => c.vwap !== undefined)
+        .map(c => ({ time: c.timestamp as UTCTimestamp, value: c.vwap! }));
+      vwapSeries.setData(vwapData);
+    }
+
+    // 5.3 Setup Supertrend (Period: 10, Multiplier: 3)
+    if (showSupertrend) {
+      const supertrendSeries = chart.addSeries(LineSeries, {
+        color: '#fbbf24', // Amber/Gold
+        lineWidth: 2,
+        lineStyle: 1, // Dashed
+        title: 'Supertrend',
+      });
+      const supertrendData = enrichedCandles
+        .filter(c => c.supertrend !== undefined)
+        .map(c => ({ time: c.timestamp as UTCTimestamp, value: c.supertrend! }));
+      supertrendSeries.setData(supertrendData);
+    }
+
     // 6. Support auto-drawn support and resistance pivot lines
     if (showAutoSR && activeSeries) {
       const levels = findSupportResistanceLevels(enrichedCandles);
@@ -876,9 +957,58 @@ export const TradingViewChart: React.FC<{
       });
     }
 
-    // 7.3 Custom Text Candle Markers
-    if (activeSeries && customMarkers.length > 0) {
-      activeSeries.setMarkers(customMarkers);
+    // 7.3 Custom Text Candle Markers & Supertrend BUY/SELL Alerts
+    if (activeSeries) {
+      const supertrendMarkers: any[] = [];
+      if (showSupertrend) {
+        for (let i = 1; i < enrichedCandles.length; i++) {
+          const prev = enrichedCandles[i - 1];
+          const curr = enrichedCandles[i];
+          if (prev.supertrendDirection === 'down' && curr.supertrendDirection === 'up') {
+            supertrendMarkers.push({
+              time: curr.timestamp as UTCTimestamp,
+              position: 'belowBar',
+              color: '#10b981',
+              shape: 'arrowUp',
+              text: 'ST BUY',
+            });
+          } else if (prev.supertrendDirection === 'up' && curr.supertrendDirection === 'down') {
+            supertrendMarkers.push({
+              time: curr.timestamp as UTCTimestamp,
+              position: 'aboveBar',
+              color: '#ef4444',
+              shape: 'arrowDown',
+              text: 'ST SELL',
+            });
+          }
+        }
+      }
+      const combinedMarkers = [...supertrendMarkers, ...customMarkers];
+      if (activeSeries && typeof activeSeries.setMarkers === 'function') {
+        if (combinedMarkers.length > 0) {
+          combinedMarkers.sort((a, b) => (a.time as number) - (b.time as number));
+          activeSeries.setMarkers(combinedMarkers);
+        } else {
+          activeSeries.setMarkers([]);
+        }
+      }
+    }
+
+    // 7.4 Trendlines drawings
+    if (activeSeries && trendlines.length > 0) {
+      trendlines.forEach(tl => {
+        const trendLineSeries = chart.addSeries(LineSeries, {
+          color: '#38bdf8', // Light blue trendline
+          lineWidth: 2,
+          priceLineVisible: false,
+          title: 'Trendline',
+        });
+        const trendLineData = [
+          { time: tl.start.time as UTCTimestamp, value: tl.start.price },
+          { time: tl.end.time as UTCTimestamp, value: tl.end.price }
+        ].sort((a, b) => (a.time as number) - (b.time as number));
+        trendLineSeries.setData(trendLineData);
+      });
     }
 
     // 8. Secondary RSI Chart Panel
@@ -897,22 +1027,22 @@ export const TradingViewChart: React.FC<{
         crosshair: {
           mode: CrosshairMode.Normal,
           vertLine: {
-            color: 'rgba(255, 255, 255, 0.15)',
+            color: crosshairCol,
             width: 1,
             style: 3,
           },
           horzLine: {
-            color: 'rgba(255, 255, 255, 0.15)',
+            color: crosshairCol,
             width: 1,
             style: 3,
           }
         },
         rightPriceScale: {
-          borderColor: 'rgba(255, 255, 255, 0.08)',
+          borderColor: borderCol,
           visible: true,
         },
         timeScale: {
-          borderColor: 'rgba(255, 255, 255, 0.08)',
+          borderColor: borderCol,
           visible: false, // hide time scale on the RSI chart to avoid duplicate labels
         },
       });
@@ -935,7 +1065,7 @@ export const TradingViewChart: React.FC<{
       });
       rsiSeries.createPriceLine({
         price: 50,
-        color: 'rgba(255, 255, 255, 0.1)',
+        color: isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.1)',
         lineWidth: 1,
         lineStyle: 1,
         axisLabelVisible: true,
@@ -952,9 +1082,8 @@ export const TradingViewChart: React.FC<{
 
       const rsiDataRaw = calculateRSI(enrichedCandles, 14);
       const rsiSeriesData = rsiDataRaw.map(r => {
-        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
         return {
-          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          time: (r.timestamp || 0) as UTCTimestamp,
           value: r.value,
         };
       }).filter(d => d.time > 0);
@@ -991,22 +1120,22 @@ export const TradingViewChart: React.FC<{
         crosshair: {
           mode: CrosshairMode.Normal,
           vertLine: {
-            color: 'rgba(255, 255, 255, 0.15)',
+            color: crosshairCol,
             width: 1,
             style: 3,
           },
           horzLine: {
-            color: 'rgba(255, 255, 255, 0.15)',
+            color: crosshairCol,
             width: 1,
             style: 3,
           }
         },
         rightPriceScale: {
-          borderColor: 'rgba(255, 255, 255, 0.08)',
+          borderColor: borderCol,
           visible: true,
         },
         timeScale: {
-          borderColor: 'rgba(255, 255, 255, 0.08)',
+          borderColor: borderCol,
           visible: false, // hide time scale
         },
       });
@@ -1023,7 +1152,7 @@ export const TradingViewChart: React.FC<{
         title: 'Signal',
       });
       const histogramSeries = macdChart.addSeries(HistogramSeries, {
-        color: 'rgba(255, 255, 255, 0.15)',
+        color: isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.15)',
         priceFormat: {
           type: 'volume',
         },
@@ -1031,25 +1160,22 @@ export const TradingViewChart: React.FC<{
 
       const macdDataRaw = calculateMACD(enrichedCandles);
       const macdLineData = macdDataRaw.map(r => {
-        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
         return {
-          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          time: (r.timestamp || 0) as UTCTimestamp,
           value: r.macd,
         };
       }).filter(d => d.time > 0);
 
       const signalLineData = macdDataRaw.map(r => {
-        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
         return {
-          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          time: (r.timestamp || 0) as UTCTimestamp,
           value: r.signal,
         };
       }).filter(d => d.time > 0);
 
       const histogramData = macdDataRaw.map(r => {
-        const matchingCandle = enrichedCandles.find(c => c.time === r.time);
         return {
-          time: (matchingCandle ? matchingCandle.timestamp : 0) as UTCTimestamp,
+          time: (r.timestamp || 0) as UTCTimestamp,
           value: r.histogram,
           color: r.histogram >= 0 ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)',
         };
@@ -1146,6 +1272,26 @@ export const TradingViewChart: React.FC<{
           ]);
           setActiveTool('cursor');
         }
+      } else if (activeToolRef.current === 'draw-trendline-start') {
+        const time = param.time;
+        if (time) {
+          setTrendlineStart({ time: Number(time), price: Number(price.toFixed(2)) });
+          setActiveTool('draw-trendline-end');
+        }
+      } else if (activeToolRef.current === 'draw-trendline-end') {
+        const time = param.time;
+        if (time && trendlineStart) {
+          setTrendlines(prev => [
+            ...prev,
+            {
+              id: `tl-${Date.now()}`,
+              start: trendlineStart,
+              end: { time: Number(time), price: Number(price.toFixed(2)) }
+            }
+          ]);
+        }
+        setTrendlineStart(null);
+        setActiveTool('cursor');
       }
     };
     chart.subscribeClick(clickHandler);
@@ -1199,7 +1345,7 @@ export const TradingViewChart: React.FC<{
       bbLowerSeriesRef.current = null;
       bbBasisSeriesRef.current = null;
     };
-  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig]);
+  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200]);
 
   const riskRewardRatio = useMemo(() => {
     if (!rrSetup) return null;
@@ -1212,7 +1358,7 @@ export const TradingViewChart: React.FC<{
   return (
     <div className="flex h-full w-full bg-[#090c13] rounded-xl overflow-hidden border border-white/5 relative">
       {/* TradingView Advanced Vertical Sidebar Toolbar */}
-      <div className="w-12 border-r border-white/5 bg-[#07090e]/85 flex flex-col items-center py-3.5 gap-3.5 shrink-0">
+      <div className="w-12 border-r border-white/5 bg-[#07090e]/85 flex flex-col items-center py-3.5 gap-3.5 shrink-0 overflow-y-auto max-h-full">
         {/* Navigation Cursor / Move mode */}
         <button
           onClick={() => setActiveTool('cursor')}
@@ -1266,6 +1412,20 @@ export const TradingViewChart: React.FC<{
           <Percent className="w-4 h-4" />
         </button>
 
+        {/* Trendline Tool */}
+        <button
+          onClick={() => setActiveTool(activeTool === 'draw-trendline-start' || activeTool === 'draw-trendline-end' ? 'cursor' : 'draw-trendline-start')}
+          title="Draw Trendline Segment (Click point A then point B)"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            activeTool === 'draw-trendline-start' || activeTool === 'draw-trendline-end' ? 'bg-sky-500/20 text-sky-400 font-bold' : 'text-gray-500 hover:text-sky-400 hover:bg-white/5'
+          }`}
+        >
+          {(activeTool === 'draw-trendline-start' || activeTool === 'draw-trendline-end') && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+          )}
+          <GitCommit className="w-4 h-4" />
+        </button>
+
         {/* Risk/Reward Calculator Tool */}
         <button
           onClick={() => setActiveTool(activeTool === 'risk-reward-entry' ? 'cursor' : 'risk-reward-entry')}
@@ -1295,10 +1455,12 @@ export const TradingViewChart: React.FC<{
         </button>
 
         {/* Clear user drawings / reset all button */}
-        {(customLines.length > 0 || fibLevelsList.length > 0 || rrSetup !== null || customMarkers.length > 0) && (
+        {(customLines.length > 0 || trendlines.length > 0 || fibLevelsList.length > 0 || rrSetup !== null || customMarkers.length > 0) && (
           <button
             onClick={() => {
               setCustomLines([]);
+              setTrendlines([]);
+              setTrendlineStart(null);
               setFibLevelsList([]);
               setRRSetup(null);
               setCustomMarkers([]);
@@ -1363,8 +1525,8 @@ export const TradingViewChart: React.FC<{
         {isExpanded && onCloseExpanded ? (
           <button
             onClick={onCloseExpanded}
-            title="Exit Fullscreen"
-            className="p-2 rounded-lg text-sky-400 hover:bg-sky-500/10 transition-all border-0 bg-transparent cursor-pointer mt-auto"
+            title="Minimize / Exit Fullscreen (Esc)"
+            className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all border-0 bg-transparent cursor-pointer mt-auto"
           >
             <Minimize2 className="w-4 h-4" />
           </button>
@@ -1389,6 +1551,8 @@ export const TradingViewChart: React.FC<{
                 {activeTool === 'risk-reward-target' && '🎯 RISK/REWARD SETUP: Click on the Target / Take Profit price point'}
                 {activeTool === 'risk-reward-sl' && '🎯 RISK/REWARD SETUP: Click on the Stop Loss price point'}
                 {activeTool === 'draw-marker' && '💬 TEXT FLAG: Type annotation label in input box and click candle'}
+                {activeTool === 'draw-trendline-start' && '📈 DRAWING TRENDLINE: Click point A (Start point on candle)'}
+                {activeTool === 'draw-trendline-end' && '📈 DRAWING TRENDLINE: Click point B (End point on candle) to draw line segment'}
               </span>
             </div>
           )}
@@ -1477,6 +1641,9 @@ export const StockChart: React.FC<StockChartProps> = ({
   const [showSMA, setShowSMA] = useState(false);
   const [showBB, setShowBB] = useState(false);
   const [showVolume, setShowVolume] = useState(true);
+  const [showSupertrend, setShowSupertrend] = useState(false);
+  const [showVWAP, setShowVWAP] = useState(false);
+  const [showEma50_200, setShowEma50_200] = useState(false);
 
   // Customizable indicator periods
   const [emaPeriod, setEmaPeriod] = useState<number>(8);
@@ -1499,7 +1666,7 @@ export const StockChart: React.FC<StockChartProps> = ({
     }
   }, [timeframe]);
 
-  // Technical Indicators Formulas: EMA, SMA, Bollinger Bands (pure computation over cloned array)
+  // Technical Indicators Formulas: EMA, SMA, Bollinger Bands, EMA 50/200, VWAP, Supertrend
   const computeIndicators = (rawCandles: Candle[]): Candle[] => {
     if (rawCandles.length === 0) return [];
     
@@ -1555,8 +1722,158 @@ export const StockChart: React.FC<StockChartProps> = ({
       }
     }
 
+    // 4. EMA 50
+    const k50 = 2 / (50 + 1);
+    let emaVal50 = data[0].close;
+    data[0].ema50 = Number(emaVal50.toFixed(2));
+    for (let i = 1; i < data.length; i++) {
+      emaVal50 = data[i].close * k50 + emaVal50 * (1 - k50);
+      data[i].ema50 = Number(emaVal50.toFixed(2));
+    }
+
+    // 5. EMA 200
+    const k200 = 2 / (200 + 1);
+    let emaVal200 = data[0].close;
+    data[0].ema200 = Number(emaVal200.toFixed(2));
+    for (let i = 1; i < data.length; i++) {
+      emaVal200 = data[i].close * k200 + emaVal200 * (1 - k200);
+      data[i].ema200 = Number(emaVal200.toFixed(2));
+    }
+
+    // 6. VWAP (Cumulative Volume Weighted Average Price)
+    let cumulativeTypicalPriceVolume = 0;
+    let cumulativeVolume = 0;
+    for (let i = 0; i < data.length; i++) {
+      const typicalPrice = (data[i].high + data[i].low + data[i].close) / 3;
+      cumulativeTypicalPriceVolume += typicalPrice * data[i].volume;
+      cumulativeVolume += data[i].volume;
+      data[i].vwap = Number((cumulativeVolume === 0 ? typicalPrice : cumulativeTypicalPriceVolume / cumulativeVolume).toFixed(2));
+    }
+
+    // 7. Supertrend (ATR Period: 10, ATR Multiplier: 3)
+    const stPeriod = 10;
+    const stMultiplier = 3;
+    if (data.length >= stPeriod) {
+      const tr: number[] = [];
+      const atr: number[] = [];
+
+      // Calculate True Range
+      for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+          tr.push(data[i].high - data[i].low);
+        } else {
+          const prevClose = data[i - 1].close;
+          const t1 = data[i].high - data[i].low;
+          const t2 = Math.abs(data[i].high - prevClose);
+          const t3 = Math.abs(data[i].low - prevClose);
+          tr.push(Math.max(t1, t2, t3));
+        }
+      }
+
+      // Calculate ATR
+      let trSum = 0;
+      for (let i = 0; i < stPeriod; i++) {
+        trSum += tr[i];
+      }
+      let currentAtr = trSum / stPeriod;
+      atr[stPeriod - 1] = currentAtr;
+
+      for (let i = stPeriod; i < data.length; i++) {
+        currentAtr = (atr[i - 1] * (stPeriod - 1) + tr[i]) / stPeriod;
+        atr.push(currentAtr);
+      }
+
+      // Compute Supertrend Bands
+      let prevUpperBand = 0;
+      let prevLowerBand = 0;
+      let prevSupertrend = 0;
+
+      for (let i = 0; i < data.length; i++) {
+        if (i < stPeriod) {
+          data[i].supertrend = data[i].close;
+          data[i].supertrendDirection = 'up';
+          continue;
+        }
+
+        const hl2 = (data[i].high + data[i].low) / 2;
+        const currentAtrVal = atr[i];
+
+        const basicUpperBand = hl2 + stMultiplier * currentAtrVal;
+        const basicLowerBand = hl2 - stMultiplier * currentAtrVal;
+
+        let finalUpperBand = basicUpperBand;
+        let finalLowerBand = basicLowerBand;
+
+        const prevClose = data[i - 1].close;
+        if (basicUpperBand < prevUpperBand || prevClose > prevUpperBand) {
+          finalUpperBand = basicUpperBand;
+        } else {
+          finalUpperBand = prevUpperBand;
+        }
+
+        if (basicLowerBand > prevLowerBand || prevClose < prevLowerBand) {
+          finalLowerBand = basicLowerBand;
+        } else {
+          finalLowerBand = prevLowerBand;
+        }
+
+        let supertrendVal = 0;
+        let direction: 'up' | 'down' = 'up';
+
+        if (i === stPeriod) {
+          supertrendVal = data[i].close > finalUpperBand ? finalLowerBand : finalUpperBand;
+          direction = data[i].close > finalUpperBand ? 'up' : 'down';
+        } else {
+          if (prevSupertrend === prevUpperBand) {
+            if (data[i].close > finalUpperBand) {
+              supertrendVal = finalLowerBand;
+              direction = 'up';
+            } else {
+              supertrendVal = finalUpperBand;
+              direction = 'down';
+            }
+          } else {
+            if (data[i].close < finalLowerBand) {
+              supertrendVal = finalUpperBand;
+              direction = 'down';
+            } else {
+              supertrendVal = finalLowerBand;
+              direction = 'up';
+            }
+          }
+        }
+
+        data[i].supertrend = Number(supertrendVal.toFixed(2));
+        data[i].supertrendDirection = direction;
+
+        prevUpperBand = finalUpperBand;
+        prevLowerBand = finalLowerBand;
+        prevSupertrend = supertrendVal;
+      }
+    } else {
+      // Fallback if not enough data
+      for (let i = 0; i < data.length; i++) {
+        data[i].supertrend = data[i].close;
+        data[i].supertrendDirection = 'up';
+      }
+    }
+
     return data;
   };
+
+  // Listen for Escape key to exit fullscreen expanded view
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsExpanded(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isExpanded]);
 
   // Generate or fetch historical baseline candles when symbol or timeframe changes
   useEffect(() => {
@@ -1705,6 +2022,14 @@ export const StockChart: React.FC<StockChartProps> = ({
       if (showEMA && c.ema && c.ema > highest) highest = c.ema;
       if (showSMA && c.sma && c.sma < lowest) lowest = c.sma;
       if (showSMA && c.sma && c.sma > highest) highest = c.sma;
+      if (showEma50_200 && c.ema50 && c.ema50 < lowest) lowest = c.ema50;
+      if (showEma50_200 && c.ema50 && c.ema50 > highest) highest = c.ema50;
+      if (showEma50_200 && c.ema200 && c.ema200 < lowest) lowest = c.ema200;
+      if (showEma50_200 && c.ema200 && c.ema200 > highest) highest = c.ema200;
+      if (showVWAP && c.vwap && c.vwap < lowest) lowest = c.vwap;
+      if (showVWAP && c.vwap && c.vwap > highest) highest = c.vwap;
+      if (showSupertrend && c.supertrend && c.supertrend < lowest) lowest = c.supertrend;
+      if (showSupertrend && c.supertrend && c.supertrend > highest) highest = c.supertrend;
 
       if (lowest < min) min = lowest;
       if (highest > max) max = highest;
@@ -1715,7 +2040,7 @@ export const StockChart: React.FC<StockChartProps> = ({
       minPrice: Math.floor(min - padding),
       maxPrice: Math.ceil(max + padding)
     };
-  }, [candles, showEMA, showSMA, showBB]);
+  }, [candles, showEMA, showSMA, showBB, showSupertrend, showVWAP, showEma50_200]);
 
   // Render dynamic Candlestick using SVG inside Recharts ComposedChart
   const CustomCandleShape = (props: any) => {
@@ -1872,6 +2197,9 @@ export const StockChart: React.FC<StockChartProps> = ({
             emaPeriod={emaPeriod}
             smaPeriod={smaPeriod}
             bbPeriod={bbPeriod}
+            showSupertrend={showSupertrend}
+            showVWAP={showVWAP}
+            showEma50_200={showEma50_200}
           />
         </div>
 
@@ -1986,6 +2314,42 @@ export const StockChart: React.FC<StockChartProps> = ({
             </div>
 
             <button
+              onClick={() => setShowSupertrend(!showSupertrend)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showSupertrend 
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showSupertrend ? 'bg-amber-400' : 'bg-gray-600'}`} />
+              Supertrend (10,3)
+            </button>
+
+            <button
+              onClick={() => setShowVWAP(!showVWAP)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showVWAP 
+                  ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showVWAP ? 'bg-cyan-400' : 'bg-gray-600'}`} />
+              VWAP
+            </button>
+
+            <button
+              onClick={() => setShowEma50_200(!showEma50_200)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showEma50_200 
+                  ? 'bg-pink-500/10 border-pink-500/20 text-pink-400 font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showEma50_200 ? 'bg-pink-400' : 'bg-gray-600'}`} />
+              EMA 50 & 200
+            </button>
+
+            <button
               onClick={() => setShowVolume(!showVolume)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showVolume 
@@ -2007,11 +2371,11 @@ export const StockChart: React.FC<StockChartProps> = ({
 
       {/* Immersive Fullscreen Modal Overlay */}
       {isExpanded && (
-        <div className="fixed inset-0 z-50 bg-[#060913] flex flex-col p-6 space-y-4">
-          <div className="flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 z-50 bg-[#060913] flex flex-col p-4 md:p-6 space-y-4 overflow-y-auto md:overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between shrink-0 gap-4 bg-[#090c13] p-4 rounded-2xl border border-white/5 shadow-lg">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-sky-500/10 rounded-xl">
-                <Activity className="w-5 h-5 text-sky-400 animate-pulse" />
+              <div className={`p-2.5 rounded-xl shrink-0 ${isPositive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                <Activity className={`w-5 h-5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'} animate-pulse`} />
               </div>
               <div>
                 <div className="flex items-baseline gap-2">
@@ -2029,7 +2393,7 @@ export const StockChart: React.FC<StockChartProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {/* Timeframe Selector in expanded view */}
               <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
                 {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
@@ -2071,11 +2435,15 @@ export const StockChart: React.FC<StockChartProps> = ({
                 </button>
               </div>
 
+              {/* Minimize Chart Button */}
               <button 
                 onClick={() => setIsExpanded(false)}
-                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition border-0 cursor-pointer flex items-center gap-1.5"
+                title="Minimize / Exit Fullscreen (Esc)"
+                className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-rose-950/20 animate-none"
               >
-                <Minimize2 className="w-4 h-4" /> Close Fullscreen
+                <Minimize2 className="w-4 h-4 text-rose-400 animate-pulse" />
+                <span>Minimize Chart</span>
+                <span className="hidden xl:inline text-[10px] text-rose-400/50 ml-1 font-mono">ESC</span>
               </button>
             </div>
           </div>
@@ -2094,6 +2462,9 @@ export const StockChart: React.FC<StockChartProps> = ({
               isPositive={isPositive}
               isExpanded={true}
               onCloseExpanded={() => setIsExpanded(false)}
+              showSupertrend={showSupertrend}
+              showVWAP={showVWAP}
+              showEma50_200={showEma50_200}
             />
           </div>
         </div>

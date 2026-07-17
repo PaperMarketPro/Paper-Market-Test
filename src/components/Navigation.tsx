@@ -21,7 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, children }) => {
-  const { user, notifications, theme, toggleTheme } = useApp();
+  const { user, notifications, theme, toggleTheme, isMarketOpen, enforceMarketHours } = useApp();
   if (!user) return null;
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -175,6 +175,16 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
 
             {/* Streak & Level Badges with consistent styling */}
             <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
+              {/* Dynamic NSE/BSE Market hours status indicator */}
+              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold font-mono border shadow-sm shrink-0 whitespace-nowrap ${
+                isMarketOpen 
+                  ? 'bg-emerald-500/10 border-emerald-500/15 text-emerald-700 dark:text-emerald-400' 
+                  : 'bg-amber-500/10 border-amber-500/15 text-amber-700 dark:text-amber-500'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span>NSE: {isMarketOpen ? 'OPEN' : 'CLOSED'}</span>
+              </div>
+
               <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/15 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
                 🔥 {user.streak} Days
               </div>

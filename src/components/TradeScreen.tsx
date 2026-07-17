@@ -14,7 +14,7 @@ interface TradeScreenProps {
 }
 
 export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
-  const { selectedAsset, addOrder, user } = useApp();
+  const { selectedAsset, addOrder, user, isMarketOpen } = useApp();
   if (!user) return null;
   
   // Ticket States
@@ -502,14 +502,31 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
             </div>
           </div>
 
+          {!isMarketOpen && (
+            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3.5 text-xs text-amber-200/90 leading-normal font-sans">
+              ⚠️ Indian Markets (NSE/BSE) are currently <strong>CLOSED</strong>. Transactions are strictly locked. Trading hours are Monday to Friday, 9:15 AM - 3:30 PM IST.
+            </div>
+          )}
+
           {/* Execute CTA Button */}
           <button
             type="submit"
-            className={`w-full text-white font-bold py-3.5 rounded-xl text-sm transition tracking-wide flex items-center justify-center gap-1.5 ${
-              direction === 'Buy' ? 'bg-bull hover:bg-emerald-600' : 'bg-bear hover:bg-red-600'
+            disabled={!isMarketOpen}
+            className={`w-full text-white font-bold py-3.5 rounded-xl text-sm transition tracking-wide flex items-center justify-center gap-1.5 transition duration-200 ${
+              !isMarketOpen
+                ? 'bg-slate-800/60 text-gray-500 cursor-not-allowed border border-white/5'
+                : (direction === 'Buy' ? 'bg-bull hover:bg-emerald-600 cursor-pointer' : 'bg-bear hover:bg-red-600 cursor-pointer')
             }`}
           >
-            CONFIRM SIMULATED {direction.toUpperCase()} <Sparkles className="w-4 h-4" />
+            {isMarketOpen ? (
+              <>
+                CONFIRM SIMULATED {direction.toUpperCase()} <Sparkles className="w-4 h-4" />
+              </>
+            ) : (
+              <>
+                MARKETS CLOSED (TRANSACTION LOCKED)
+              </>
+            )}
           </button>
         </form>
       </div>

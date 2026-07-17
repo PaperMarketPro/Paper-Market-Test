@@ -14,7 +14,7 @@ interface PositionsListProps {
 }
 
 export const PositionsList: React.FC<PositionsListProps> = ({ onJournalShortcut }) => {
-  const { positions, orders, exitPosition, modifySLTarget, journals } = useApp();
+  const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen } = useApp();
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'orders'>('open');
 
   // Filter lists
@@ -186,13 +186,25 @@ export const PositionsList: React.FC<PositionsListProps> = ({ onJournalShortcut 
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => handleExit(pos.id)}
-                        className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-medium py-2 rounded-xl text-xs transition"
+                        disabled={!isMarketOpen}
+                        className={`flex-1 font-medium py-2 rounded-xl text-xs transition transition-colors duration-200 ${
+                          !isMarketOpen
+                            ? 'bg-slate-800/40 text-gray-500 cursor-not-allowed border border-white/5'
+                            : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 cursor-pointer'
+                        }`}
+                        title={!isMarketOpen ? 'Indian markets are currently closed. Exiting positions is disabled.' : 'Exit position at market rate'}
                       >
-                        Exit Position (Market)
+                        {isMarketOpen ? 'Exit Position (Market)' : 'Markets Closed'}
                       </button>
                       <button
                         onClick={() => handleEditRiskStart(pos)}
-                        className="px-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-xs border border-white/5 transition flex items-center gap-1"
+                        disabled={!isMarketOpen}
+                        className={`px-3 rounded-xl text-xs border border-white/5 transition flex items-center gap-1 ${
+                          !isMarketOpen
+                            ? 'bg-slate-800/20 text-gray-600 cursor-not-allowed'
+                            : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white cursor-pointer'
+                        }`}
+                        title={!isMarketOpen ? 'Markets closed' : 'Modify Stop Loss'}
                       >
                         <Edit3 className="w-3.5 h-3.5" /> Modify S/L
                       </button>

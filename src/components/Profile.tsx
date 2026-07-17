@@ -18,7 +18,12 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'stats' }) => {
-  const { user, badges, challenges, notifications, markNotificationAsRead, clearAllNotifications, resetAccount, updateBalance, upgradeToPro, theme, toggleTheme, upstoxStatus, disconnectUpstox, refreshUpstoxStatus, connectUpstoxManually } = useApp();
+  const { 
+    user, badges, challenges, notifications, markNotificationAsRead, 
+    clearAllNotifications, resetAccount, updateBalance, upgradeToPro, 
+    theme, toggleTheme, upstoxStatus, disconnectUpstox, refreshUpstoxStatus, 
+    connectUpstoxManually, enforceMarketHours, toggleEnforceMarketHours, isMarketOpen 
+  } = useApp();
   if (!user) return null;
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 
@@ -31,6 +36,50 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
   const [isConnectingToken, setIsConnectingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
+  const [upstoxRedirectType, setUpstoxRedirectType] = useState<'localhost' | 'cloud'>('localhost');
+
+  // Auto-renew configuration states
+  const [autoApiKey, setAutoApiKey] = useState('');
+  const [autoApiSecret, setAutoApiSecret] = useState('');
+  const [autoRedirectUri, setAutoRedirectUri] = useState('');
+  const [autoMobileNo, setAutoMobileNo] = useState('');
+  const [autoPin, setAutoPin] = useState('');
+  const [autoTotpSecret, setAutoTotpSecret] = useState('');
+  const [autoEnabled, setAutoEnabled] = useState(true);
+  const [isSavingAutoRenew, setIsSavingAutoRenew] = useState(false);
+  const [autoRenewConfig, setAutoRenewConfig] = useState<any>(null);
+  const [showAutoForm, setShowAutoForm] = useState(false);
+
+  const loadAutoRenewStatus = async () => {
+    try {
+      const res = await fetch("/api/integrations/upstox/autorenew");
+      if (res.ok) {
+        const data = await res.json();
+        setAutoRenewConfig(data);
+        if (data.configured) {
+          setAutoEnabled(data.enabled);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load auto-renew status:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeSubTab === 'settings') {
+      loadAutoRenewStatus();
+    }
+  }, [activeSubTab]);
+
+  const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Listen to popup authentication success message
   React.useEffect(() => {
@@ -49,7 +98,12 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
     try {
       setTokenError(null);
       setTokenSuccess(null);
-      const response = await fetch('/api/integrations/upstox/auth-url');
+      const targetOrigin = window.location.origin;
+      const chosenRedirectUri = upstoxRedirectType === 'localhost'
+        ? 'http://localhost:3000/api/integrations/upstox/callback'
+        : `${targetOrigin}/api/integrations/upstox/callback`;
+
+      const response = await fetch(`/api/integrations/upstox/auth-url?origin=${encodeURIComponent(targetOrigin)}&redirectUri=${encodeURIComponent(chosenRedirectUri)}`);
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to generate Upstox auth URL.');
@@ -69,6 +123,41 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
 
       if (!popup) {
         setTokenError("Popup was blocked by your browser. Please allow popups or use Option A (manual paste).");
+      } else {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+
+        let attempts = 0;
+        pollingIntervalRef.current = setInterval(async () => {
+          attempts++;
+          if (attempts > 150) { // Stop after 5 minutes
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            return;
+          }
+
+          try {
+            const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.connected) {
+                if (pollingIntervalRef.current) {
+                  clearInterval(pollingIntervalRef.current);
+                  pollingIntervalRef.current = null;
+                }
+                refreshUpstoxStatus();
+                setTokenSuccess("Successfully authenticated via Upstox Developer login flow!");
+                setTokenError(null);
+                try {
+                  popup.close();
+                } catch (e) {}
+              }
+            }
+          } catch (e) {
+            console.warn("[OAUTH POLL] Error checking auth status:", e);
+          }
+        }, 2000);
       }
     } catch (err: any) {
       setTokenError(err.message || "Failed to initiate OAuth flow.");
@@ -562,80 +651,151 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 {/* Integration Info */}
                 <div className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed font-sans bg-slate-50 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 rounded-xl p-3.5 space-y-1.5">
                   <p>
-                    ⚡ **Real-Time Data Feed Option:** By default, Paper Market Pro runs a low-latency simulated pricing loop. You can override the simulator with actual live Indian stock market ticks by linking an Upstox access token.
+                    ⚡ **Seamless 24/7 Continuity (Dual-Sync Mode):** By default, Paper Market Pro is equipped with a high-fidelity low-latency market pricing simulator. If you link your Upstox Pro Developer Feed, you will receive real exchange tick prices.
                   </p>
-                  <p className="text-[10px] text-slate-500 dark:text-gray-500">
-                    *Note: Upstox developer access tokens expire daily. If your feed disconnects or switches to demo mode, simply paste a fresh token below to instantly reconnect.*
+                  <p className="text-[10px] text-slate-500 dark:text-gray-500 font-sans">
+                    🛡️ **SEBI Regulation & Daily Expiration Policy:** In compliance with Indian exchange security mandates, Upstox access tokens are cleared at approximately 3:30 AM IST daily. There is no refresh token. **Paper Market Pro handles this gracefully:** when your Upstox token expires, the system automatically and silently switches back to high-fidelity live simulated prices. Your order terminal, charts, and portfolios remain 100% active and running continuously without any freezing or broken screens! You can easily link a new token at market open to resume real price feeds.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
-                  {/* Option A: Manual Paste */}
-                  <div className="bg-slate-50/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-3.5">
-                    <div>
-                      <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">Option A</span>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">Paste Developer Access Token</h4>
-                      <p className="text-[10.5px] text-slate-500 dark:text-gray-400 font-sans mt-0.5">Paste your raw access token generated from Upstox. Highly reliable in sandboxed or preview environments.</p>
+
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                    {/* Option A: Manual Paste */}
+                    <div className="bg-slate-50/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-3.5">
+                      <div>
+                        <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">Option A: Smart Linker</span>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">Paste Code, URL, or Token</h4>
+                        <p className="text-[10.5px] text-slate-500 dark:text-gray-400 font-sans mt-0.5">
+                          Paste your raw Access Token, authorization code, or the <strong>entire redirect URL</strong> (even if the browser showed a "site can't be reached" error). We will parse it and link you instantly!
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Paste Token, Auth Code, or Redirect URL..."
+                          value={manualToken}
+                          onChange={(e) => setManualToken(e.target.value)}
+                          className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:border-sky-500/50"
+                        />
+                        <button
+                          type="button"
+                          disabled={isConnectingToken || !manualToken.trim()}
+                          onClick={async () => {
+                            if (!manualToken.trim()) return;
+                            setIsConnectingToken(true);
+                            setTokenError(null);
+                            setTokenSuccess(null);
+                            const result = await connectUpstoxManually(manualToken.trim());
+                            if (result.success) {
+                              setTokenSuccess("Successfully connected to Upstox Pro Live Feed!");
+                              setManualToken('');
+                            } else {
+                              setTokenError(result.error || "Failed to connect. Check your token.");
+                            }
+                            setIsConnectingToken(false);
+                          }}
+                          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-sans"
+                        >
+                          {isConnectingToken ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                              Processing & Connecting...
+                            </>
+                          ) : (
+                            <>
+                              Connect & Verify Feed
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <input
-                        type="password"
-                        placeholder="Paste eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                        value={manualToken}
-                        onChange={(e) => setManualToken(e.target.value)}
-                        className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:border-sky-500/50"
-                      />
-                      <button
-                        type="button"
-                        disabled={isConnectingToken || !manualToken.trim()}
-                        onClick={async () => {
-                          if (!manualToken.trim()) return;
-                          setIsConnectingToken(true);
-                          setTokenError(null);
-                          setTokenSuccess(null);
-                          const result = await connectUpstoxManually(manualToken.trim());
-                          if (result.success) {
-                            setTokenSuccess("Successfully connected to Upstox Live Feed!");
-                            setManualToken('');
-                          } else {
-                            setTokenError(result.error || "Failed to connect. Check your token.");
-                          }
-                          setIsConnectingToken(false);
-                        }}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-sans"
-                      >
-                        {isConnectingToken ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                            Connecting Feed...
-                          </>
+                    {/* Option B: OAuth Flow */}
+                    <div className="bg-slate-50/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-3.5 flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-[10px] font-mono text-amber-500 uppercase tracking-widest block font-bold">Option B: OAuth Portal</span>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">Developer Login OAuth Portal</h4>
+                        </div>
+
+                        {/* SELECT REDIRECT TYPE */}
+                        <div className="space-y-1.5 bg-slate-100/50 dark:bg-black/10 p-2.5 rounded-lg border border-slate-200/50 dark:border-white/5">
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase font-mono">1. Choose Redirect URI in Upstox Console:</span>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setUpstoxRedirectType('localhost')}
+                              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold font-mono transition text-center border cursor-pointer ${
+                                upstoxRedirectType === 'localhost'
+                                  ? 'bg-amber-600 text-white shadow-sm border-amber-700'
+                                  : 'bg-white dark:bg-[#11141c] text-slate-600 dark:text-gray-400 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
+                              }`}
+                            >
+                              localhost:3000
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUpstoxRedirectType('cloud')}
+                              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold font-mono transition text-center border cursor-pointer ${
+                                upstoxRedirectType === 'cloud'
+                                  ? 'bg-amber-600 text-white shadow-sm border-amber-700'
+                                  : 'bg-white dark:bg-[#11141c] text-slate-600 dark:text-gray-400 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
+                              }`}
+                            >
+                              cloud app URL
+                            </button>
+                          </div>
+                        </div>
+
+                        {upstoxRedirectType === 'localhost' ? (
+                          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed font-sans space-y-1.5">
+                            <span className="font-bold flex items-center gap-1">📍 Localhost Flow Instruction:</span>
+                            <p>
+                              If your Upstox App has the redirect URL set to:
+                            </p>
+                            <div className="bg-slate-200/50 dark:bg-black/40 p-1.5 rounded text-[9.5px] font-mono text-slate-800 dark:text-slate-300 break-all select-all font-bold">
+                              http://localhost:3000/api/integrations/upstox/callback
+                            </div>
+                            <p>
+                              Upstox will redirect to a broken page because the server runs in the cloud, not on your device. <strong>This is normal!</strong>
+                            </p>
+                            <p className="font-bold">
+                              👉 Simply COPY that entire broken address bar URL (containing <code className="font-mono">?code=...</code>) and PASTE it into "Option A: Smart Linker" on the left!
+                            </p>
+                          </div>
                         ) : (
-                          <>
-                            Link Access Token
-                          </>
+                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed font-sans space-y-1.5">
+                            <span className="font-bold flex items-center gap-1 text-emerald-600 dark:text-emerald-400">⚡ Seamless Cloud Flow Instruction:</span>
+                            <p>
+                              For a 100% automatic connection, register this exact Redirect URI in your **Upstox Developer Console**:
+                            </p>
+                            <div className="bg-emerald-500/5 dark:bg-black/40 p-1.5 rounded text-[9.5px] font-mono text-emerald-600 dark:text-emerald-300 break-all select-all font-bold border border-emerald-500/10">
+                              {`${window.location.origin}/api/integrations/upstox/callback`}
+                            </div>
+                            <p className="font-semibold">
+                              Once registered, click Authorize. It will connect automatically and instantly with no copy-pasting required!
+                            </p>
+                          </div>
                         )}
-                      </button>
+                      </div>
+
+                      <div className="space-y-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleConnectOAuth}
+                          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs transition border border-amber-700/30 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-sm"
+                        >
+                          Authorize via Upstox Web
+                        </button>
+
+                        <p className="text-[9.5px] text-slate-400 dark:text-gray-500 leading-normal text-center font-sans">
+                          A popup window will open for official Upstox authorization.
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Option B: OAuth Flow */}
-                  <div className="bg-slate-50/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-3.5 flex flex-col justify-between">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-amber-500 uppercase tracking-widest block font-bold">Option B</span>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">Developer Login OAuth Portal</h4>
-                      <p className="text-[10.5px] text-slate-500 dark:text-gray-400 font-sans mt-0.5">Launch the official Upstox OAuth authentication window. Best when working outside container frames.</p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleConnectOAuth}
-                      className="w-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-900 dark:text-white font-bold py-2.5 rounded-xl text-xs transition border border-slate-200 dark:border-white/10 flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                    >
-                      Authorize via Upstox Web
-                    </button>
-                  </div>
-                </div>
 
                 {/* Success and Error Indicators */}
                 {(tokenError || tokenSuccess) && (
@@ -693,6 +853,42 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 >
                   <Moon className="w-4 h-4" /> Dark Mode
                 </button>
+              </div>
+            </div>
+
+            {/* Strict Market Hours Check Card */}
+            <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
+              <div>
+                <span className="text-xs font-mono text-emerald-500 uppercase tracking-widest block font-bold">NSE / BSE Market Hours Limits</span>
+                <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Enforce realistic Indian stock exchange trading rules to build genuine disciplined habits.</p>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 rounded-xl opacity-90">
+                <div className="space-y-0.5 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white font-sans">Strict Market Hours</h4>
+                    <span className="text-[8px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded uppercase tracking-wider">ALWAYS ON</span>
+                  </div>
+                  <p className="text-[9.5px] text-slate-500 dark:text-gray-400 font-sans leading-normal">
+                    All simulated transactions (buying and selling) are strictly locked outside official active exchange hours (9:15 AM - 3:30 PM IST, Mon-Fri) for maximum trading discipline.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={true}
+                  className="relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out bg-emerald-500 focus:outline-none"
+                >
+                  <span
+                    className="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"
+                  />
+                </button>
+              </div>
+              
+              <div className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed font-sans bg-slate-50 dark:bg-white/2 rounded-xl p-2.5 border border-slate-200/50 dark:border-white/5 flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span>
+                  Live Status: <strong>{isMarketOpen ? 'Indian Markets Open' : 'Indian Markets Closed'}</strong> (9:15 AM - 3:30 PM IST)
+                </span>
               </div>
             </div>
 

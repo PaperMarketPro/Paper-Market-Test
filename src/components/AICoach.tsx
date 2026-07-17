@@ -292,7 +292,9 @@ export const AICoach: React.FC = () => {
             content: h.text
           })),
           llmConfig: user?.llmConfig,
-          cognitiveRules: cognitiveRules
+          cognitiveRules: cognitiveRules,
+          journals,
+          positions
         })
       });
 
