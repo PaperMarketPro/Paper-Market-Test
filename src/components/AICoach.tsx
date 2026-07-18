@@ -769,10 +769,10 @@ export const AICoach: React.FC = () => {
               </div>
             </div>
 
-            {/* UPGRADED Training Console Panel */}
+            {/* UPGRADED Habit Diagnosis Panel */}
             <div className="bg-[#11141c] border border-white/5 rounded-2xl p-5 space-y-4 shadow-xl">
               <div className="flex items-center gap-1.5 text-xs text-sky-400 font-mono uppercase font-bold tracking-wider">
-                <Sliders className="w-4 h-4" /> Scorecard Training Controls
+                <Sliders className="w-4 h-4" /> Habit Focus Controls
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -809,7 +809,7 @@ export const AICoach: React.FC = () => {
                 className="w-full mt-3 bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-sky-500/10"
               >
                 <RefreshCw className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} /> 
-                {isAnalyzing ? 'Refining Neural Scorecard Model...' : 'Train AI Coach Scorecard'}
+                {isAnalyzing ? 'Diagnosing Behavioral Patterns...' : 'Analyze My Trading Habits'}
               </button>
             </div>
 

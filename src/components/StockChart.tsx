@@ -569,6 +569,67 @@ export const TradingViewChart: React.FC<{
   const [customMarkers, setCustomMarkers] = useState<any[]>([]);
   const [markerText, setMarkerText] = useState<string>('BREAKOUT');
 
+  // AI & Advanced Pattern Scanner States
+  const [showPatternMarkers, setShowPatternMarkers] = useState(true);
+  const [showAIAdvisor, setShowAIAdvisor] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string>('');
+  const [advisorQuestion, setAdvisorQuestion] = useState<string>('');
+  const [analysisSteps, setAnalysisSteps] = useState<string>('');
+
+  const handleRunChartAnalysis = async (customQuestion?: string) => {
+    setIsAnalyzing(true);
+    setAnalysisResult('');
+    
+    const steps = [
+      "Gathering latest candle tick feeds...",
+      "Calculating Bollinger Band volatility...",
+      "Auditing custom support & trendlines...",
+      "Analyzing candlestick pattern matches...",
+      "Structuring cognitive confluence prompt...",
+      "Querying AI Quantitative Mentor model..."
+    ];
+    
+    let stepIdx = 0;
+    setAnalysisSteps(steps[0]);
+    const stepInterval = setInterval(() => {
+      stepIdx++;
+      if (stepIdx < steps.length) {
+        setAnalysisSteps(steps[stepIdx]);
+      }
+    }, 1100);
+
+    try {
+      const res = await fetch("/api/coach/analyze-chart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          symbol,
+          timeframe,
+          candles,
+          customLines,
+          trendlines,
+          fibLevelsList,
+          rrSetup,
+          userQuestion: customQuestion !== undefined ? customQuestion : advisorQuestion,
+        })
+      });
+      const data = await res.json();
+      setAnalysisResult(data.analysis || "Analysis failed to load.");
+      if (customQuestion === undefined) {
+        setAdvisorQuestion('');
+      }
+    } catch (e) {
+      console.error(e);
+      setAnalysisResult("### ⚠️ Error\nFailed to reach the AI Technical Analysis endpoint. Please check your network connection.");
+    } finally {
+      clearInterval(stepInterval);
+      setIsAnalyzing(false);
+    }
+  };
+
   const themeConfig = useMemo(() => {
     switch (chartTheme) {
       case 'forest':
@@ -957,7 +1018,7 @@ export const TradingViewChart: React.FC<{
       });
     }
 
-    // 7.3 Custom Text Candle Markers & Supertrend BUY/SELL Alerts
+    // 7.3 Custom Text Candle Markers & Supertrend BUY/SELL Alerts & AI Candlestick Patterns
     if (activeSeries) {
       const supertrendMarkers: any[] = [];
       if (showSupertrend) {
@@ -983,7 +1044,79 @@ export const TradingViewChart: React.FC<{
           }
         }
       }
-      const combinedMarkers = [...supertrendMarkers, ...customMarkers];
+
+      const patternMarkers: any[] = [];
+      if (showPatternMarkers) {
+        for (let i = 1; i < enrichedCandles.length; i++) {
+          const prev = enrichedCandles[i - 1];
+          const curr = enrichedCandles[i];
+          const currOpen = curr.open;
+          const currClose = curr.close;
+          const currHigh = curr.high;
+          const currLow = curr.low;
+          const prevOpen = prev.open;
+          const prevClose = prev.close;
+
+          const isCurrGreen = currClose > currOpen;
+          const isPrevGreen = prevClose > prevOpen;
+          const bodySize = Math.abs(currClose - currOpen);
+          const totalRange = currHigh - currLow;
+
+          if (totalRange === 0) continue;
+
+          // 1. Hammer Pattern
+          const lowerShadow = isCurrGreen ? (currOpen - currLow) : (currClose - currLow);
+          const upperShadow = isCurrGreen ? (currHigh - currClose) : (currHigh - currOpen);
+          if (lowerShadow >= 2 * bodySize && upperShadow <= 0.25 * bodySize && bodySize > 0) {
+            patternMarkers.push({
+              time: curr.timestamp as UTCTimestamp,
+              position: 'belowBar',
+              color: '#34d399',
+              shape: 'arrowUp',
+              text: '🔨 HAMMER (BUY)',
+            });
+            continue;
+          }
+
+          // 2. Shooting Star Pattern
+          if (upperShadow >= 2 * bodySize && lowerShadow <= 0.25 * bodySize && bodySize > 0) {
+            patternMarkers.push({
+              time: curr.timestamp as UTCTimestamp,
+              position: 'aboveBar',
+              color: '#f87171',
+              shape: 'arrowDown',
+              text: '☄️ SHOOTING STAR (SELL)',
+            });
+            continue;
+          }
+
+          // 3. Bullish Engulfing
+          if (!isPrevGreen && isCurrGreen && currClose > prevOpen && currOpen < prevClose) {
+            patternMarkers.push({
+              time: curr.timestamp as UTCTimestamp,
+              position: 'belowBar',
+              color: '#059669',
+              shape: 'arrowUp',
+              text: '📈 ENGULFING (BUY)',
+            });
+            continue;
+          }
+
+          // 4. Bearish Engulfing
+          if (isPrevGreen && !isCurrGreen && currClose < prevOpen && currOpen > prevClose) {
+            patternMarkers.push({
+              time: curr.timestamp as UTCTimestamp,
+              position: 'aboveBar',
+              color: '#dc2626',
+              shape: 'arrowDown',
+              text: '📉 ENGULFING (SELL)',
+            });
+            continue;
+          }
+        }
+      }
+
+      const combinedMarkers = [...supertrendMarkers, ...patternMarkers, ...customMarkers];
       if (activeSeries && typeof activeSeries.setMarkers === 'function') {
         if (combinedMarkers.length > 0) {
           combinedMarkers.sort((a, b) => (a.time as number) - (b.time as number));
@@ -1345,7 +1478,7 @@ export const TradingViewChart: React.FC<{
       bbLowerSeriesRef.current = null;
       bbBasisSeriesRef.current = null;
     };
-  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200]);
+  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200, showPatternMarkers]);
 
   const riskRewardRatio = useMemo(() => {
     if (!rrSetup) return null;
@@ -1508,6 +1641,31 @@ export const TradingViewChart: React.FC<{
           <BarChart2 className="w-4 h-4" />
         </button>
 
+        {/* Automatic Technical Pattern Scan Toggler */}
+        <button
+          onClick={() => setShowPatternMarkers(!showPatternMarkers)}
+          title="Toggle Candlestick Pattern Scan Markers"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
+            showPatternMarkers ? 'bg-emerald-500/15 text-emerald-400 font-bold' : 'text-gray-500 hover:text-emerald-400 hover:bg-white/5'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+        </button>
+
+        {/* AI Chart Analyst Sidepanel Toggler */}
+        <button
+          onClick={() => setShowAIAdvisor(!showAIAdvisor)}
+          title="Toggle AI Chart Analyst Sidepanel"
+          className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer relative ${
+            showAIAdvisor ? 'bg-sky-500/15 text-sky-400 font-bold' : 'text-gray-500 hover:text-sky-400 hover:bg-white/5'
+          }`}
+        >
+          {isAnalyzing && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping" />
+          )}
+          <Sparkles className="w-4 h-4 text-sky-400 animate-pulse" />
+        </button>
+
         {/* Chart Theme Switcher */}
         <button
           onClick={() => {
@@ -1612,6 +1770,135 @@ export const TradingViewChart: React.FC<{
           </div>
         )}
       </div>
+
+      {/* AI Advisor Panel on the right side of the chart workspace */}
+      {showAIAdvisor && (
+        <div className="w-80 border-l border-white/5 bg-[#07090e]/95 flex flex-col h-full shrink-0 relative overflow-hidden select-text">
+          {/* Header */}
+          <div className="p-3 border-b border-white/5 flex items-center justify-between shrink-0 bg-[#090c13]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+              <span className="text-xs font-bold text-white uppercase font-display tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" /> AI Chart Analyst
+              </span>
+            </div>
+            <button
+              onClick={() => setShowAIAdvisor(false)}
+              className="text-gray-500 hover:text-white bg-transparent border-0 cursor-pointer p-0 text-sm font-bold"
+              title="Close Panel"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Analysis View Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs scrollbar-thin">
+            {!isAnalyzing && !analysisResult && (
+              <div className="flex flex-col items-center justify-center text-center h-full space-y-4 py-8">
+                <div className="w-12 h-12 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-400">
+                  <Sparkles className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="space-y-1 px-2">
+                  <h4 className="text-sm font-semibold text-white">Interactive Confluence Audit</h4>
+                  <p className="text-gray-400 text-[11px] leading-relaxed">
+                    Analyze indicators, volume, moving averages, and your custom drawing confluences instantly.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleRunChartAnalysis()}
+                  className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-semibold hover:from-sky-400 hover:to-indigo-400 transition shadow-lg cursor-pointer flex items-center justify-center gap-1.5 border-0"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Scan Active Chart
+                </button>
+              </div>
+            )}
+
+            {isAnalyzing && (
+              <div className="flex flex-col items-center justify-center text-center h-full space-y-4 py-12">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-full border-2 border-sky-500/20 border-t-sky-400 border-solid animate-spin" />
+                  <Sparkles className="w-5 h-5 text-sky-400 absolute inset-0 m-auto animate-pulse" />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-sky-400 font-bold font-mono tracking-wider uppercase text-[10px] animate-pulse">Running Scan...</span>
+                  <p className="text-gray-400 font-mono text-[10px] max-w-[200px] leading-relaxed">
+                    {analysisSteps}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!isAnalyzing && analysisResult && (
+              <div className="space-y-4">
+                {/* Main Results Container */}
+                <div className="prose prose-invert max-w-none text-gray-300 leading-relaxed text-[11px] bg-[#0c0f17]/60 p-3 rounded-xl border border-white/5 space-y-3">
+                  {analysisResult.split('\n').map((line, idx) => {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('###')) {
+                      return <h3 key={idx} className="text-sm font-extrabold text-white mt-4 first:mt-0 font-display uppercase tracking-wider">{trimmed.replace(/###/g, '').trim()}</h3>;
+                    }
+                    if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+                      return <div key={idx} className="font-bold text-sky-400 mt-2">{trimmed.replace(/\*\*/g, '').trim()}</div>;
+                    }
+                    if (trimmed.startsWith('-')) {
+                      return <li key={idx} className="list-none pl-2 border-l border-sky-500/30 text-gray-300 my-1">{trimmed.substring(1).trim()}</li>;
+                    }
+                    if (trimmed.startsWith('>')) {
+                      return <blockquote key={idx} className="border-l-2 border-amber-500 bg-amber-500/5 p-2 rounded text-[10px] italic text-amber-300 my-2">{trimmed.substring(1).trim()}</blockquote>;
+                    }
+                    return line ? <p key={idx} className="my-1.5">{line}</p> : <div key={idx} className="h-1" />;
+                  })}
+                </div>
+
+                {/* Quick actions inside result */}
+                <div className="grid grid-cols-2 gap-2 shrink-0">
+                  <button
+                    onClick={() => handleRunChartAnalysis("Based on this chart, should I Buy or Sell right now? Give specific entry, take profit, and stop loss values.")}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-[9px] font-mono border border-solid border-white/5 transition cursor-pointer text-left"
+                  >
+                    🎯 Trade Levels?
+                  </button>
+                  <button
+                    onClick={() => handleRunChartAnalysis("Identify the key support and resistance zones and whether the price is showing strength or weakness.")}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-[9px] font-mono border border-solid border-white/5 transition cursor-pointer text-left"
+                  >
+                    🛡️ Key Confluences?
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Chat / Custom Question Input Bar */}
+          <div className="p-3 border-t border-solid border-white/5 bg-[#090c13] shrink-0 space-y-2">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder={isAnalyzing ? "AI is thinking..." : "Ask in Hinglish, Hindi, etc..."}
+                value={advisorQuestion}
+                onChange={e => setAdvisorQuestion(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && advisorQuestion.trim() && !isAnalyzing) {
+                    handleRunChartAnalysis();
+                  }
+                }}
+                disabled={isAnalyzing}
+                className="flex-1 bg-white/5 border border-solid border-white/10 px-2.5 py-1.5 rounded-xl text-[11px] text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500 disabled:opacity-50"
+              />
+              <button
+                onClick={() => handleRunChartAnalysis()}
+                disabled={!advisorQuestion.trim() || isAnalyzing}
+                className="px-3 rounded-xl bg-sky-500 border-0 text-white hover:bg-sky-400 transition font-bold disabled:opacity-40 disabled:hover:bg-sky-500 flex items-center justify-center cursor-pointer"
+              >
+                Ask
+              </button>
+            </div>
+            <div className="text-[8px] text-gray-500 text-center font-mono uppercase tracking-wider">
+              Gemini Pro Chart Reasoning Engine
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

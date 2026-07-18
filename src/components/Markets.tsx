@@ -10,6 +10,7 @@ import { Instrument } from '../types';
 import { Search, Plus, Trash2, TrendingUp, TrendingDown, Eye, ChevronRight, X, Layers, Percent, Activity } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import { StockChart } from './StockChart';
+import { getWeeklyExpiriesForUnderlier } from '../derivativesUtils';
 
 interface MarketsProps {
   onNavigate: (tab: string, arg?: any) => void;
@@ -67,8 +68,17 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
     return expiryStr;
   };
 
-  const expiries = ['16-JUL-2026', '23-JUL-2026', '30-JUL-2026', '06-AUG-2026', '13-AUG-2026', '20-AUG-2026', '27-AUG-2026'];
-  const [selectedExpiry, setSelectedExpiry] = useState('16-JUL-2026');
+  const expiries = React.useMemo(() => {
+    return getWeeklyExpiriesForUnderlier(selectedOptionIndex);
+  }, [selectedOptionIndex]);
+
+  const [selectedExpiry, setSelectedExpiry] = useState(expiries[0] || '16-JUL-2026');
+
+  React.useEffect(() => {
+    if (expiries.length > 0 && !expiries.includes(selectedExpiry)) {
+      setSelectedExpiry(expiries[0]);
+    }
+  }, [expiries, selectedExpiry]);
 
   // Option Greeks toggle
   const [showGreeks, setShowGreeks] = useState(false);
@@ -101,6 +111,11 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                           inst.name.toLowerCase().includes(equitySearchQuery.toLowerCase());
     return matchesWatchlist && matchesSearch;
   });
+
+  const [visibleCount, setVisibleCount] = useState(50);
+  React.useEffect(() => {
+    setVisibleCount(50);
+  }, [equitySearchQuery, selectedList]);
 
   const searchResults = instruments.filter(inst =>
     inst.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -225,7 +240,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
 
           {/* Instruments List */}
           <div className="space-y-2">
-            {filteredInstruments.map(inst => {
+            {filteredInstruments.slice(0, visibleCount).map(inst => {
               const isChangePositive = inst.change >= 0;
               const isMyItem = myWatchlist.includes(inst.symbol);
 
@@ -338,6 +353,17 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                 </div>
               );
             })}
+
+            {filteredInstruments.length > visibleCount && (
+              <div className="flex justify-center pt-2 pb-4">
+                <button
+                  onClick={() => setVisibleCount(prev => prev + 50)}
+                  className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white border border-white/5 hover:border-white/10 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2"
+                >
+                  <Activity className="w-3.5 h-3.5 text-sky-400 animate-pulse" /> Load More Stocks ({filteredInstruments.length - visibleCount} remaining)
+                </button>
+              </div>
+            )}
 
             {filteredInstruments.length === 0 && (
               <div className="text-center py-12 text-gray-500 text-xs font-sans space-y-2 bg-[#0a0d16]/30 border border-white/5 rounded-2xl">

@@ -12,6 +12,7 @@ import {
   Activity, HelpCircle, ArrowRight, Shield, RefreshCw, Search, ShieldCheck, X 
 } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { getWeeklyExpiriesForUnderlier } from '../derivativesUtils';
 
 interface DashboardProps {
   onNavigate: (tab: string, arg?: any) => void;
@@ -95,7 +96,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       
       const atmStrike = Math.round(spot / strikeStep) * strikeStep;
       const strikes = [atmStrike - strikeStep * 2, atmStrike - strikeStep, atmStrike, atmStrike + strikeStep, atmStrike + strikeStep * 2];
-      const expiries = ['16-JUL-26', '23-JUL-26', '30-JUL-26'];
+      const expiries = getWeeklyExpiriesForUnderlier(underlier === 'NIFTY' ? 'NIFTY 50' : underlier).slice(0, 3).map(exp => {
+        const parts = exp.split('-');
+        if (parts.length === 3) {
+          return `${parts[0]}-${parts[1]}-${parts[2].substring(2)}`;
+        }
+        return exp;
+      });
       
       const underlierNameFull = underlier === 'NIFTY' ? 'Nifty 50' : underlier === 'BANKNIFTY' ? 'Bank Nifty' : underlier;
 

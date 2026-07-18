@@ -4,6 +4,8 @@
  */
 
 import { Instrument, OptionChainItem, Course, Badge, Challenge, AIInsight, Position, Order, JournalEntry } from './types';
+import { MORE_100_INSTRUMENTS } from './moreStocks';
+import { getFuturesExpiries } from './derivativesUtils';
 
 // Helper to generate a small random walk
 export function randomWalk(current: number, min: number, max: number, volatility: number = 0.001): number {
@@ -15,7 +17,7 @@ export function randomWalk(current: number, min: number, max: number, volatility
 }
 
 // Preset Indices and Stocks
-export const INITIAL_INSTRUMENTS: Instrument[] = [
+const PRESET_INSTRUMENTS: Instrument[] = [
   {
     symbol: 'NIFTY 50',
     name: 'NSE Nifty 50 Index',
@@ -1668,14 +1670,23 @@ export const INITIAL_INSTRUMENTS: Instrument[] = [
   }
 ];
 
-// Dynamically generate Near (July) and Next (August) Month Futures for all market instruments
+export const INITIAL_INSTRUMENTS: Instrument[] = [
+  ...PRESET_INSTRUMENTS,
+  ...MORE_100_INSTRUMENTS
+];
+
+// Dynamically generate Near and Next Month Futures for all market instruments
 export function generateFuturesForInstruments(insts: Instrument[]): Instrument[] {
   const list: Instrument[] = [];
+  const expiries = getFuturesExpiries();
+  const nearStr = expiries.nearStr.toUpperCase();
+  const nextStr = expiries.nextStr.toUpperCase();
+
   insts.forEach(inst => {
     const shortName = inst.name.replace(' Ltd.', '').replace(' Corporation', '').replace(' Company', '');
-    // Near Month (30-JUL-26) Expiry FUT with a minor standard premium
+    // Near Month Expiry FUT with a minor standard premium
     list.push({
-      symbol: `${inst.symbol} 30-JUL-26 FUT`,
+      symbol: `${inst.symbol} ${nearStr} FUT`,
       name: `${shortName} Futures`,
       ltp: Number((inst.ltp * 1.0025).toFixed(2)),
       change: inst.change,
@@ -1684,9 +1695,9 @@ export function generateFuturesForInstruments(insts: Instrument[]): Instrument[]
       volume: Math.round(inst.volume * 0.15),
       sparkline: inst.sparkline.map(v => Number((v * 1.0025).toFixed(2))),
     });
-    // Next Month (27-AUG-26) Expiry FUT with slightly larger premium
+    // Next Month Expiry FUT with slightly larger premium
     list.push({
-      symbol: `${inst.symbol} 27-AUG-26 FUT`,
+      symbol: `${inst.symbol} ${nextStr} FUT`,
       name: `${shortName} Futures`,
       ltp: Number((inst.ltp * 1.005).toFixed(2)),
       change: inst.change,

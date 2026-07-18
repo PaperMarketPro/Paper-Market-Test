@@ -571,6 +571,14 @@ function matchUpstoxKeyToSymbol(key: string): string | null {
     if (UPSTOX_INSTRUMENT_MAP[tradingSymbolOrIsin]) {
       return tradingSymbolOrIsin;
     }
+
+    // Smart Fallback: If it's an equity and not an ISIN (ISINs are 12 chars), 
+    // then the trading symbol itself is the frontend symbol key!
+    const isIsin = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(tradingSymbolOrIsin);
+    const isIndex = parts[0].includes("INDEX");
+    if (!isIsin && !isIndex) {
+      return tradingSymbolOrIsin;
+    }
   }
 
   return null;
@@ -1400,6 +1408,243 @@ async function startServer() {
     return res.json({ success: true, message: "Auto-renew disabled." });
   });
 
+  async function fetchUpstoxCandlesWithRetry(upstoxSymbol: string, upstoxInterval: string, isDaily: boolean, token: string, frontendSymbol?: string) {
+    const urlsToTry: string[] = [];
+    
+    // Prepare dates for daily historical candles
+    const toDateObj = new Date();
+    const toDate = toDateObj.toISOString().split('T')[0];
+    const fromDateObj = new Date();
+    fromDateObj.setDate(fromDateObj.getDate() - 365);
+    const fromDate = fromDateObj.toISOString().split('T')[0];
+    
+    // Format dates for a safe past date (e.g. if today is a weekend and causes Bad Request)
+    const safeToDateObj = new Date();
+    const dayOfWeek = safeToDateObj.getDay();
+    if (dayOfWeek === 6) {
+      safeToDateObj.setDate(safeToDateObj.getDate() - 1); // Friday
+    } else if (dayOfWeek === 0) {
+      safeToDateObj.setDate(safeToDateObj.getDate() - 2); // Friday
+    }
+    const safeToDate = safeToDateObj.toISOString().split('T')[0];
+    
+    const safeFromDateObj = new Date(safeToDateObj);
+    safeFromDateObj.setDate(safeFromDateObj.getDate() - 365);
+    const safeFromDate = safeFromDateObj.toISOString().split('T')[0];
+
+    const encodedSymbol = encodeURIComponent(upstoxSymbol);
+    const unencodedSymbol = upstoxSymbol; // literal "NSE_EQ|INE296A01024"
+    const colonSymbol = upstoxSymbol.replace("|", ":");
+    const encodedColonSymbol = encodeURIComponent(colonSymbol);
+
+    if (isDaily) {
+      // 1. Standard: encoded, toDate first
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
+      // 2. Encoded, fromDate first
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}/${fromDate}/${toDate}`);
+      // 3. Literal pipe, toDate first
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
+      // 4. Literal pipe, fromDate first
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}/${fromDate}/${toDate}`);
+      
+      // 5. Colon-separated formats
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedColonSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${colonSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
+      
+      // 6. Safe dates (excluding weekend)
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedColonSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${colonSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+    } else {
+      // Intraday
+      // 1. Standard: encoded
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${encodedSymbol}/${upstoxInterval}`);
+      // 2. Literal pipe
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${unencodedSymbol}/${upstoxInterval}`);
+      // 3. Colon-separated intraday
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${encodedColonSymbol}/${upstoxInterval}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${colonSymbol}/${upstoxInterval}`);
+      
+      // 4. Without "intraday" path segment
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedColonSymbol}/${upstoxInterval}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${colonSymbol}/${upstoxInterval}`);
+    }
+
+    // Try alternate symbol-based instrument key if provided (e.g. NSE_EQ|BAJFINANCE instead of ISIN)
+    let alternateSymbolKey = "";
+    if (frontendSymbol) {
+      const cleanSym = frontendSymbol.replace("-", " ").trim();
+      if (cleanSym.includes("NIFTY") || cleanSym.includes("SENSEX")) {
+        // Index
+        if (cleanSym === "NIFTY 50") alternateSymbolKey = "NSE_INDEX|Nifty 50";
+        else if (cleanSym === "BANKNIFTY") alternateSymbolKey = "NSE_INDEX|Nifty Bank";
+        else if (cleanSym === "FINNIFTY") alternateSymbolKey = "NSE_INDEX|Nifty Fin Service";
+        else if (cleanSym === "MIDCPNIFTY") alternateSymbolKey = "NSE_INDEX|Nifty Midcap 50";
+        else if (cleanSym === "SENSEX") alternateSymbolKey = "BSE_INDEX|SENSEX";
+      } else {
+        // Equity
+        const mappedSym = cleanSym === "TATAMOTORS" ? "TMPV" : cleanSym;
+        alternateSymbolKey = `NSE_EQ|${mappedSym}`;
+      }
+    }
+
+    if (alternateSymbolKey && alternateSymbolKey !== upstoxSymbol) {
+      const altEncoded = encodeURIComponent(alternateSymbolKey);
+      const altUnencoded = alternateSymbolKey;
+      const altColon = alternateSymbolKey.replace("|", ":");
+      const altEncodedColon = encodeURIComponent(altColon);
+      
+      if (isDaily) {
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncoded}/${upstoxInterval}/${toDate}/${fromDate}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altUnencoded}/${upstoxInterval}/${toDate}/${fromDate}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncodedColon}/${upstoxInterval}/${toDate}/${fromDate}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altColon}/${upstoxInterval}/${toDate}/${fromDate}`);
+        
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altUnencoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncodedColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+      } else {
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altEncoded}/${upstoxInterval}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altUnencoded}/${upstoxInterval}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altEncodedColon}/${upstoxInterval}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altColon}/${upstoxInterval}`);
+        
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncoded}/${upstoxInterval}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altUnencoded}/${upstoxInterval}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncodedColon}/${upstoxInterval}`);
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altColon}/${upstoxInterval}`);
+      }
+    }
+
+    let lastError: any = null;
+    for (const url of urlsToTry) {
+      try {
+        console.log(`[UPSTOX RETRY FETCH] Trying URL: ${url}`);
+        const response = await fetch(url, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json"
+          }
+        });
+        
+        if (response.ok) {
+          const json = await response.json();
+          if (json.status === "success" && json.data && json.data.candles) {
+            console.log(`[UPSTOX RETRY FETCH] Success! URL: ${url}`);
+            return json;
+          }
+        } else {
+          const errBody = await response.text().catch(() => "");
+          console.warn(`[UPSTOX RETRY FETCH FAIL] URL: ${url}, Status: ${response.status}, Body: ${errBody}`);
+          lastError = new Error(`Status ${response.status}: ${errBody}`);
+        }
+      } catch (err: any) {
+        console.warn(`[UPSTOX RETRY FETCH EXCEPTION] URL: ${url}, Error: ${err.message}`);
+        lastError = err;
+      }
+    }
+
+    // Dynamic search fallback: if we have an active token and a frontendSymbol, and all standard formats failed,
+    // we query Upstox's dynamic search endpoint to fetch the exact, current instrument key.
+    if (token && frontendSymbol) {
+      try {
+        console.log(`[UPSTOX SEARCH] Direct formats failed. Dynamically searching correct instrument key for: ${frontendSymbol}`);
+        const searchUrl = `https://api.upstox.com/v2/instruments/search?search_text=${encodeURIComponent(frontendSymbol)}`;
+        const searchResponse = await fetch(searchUrl, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json"
+          }
+        });
+        
+        if (searchResponse.ok) {
+          const searchJson = await searchResponse.json();
+          if (searchJson.status === "success" && Array.isArray(searchJson.data) && searchJson.data.length > 0) {
+            const targetSegment = upstoxSymbol.split("|")[0]; // e.g., "NSE_EQ" or "NSE_INDEX"
+            
+            // Prefer matches from the same segment with matching symbol
+            const match = searchJson.data.find((item: any) => 
+              item.segment === targetSegment && 
+              (String(item.symbol).toUpperCase() === frontendSymbol.toUpperCase() || String(item.trading_symbol).toUpperCase() === frontendSymbol.toUpperCase())
+            ) || searchJson.data.find((item: any) => 
+              String(item.symbol).toUpperCase() === frontendSymbol.toUpperCase() || String(item.trading_symbol).toUpperCase() === frontendSymbol.toUpperCase()
+            ) || searchJson.data[0];
+
+            if (match && match.instrument_key) {
+              const resolvedKey = match.instrument_key;
+              console.log(`[UPSTOX SEARCH] Dynamic resolution for ${frontendSymbol}: Resolved key is ${resolvedKey} (original mapping was: ${upstoxSymbol})`);
+              
+              if (resolvedKey !== upstoxSymbol) {
+                const searchUrlsToTry: string[] = [];
+                const resEncoded = encodeURIComponent(resolvedKey);
+                const resUnencoded = resolvedKey;
+                const resColon = resolvedKey.replace("|", ":");
+                const resEncodedColon = encodeURIComponent(resColon);
+
+                if (isDaily) {
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncoded}/${upstoxInterval}/${toDate}/${fromDate}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resUnencoded}/${upstoxInterval}/${toDate}/${fromDate}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncodedColon}/${upstoxInterval}/${toDate}/${fromDate}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resColon}/${upstoxInterval}/${toDate}/${fromDate}`);
+                  
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resUnencoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncodedColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+                } else {
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resEncoded}/${upstoxInterval}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resUnencoded}/${upstoxInterval}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resEncodedColon}/${upstoxInterval}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resColon}/${upstoxInterval}`);
+                  
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncoded}/${upstoxInterval}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resUnencoded}/${upstoxInterval}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncodedColon}/${upstoxInterval}`);
+                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resColon}/${upstoxInterval}`);
+                }
+
+                for (const url of searchUrlsToTry) {
+                  try {
+                    console.log(`[UPSTOX RETRY FETCH (RESOLVED)] Trying URL: ${url}`);
+                    const response = await fetch(url, {
+                      headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Accept": "application/json"
+                      }
+                    });
+                    
+                    if (response.ok) {
+                      const json = await response.json();
+                      if (json.status === "success" && json.data && json.data.candles) {
+                        console.log(`[UPSTOX RETRY FETCH (RESOLVED)] Success! URL: ${url}`);
+                        return json;
+                      }
+                    } else {
+                      const errBody = await response.text().catch(() => "");
+                      console.warn(`[UPSTOX RETRY FETCH FAIL (RESOLVED)] URL: ${url}, Status: ${response.status}, Body: ${errBody}`);
+                      lastError = new Error(`Status ${response.status}: ${errBody}`);
+                    }
+                  } catch (err: any) {
+                    console.warn(`[UPSTOX RETRY FETCH EXCEPTION (RESOLVED)] URL: ${url}, Error: ${err.message}`);
+                    lastError = err;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (searchErr: any) {
+        console.warn(`[UPSTOX SEARCH FAIL] Failed to dynamically search instrument key for ${frontendSymbol}:`, searchErr.message);
+      }
+    }
+
+    throw lastError || new Error("All Upstox candle fetch URLs failed.");
+  }
+
   app.get("/api/integrations/upstox/candles", async (req, res) => {
     const { symbol, timeframe } = req.query;
 
@@ -1420,36 +1665,21 @@ async function startServer() {
       let upstoxInterval = "1minute";
       if (timeframe === "1D") {
         upstoxInterval = "day";
-      } else if (timeframe === "30m" || timeframe === "1h") {
+      } else if (timeframe === "1h" || timeframe === "30m") {
         upstoxInterval = "30minute";
+      } else if (timeframe === "15m") {
+        upstoxInterval = "15minute";
+      } else if (timeframe === "5m") {
+        upstoxInterval = "5minute";
+      } else if (timeframe === "1m") {
+        upstoxInterval = "1minute";
       }
 
-      let url = `https://api.upstox.com/v2/historical-candle/intraday/${encodeURIComponent(upstoxSymbol)}/${upstoxInterval}`;
-      if (upstoxInterval === "day") {
-        const toDateObj = new Date();
-        const toDate = toDateObj.toISOString().split('T')[0];
-        
-        const fromDateObj = new Date();
-        fromDateObj.setDate(fromDateObj.getDate() - 365); // 1 year of daily historical data
-        const fromDate = fromDateObj.toISOString().split('T')[0];
-        
-        url = `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(upstoxSymbol)}/${upstoxInterval}/${toDate}/${fromDate}`;
-      }
+      const isDaily = upstoxInterval === "day";
+      const json = await fetchUpstoxCandlesWithRetry(upstoxSymbol, upstoxInterval, isDaily, upstoxAccessToken, symbol as string);
 
-      const response = await fetch(url, {
-        headers: {
-          "Authorization": `Bearer ${upstoxAccessToken}`,
-          "Accept": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upstox candles request failed: ${response.statusText}`);
-      }
-
-      const json = await response.json();
-      if (json.status !== "success" || !json.data || !json.data.candles) {
-        throw new Error("No candle data returned from Upstox.");
+      if (!json || json.status !== "success" || !json.data || !json.data.candles) {
+        throw new Error("No candle data returned from Upstox retry mechanism.");
       }
 
       const candles = json.data.candles.map((c: any) => {
@@ -1996,6 +2226,182 @@ CRITICAL VOICE AND STYLE GUIDELINES:
     }
   });
 
+  // 1.5. AI Interactive Chart Technical Analyzer API
+  app.post("/api/coach/analyze-chart", async (req, res) => {
+    const { symbol, timeframe, candles, customLines, trendlines, fibLevelsList, rrSetup, userQuestion, llmConfig } = req.body;
+
+    if (!symbol) {
+      return res.status(400).json({ error: "Symbol is required." });
+    }
+
+    // Heuristic generator in case of fallback/missing API key
+    const generateHeuristicAnalysis = (): string => {
+      if (!candles || candles.length === 0) {
+        return `### 📊 Technical Chart Analysis for **${symbol}** (${timeframe})
+        
+No candle data received yet. Open the chart and trigger active paper trades to stream real-time price feed first!`;
+      }
+
+      const lastCandle = candles[candles.length - 1];
+      const prevCandle = candles[candles.length - 2];
+      const ltp = lastCandle.close;
+      
+      // Compute simple trend metrics
+      const emaVal = lastCandle.ema || lastCandle.close;
+      const isBullish = ltp >= emaVal;
+      const trendStrength = prevCandle ? (ltp > prevCandle.close ? "UPWARD (Strong)" : "CORRECTIVE (Weak)") : "NEUTRAL";
+      
+      // Indicators breakdown
+      let bbMsg = "Neutral range.";
+      if (lastCandle.bbUpper && lastCandle.bbLower) {
+        const range = lastCandle.bbUpper - lastCandle.bbLower;
+        if (range > 0) {
+          const pct = (ltp - lastCandle.bbLower) / range;
+          if (pct > 0.8) bbMsg = "🔥 Overbought (riding the upper band). Prepare for short-term mean reversion or a strong momentum squeeze.";
+          else if (pct < 0.2) bbMsg = "❄️ Oversold (testing the lower band). Potential support bounce zone.";
+          else bbMsg = `Balanced. Currently trading at ${Math.round(pct * 100)}% of the Bollinger Band range.`;
+        }
+      }
+
+      const vwapMsg = lastCandle.vwap ? (ltp >= lastCandle.vwap ? `Bullish. Price is above VWAP (₹${lastCandle.vwap.toLocaleString('en-IN')}), indicating institutional buying power.` : `Bearish. Price is below VWAP (₹${lastCandle.vwap.toLocaleString('en-IN')}), showing sell-side dominance.`) : "Not active.";
+
+      // Support/resistance check
+      let srConfluences: string[] = [];
+      if (customLines && customLines.length > 0) {
+        customLines.forEach((line: any) => {
+          const diff = Math.abs(ltp - line.price) / ltp;
+          if (diff <= 0.01) {
+            srConfluences.push(`Your custom **${line.type.toUpperCase()}** line at **₹${line.price.toLocaleString('en-IN')}** is within 1% of the current price (₹${ltp.toLocaleString('en-IN')})! High probability reaction zone.`);
+          }
+        });
+      }
+
+      const hasQuestion = userQuestion && userQuestion.trim().length > 0;
+      const userLangHindi = hasQuestion && (userQuestion.toLowerCase().includes("kaise") || userQuestion.toLowerCase().includes("kya") || userQuestion.toLowerCase().includes("nuksan") || userQuestion.toLowerCase().includes("batao"));
+
+      if (userLangHindi) {
+        return `### 📊 Technical Chart Analysis for **${symbol}** (${timeframe})
+        
+**1. ट्रेंड और मोमेंटम एनालिसिस (Trend & Momentum)**
+- **ताजा भाव (LTP):** ₹${ltp.toLocaleString('en-IN')}
+- **बाजार का ट्रेंड:** ${isBullish ? "🟢 तेज़ी का रुख (Bullish Trend)" : "🔴 मंदी का रुख (Bearish Trend)"} (EMA ${isBullish ? "के ऊपर" : "के नीचे"} ट्रेड कर रहा है)
+- **मोमेंटम:** ${trendStrength}
+
+**2. टेक्निकल इंडिकेटर्स का इशारा (Indicators Breakdown)**
+- **Bollinger Bands:** ${bbMsg}
+- **VWAP:** ${vwapMsg}
+- **वॉल्यूम (Volume):** ${lastCandle.volume ? lastCandle.volume.toLocaleString('en-IN') : "N/A"} शेयर्स।
+
+${srConfluences.length > 0 ? `**3. चार्ट कॉनफ्लुएंस (Your Drawings)**\n${srConfluences.map(c => `- ${c}`).join("\n")}\n` : ""}
+
+**4. आपकी शंका का समाधान (Your Question Analysis)**
+> *"${userQuestion}"*
+
+चार्ट को देखते हुए, प्राइस अभी ${isBullish ? "सपोर्ट के ऊपर मजबूत बना हुआ है" : "रेसिस्टेंस के नीचे दबा हुआ है"}। अपने रिस्क को हमेशा काबू में रखें और बिना सही सेटअप के ट्रेड में न कूदें। अगर आप एंट्री प्लान कर रहे हैं तो ${isBullish ? "एक पुलबैक" : "सपोर्ट टूटने"} का इंतज़ार करें।
+
+**💡 सलाह:** हमेशा 1:2 रिस्क-रिवॉर्ड रेश्यो मेंटेन करें!`;
+      }
+
+      return `### 📊 Technical Chart Analysis for **${symbol}** (${timeframe})
+
+**1. Trend & Momentum Confluence**
+- **Last Traded Price (LTP):** ₹${ltp.toLocaleString('en-IN')}
+- **Primary Trend:** ${isBullish ? "🟢 BULLISH" : "🔴 BEARISH"} (Price trading ${isBullish ? "above" : "below"} the EMA indicator line)
+- **Momentum State:** ${trendStrength}
+
+**2. Key Technical Overlays**
+- **Bollinger Bands:** ${bbMsg}
+- **VWAP:** ${vwapMsg}
+- **Supertrend:** ${lastCandle.supertrend ? `Indicator shows **${lastCandle.supertrendDirection === 'up' ? 'BUY' : 'SELL'}** at ₹${lastCandle.supertrend.toFixed(2)}` : "Inactive"}
+- **Session Volume:** ${lastCandle.volume ? lastCandle.volume.toLocaleString('en-IN') : "N/A"} units.
+
+${srConfluences.length > 0 ? `**3. Custom Drawing Confluence (Confluence Check)**\n${srConfluences.map(c => `- ${c}`).join("\n")}\n` : ""}
+
+**4. Interactive Chart Query Feedback**
+${hasQuestion ? `> *"${userQuestion}"*
+
+Based on raw price-action, the chart exhibits a clean **${isBullish ? "ascending continuation pattern" : "downward distribution phase"}**. Avoid chasing breakouts near resistance. Focus on taking entries near validated support levels with tight stop-losses.` : `To get hyper-targeted analysis on your custom indicators, support/resistance, or risk-reward ratios, type your specific question in the Chat Panel below!`}`;
+    };
+
+    const aiClient = getGeminiClient();
+    if (!aiClient) {
+      return res.json({ analysis: generateHeuristicAnalysis() });
+    }
+
+    try {
+      // Package clean slice of candles (max 30 to stay within token limits and keep it ultra-fast)
+      const candleSlice = candles && candles.length > 0 ? candles.slice(-30) : [];
+      const cleanCandles = candleSlice.map((c: any) => ({
+        time: c.time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: c.volume,
+        ema: c.ema,
+        sma: c.sma,
+        vwap: c.vwap,
+        supertrend: c.supertrend,
+        supertrendDir: c.supertrendDirection
+      }));
+
+      const lastCandle = cleanCandles[cleanCandles.length - 1] || {};
+
+      const prompt = `Perform a highly sophisticated, professional technical analysis on the following active chart data.
+      
+ASSET SYMBOL: ${symbol}
+TIMEFRAME: ${timeframe}
+LATEST PRICE (LTP): ₹${(lastCandle.close || 0).toLocaleString('en-IN')}
+
+RECENT CANDLE FEEDS (Past ${cleanCandles.length} intervals, oldest to newest):
+${JSON.stringify(cleanCandles, null, 2)}
+
+ACTIVE TRADER DRAWINGS ON THIS CHART:
+- Custom Horizontal S/R Lines: ${customLines && customLines.length > 0 ? JSON.stringify(customLines) : "None placed."}
+- Custom Trendlines drawn: ${trendlines && trendlines.length > 0 ? JSON.stringify(trendlines) : "None drawn."}
+- Fibonacci Levels drawn: ${fibLevelsList && fibLevelsList.length > 0 ? JSON.stringify(fibLevelsList) : "None drawn."}
+- Risk/Reward Setup: ${rrSetup ? JSON.stringify(rrSetup) : "None plotted."}
+
+USER'S DIRECT ANALYSIS QUESTION:
+${userQuestion && userQuestion.trim().length > 0 ? `"${userQuestion}"` : "Please perform a comprehensive technical analysis on this chart and outline potential trade setups."}
+
+CRITICAL HUMAN-LIKE ELITE VOICE & LANGUAGE DIRECTIVES:
+1. STRICTLY FORBIDDEN: Do NOT sound like a preachy, repetitive AI or ChatGPT. NEVER use conversational fillers or transition words like "Certainly!", "Here is my analysis:", "It is important to remember...", "In conclusion...", "Ultimately...", "Please keep in mind...". Jump directly into the raw analysis.
+2. HUMAN CONVERSATIONAL FLOW: Speak like an elite human prop-desk trader or veteran market analyst sitting next to the user. Do NOT make every single sentence a bullet point or list. Use natural, brief, punchy paragraphs, occasionally combined with highly relevant technical highlights. Speak with genuine tape-reading realism, mentioning direct behavioral patterns (e.g., 'liquidity grabs', 'bull traps', 'chasing breakouts', 'blowing accounts', 'revenge trading').
+3. ACCURATE LANGUAGE ADAPTABILITY: You MUST detect the language/style of the user's direct question and answer in that EXACT SAME language or style.
+   - If they write in HINGLISH (e.g., "bhai entry kab leni hai?", "kya lagta hai abhi hold karein?"): Respond in fluent, conversational Hinglish (e.g., "Dekho, abhi price EMA line ke exact pass support lene ki koshish kar raha hai. Support strong hai, but immediate buy karke chase mat karo...").
+   - If they write in HINDI (e.g., "नुकसान कैसे बचाएं"): Respond in warm, professional, fluent Hindi with standard trading terms.
+   - If they write in SPANISH, FRENCH, GERMAN, TAMIL, TELUGU, etc.: Respond in that exact language naturally with the same elite professional tone.
+4. TACTICAL NUMERICAL PRECISION: Reference specific numbers and values from the provided candle data or the user's drawing levels (e.g., specific price points, support levels, risk-to-reward ratios) to maintain deep analytical accuracy instead of speaking in vague generalities.`;
+
+      const baseSystemInstruction = `You are an elite Prop-Desk Technical Chart Analyst. Your expertise is in raw price-action, confluence, and risk management.
+CRITICAL VOICE AND STYLE GUIDELINES:
+1. STRICTLY FORBIDDEN: NEVER use AI clichés or robotic transition/filler phrases (e.g., "Certainly!", "I'm sorry to hear that," "I understand your frustration," "As an AI model," "Let's explore this step-by-step," "Here is some advice," "I hope this helps," "Let me know if you have other questions"). Jump straight into the conversation with raw truth.
+2. Speak like an experienced trading buddy or private mentor sitting right next to them—authentic, raw, deeply empathetic, warm, but incredibly direct and honest. Use short, punchy paragraphs, casual contractions (don't, let's, we'll), and imperfect, natural conversational flow.
+3. ABSOLUTELY NO CHATGPT STYLE STRUCTURES: Do not write neat, perfectly balanced essays. Do not use neat bullet points or numbered lists unless absolutely necessary (if so, keep them to 1 or 2 informal points maximum). Real humans talk in fluid, natural paragraphs, not perfectly formatted blogs.
+4. Use authentic trading language and concepts naturally (e.g., "chasing candles," "revenge trade," "sizing down," "blowing an account," "slashed risk").
+5. Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty rallies 2% without me, THEN I will close my charts and walk away until the afternoon session"). Do this collaboratively, like a seasoned mentor helping a friend.
+6. CRITICAL LANGUAGE RULE: You MUST automatically detect the language of the user's message/input (e.g. Hindi, Hinglish, Spanish, French, German, Tamil, Telugu, etc.) and respond in that EXACT same language or style. If they speak in Hindi (e.g. "मेरा बहुत नुकसान हो गया है"), reply in fluent, warm, and encouraging Hindi. If they use Hinglish (e.g. "FOMO control kaise karu?"), reply in natural Hinglish. Keep your tone identical and consistent across all languages. Match their style perfectly.`;
+
+      const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, null, "gemini-3.5-flash", 0.5, baseSystemInstruction);
+
+      const response = await aiClient.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          temperature,
+        }
+      });
+
+      const analysisText = response.text || generateHeuristicAnalysis();
+      res.json({ analysis: analysisText });
+    } catch (error: any) {
+      console.error("AI Chart Analysis Error:", error);
+      res.json({ analysis: generateHeuristicAnalysis() });
+    }
+  });
+
   // 2. Realistic 12-Month Historical Backtester & AI Audit API
   app.post("/api/strategy/backtest", async (req, res) => {
     const { strategy, symbol, llmConfig, cognitiveRules } = req.body;
@@ -2005,6 +2411,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
     }
 
     const assetName = symbol || "NIFTY-50";
+    const normalizedAssetName = assetName === "NIFTY-50" ? "NIFTY 50" : assetName;
 
     try {
       // Step A: Load real-market historical candles from Upstox (if connected) or calibrate simulation
@@ -2012,45 +2419,28 @@ CRITICAL VOICE AND STYLE GUIDELINES:
       let isRealMarketData = false;
       let dataMessage = "AI-Calibrated Synthetic Market Feed (Regime-Switching Simulation)";
 
-      const upstoxSymbol = UPSTOX_INSTRUMENT_MAP[assetName];
+      const upstoxSymbol = UPSTOX_INSTRUMENT_MAP[normalizedAssetName];
       if (upstoxAccessToken && upstoxSymbol) {
         try {
-          const toDateObj = new Date();
-          const toDate = toDateObj.toISOString().split('T')[0];
-          
-          const fromDateObj = new Date();
-          fromDateObj.setDate(fromDateObj.getDate() - 365); // 1 year of daily historical data
-          const fromDate = fromDateObj.toISOString().split('T')[0];
-          
-          const url = `https://api.upstox.com/v2/historical-candle/${encodeURIComponent(upstoxSymbol)}/day/${toDate}/${fromDate}`;
-          const response = await fetch(url, {
-            headers: {
-              "Authorization": `Bearer ${upstoxAccessToken}`,
-              "Accept": "application/json"
-            }
-          });
-
-          if (response.ok) {
-            const json = await response.json();
-            if (json.status === "success" && json.data && json.data.candles) {
-              const rawCandles = json.data.candles.reverse();
-              candles = rawCandles.map((c: any) => {
-                const dateStr = new Date(c[0]).toISOString().split('T')[0];
-                return {
-                  date: dateStr,
-                  open: Number(c[1]),
-                  high: Number(c[2]),
-                  low: Number(c[3]),
-                  close: Number(c[4]),
-                  volume: Number(c[5])
-                };
-              });
-              isRealMarketData = true;
-              dataMessage = "100% Accurate Live-Historical Market Feed via Upstox API";
-            }
+          const json = await fetchUpstoxCandlesWithRetry(upstoxSymbol, "day", true, upstoxAccessToken, normalizedAssetName);
+          if (json && json.status === "success" && json.data && json.data.candles) {
+            const rawCandles = json.data.candles.reverse();
+            candles = rawCandles.map((c: any) => {
+              const dateStr = new Date(c[0]).toISOString().split('T')[0];
+              return {
+                date: dateStr,
+                open: Number(c[1]),
+                high: Number(c[2]),
+                low: Number(c[3]),
+                close: Number(c[4]),
+                volume: Number(c[5])
+              };
+            });
+            isRealMarketData = true;
+            dataMessage = "100% Accurate Live-Historical Market Feed via Upstox API";
           }
-        } catch (apiErr) {
-          console.warn("Failed to fetch real-market backtest candles from Upstox, falling back to AI-Calibrated Simulation:", apiErr);
+        } catch (apiErr: any) {
+          console.warn("Failed to fetch real-market backtest candles from Upstox, falling back to AI-Calibrated Simulation:", apiErr.message);
         }
       }
 
