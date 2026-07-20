@@ -164,14 +164,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ]);
 
   // Indian Market Hours Checking States
-  const [enforceMarketHours, setEnforceMarketHours] = useState<boolean>(true);
-
-  useEffect(() => {
-    localStorage.setItem('enforceMarketHours', 'true');
-  }, []);
+  const [enforceMarketHours, setEnforceMarketHours] = useState<boolean>(() => {
+    const saved = localStorage.getItem('enforceMarketHours');
+    return saved === null ? true : saved === 'true';
+  });
 
   const toggleEnforceMarketHours = () => {
-    // Strictly enforced for professional trading habit development
+    setEnforceMarketHours(prev => {
+      const next = !prev;
+      localStorage.setItem('enforceMarketHours', String(next));
+      return next;
+    });
   };
 
   const [isMarketOpen, setIsMarketOpen] = useState<boolean>(false);
@@ -901,57 +904,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync index and asset updates with position prices (unrealized P&L simulation)
   useEffect(() => {
-    if (positions.length === 0) return;
+    setPositions(prevPositions => {
+      if (prevPositions.length === 0) return prevPositions;
 
-    let changed = false;
-    const nextPositions = positions.map(pos => {
-      let nextPrice = pos.currentPrice;
+      let changed = false;
+      const nextPositions = prevPositions.map(pos => {
+        let nextPrice = pos.currentPrice;
 
-      const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
-      if (matchingAsset) {
-        nextPrice = matchingAsset.ltp;
-      } else {
-        const matchingFuture = futures.find(f => f.symbol === pos.symbol);
-        if (matchingFuture) {
-          nextPrice = matchingFuture.ltp;
-        } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
-          const parts = pos.symbol.split(' ');
-          const strikeStr = parts[parts.length - 2];
-          const typeStr = parts[parts.length - 1];
-          const strike = parseInt(strikeStr);
-          if (!isNaN(strike)) {
-            const underlierName = parts[0];
-            const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
-            const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
-            const spot = underlier ? underlier.ltp : 24325.85;
-            const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
-            const distance = strike - spot;
-            
-            if (typeStr === 'CE') {
-              const callIntrinsic = Math.max(0, spot - strike);
-              const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-              const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-              nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
-            } else {
-              const putIntrinsic = Math.max(0, strike - spot);
-              const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-              const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-              nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
+        const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
+        if (matchingAsset) {
+          nextPrice = matchingAsset.ltp;
+        } else {
+          const matchingFuture = futures.find(f => f.symbol === pos.symbol);
+          if (matchingFuture) {
+            nextPrice = matchingFuture.ltp;
+          } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
+            const parts = pos.symbol.split(' ');
+            const strikeStr = parts[parts.length - 2];
+            const typeStr = parts[parts.length - 1];
+            const strike = parseInt(strikeStr);
+            if (!isNaN(strike)) {
+              const underlierName = parts[0];
+              const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
+              const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
+              const spot = underlier ? underlier.ltp : 24325.85;
+              const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
+              const distance = strike - spot;
+              
+              if (typeStr === 'CE') {
+                const callIntrinsic = Math.max(0, spot - strike);
+                const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+                const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+                nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
+              } else {
+                const putIntrinsic = Math.max(0, strike - spot);
+                const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+                const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+                nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
+              }
             }
           }
         }
-      }
 
-      if (nextPrice !== pos.currentPrice) {
-        changed = true;
-        return { ...pos, currentPrice: nextPrice };
-      }
-      return pos;
+        if (nextPrice !== pos.currentPrice) {
+          changed = true;
+          return { ...pos, currentPrice: nextPrice };
+        }
+        return pos;
+      });
+
+      return changed ? nextPositions : prevPositions;
     });
-
-    if (changed) {
-      setPositions(nextPositions);
-    }
   }, [instruments, futures]);
 
   // AI Auto-Trader Real-Time Strategy Execution Engine
@@ -1166,7 +1169,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     target?: number;
   }) => {
     // Strict Market Hours Enforcement Check
-    if (!isMarketOpen) {
+    if (enforceMarketHours && !isMarketOpen) {
       pushNotification(
         'Transaction Blocked', 
         'Placing orders is strictly blocked outside Indian Stock Market hours (Monday to Friday, 9:15 AM - 3:30 PM IST).', 
@@ -1346,7 +1349,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Exit/Close Position manually (Positions Tab)
   const exitPosition = (positionId: string, quantityToExit?: number) => {
     // Strict Market Hours Enforcement Check
-    if (!isMarketOpen) {
+    if (enforceMarketHours && !isMarketOpen) {
       pushNotification(
         'Transaction Blocked', 
         'Closing positions is strictly blocked outside Indian Stock Market hours (Monday to Friday, 9:15 AM - 3:30 PM IST).', 

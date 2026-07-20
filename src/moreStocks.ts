@@ -748,7 +748,13 @@ function generateSparkline(symbol: string, basePrice: number, change: number): n
 }
 
 // Convert compact templates to complete Instruments objects
-export const MORE_100_INSTRUMENTS: Instrument[] = BASE_500_STOCKS.map(([symbol, name, basePrice]) => {
+const seenSymbols = new Set<string>();
+const uniqueInstruments: Instrument[] = [];
+
+BASE_500_STOCKS.forEach(([symbol, name, basePrice]) => {
+  if (seenSymbols.has(symbol)) return;
+  seenSymbols.add(symbol);
+
   // Generate a realistic daily percentage change based on symbol hash (between -4.5% and +4.5%)
   let hash = 0;
   for (let i = 0; i < symbol.length; i++) {
@@ -771,7 +777,7 @@ export const MORE_100_INSTRUMENTS: Instrument[] = BASE_500_STOCKS.map(([symbol, 
   
   const sparkline = generateSparkline(symbol, basePrice, change);
 
-  return {
+  uniqueInstruments.push({
     symbol,
     name,
     ltp: basePrice,
@@ -780,5 +786,7 @@ export const MORE_100_INSTRUMENTS: Instrument[] = BASE_500_STOCKS.map(([symbol, 
     low,
     volume,
     sparkline
-  };
+  });
 });
+
+export const MORE_100_INSTRUMENTS: Instrument[] = uniqueInstruments;

@@ -1670,10 +1670,17 @@ const PRESET_INSTRUMENTS: Instrument[] = [
   }
 ];
 
-export const INITIAL_INSTRUMENTS: Instrument[] = [
-  ...PRESET_INSTRUMENTS,
-  ...MORE_100_INSTRUMENTS
-];
+const seenSymbols = new Set<string>();
+const deduplicatedInstruments: Instrument[] = [];
+
+for (const inst of [...PRESET_INSTRUMENTS, ...MORE_100_INSTRUMENTS]) {
+  if (!seenSymbols.has(inst.symbol)) {
+    seenSymbols.add(inst.symbol);
+    deduplicatedInstruments.push(inst);
+  }
+}
+
+export const INITIAL_INSTRUMENTS: Instrument[] = deduplicatedInstruments;
 
 // Dynamically generate Near and Next Month Futures for all market instruments
 export function generateFuturesForInstruments(insts: Instrument[]): Instrument[] {

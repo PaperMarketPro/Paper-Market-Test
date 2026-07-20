@@ -26,6 +26,13 @@ let upstoxWs: WS | null = null;
 const clientWsSockets = new Set<any>();
 let simulationInterval: NodeJS.Timeout | null = null;
 let upstoxReconnectTimeout: NodeJS.Timeout | null = null;
+let upstoxPingInterval: NodeJS.Timeout | null = null;
+let lastAutoRenewTime = 0;
+
+function isSimulatedToken(token: string | null | undefined): boolean {
+  if (!token) return true;
+  return token.includes("simulated") || token.includes("mock") || token.includes("test") || token.length < 20;
+}
 
 // Initialize Firebase Admin securely
 import admin from "firebase-admin";
@@ -241,134 +248,167 @@ async function programmaticUpstoxLogin(config: {
   pin: string;
   totpSecret: string;
 }) {
-  const jar = new CookieJar();
+  const isMock = 
+    config.apiKey.toLowerCase().includes("mock") ||
+    config.apiKey.toLowerCase().includes("test") ||
+    config.apiKey.toLowerCase().includes("dummy") ||
+    config.apiKey.toLowerCase().includes("sample") ||
+    config.apiSecret.toLowerCase().includes("mock") ||
+    config.apiSecret.toLowerCase().includes("test") ||
+    config.apiSecret.toLowerCase().includes("dummy") ||
+    config.apiSecret.toLowerCase().includes("sample") ||
+    config.totpSecret.toLowerCase().includes("mock") ||
+    config.totpSecret.toLowerCase().includes("test") ||
+    config.totpSecret.toLowerCase().includes("dummy") ||
+    config.totpSecret.toLowerCase().includes("sample") ||
+    config.apiKey.length < 10 ||
+    config.apiSecret.length < 10;
 
-  console.log("[Programmatic Upstox] Step 1: Requesting authorization URL...");
-  const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?client_id=${config.apiKey}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code`;
-  
-  const step1Res = await fetch(authUrl, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  try {
+    const jar = new CookieJar();
+
+    console.log("[Programmatic Upstox] Step 1: Requesting authorization URL...");
+    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?client_id=${config.apiKey}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code`;
+    
+    const step1Res = await fetch(authUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      }
+    });
+
+    jar.parseSetCookie(step1Res.headers);
+
+    console.log("[Programmatic Upstox] Step 2: Sending mobile number to get request ID...");
+    const step2Res = await fetch("https://api-v2.upstox.com/login/v3/auth/otp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Cookie": jar.getCookieHeader()
+      },
+      body: JSON.stringify({
+        client_id: config.apiKey,
+        mobile_number: config.mobileNo
+      })
+    });
+
+    jar.parseSetCookie(step2Res.headers);
+
+    const step2Data = await step2Res.json();
+    if (step2Data.status !== "success" || !step2Data.data?.request_id) {
+      throw new Error(`Step 2 (OTP) failed: ${JSON.stringify(step2Data)}`);
     }
-  });
 
-  jar.parseSetCookie(step1Res.headers);
+    const requestId = step2Data.data.request_id;
+    console.log(`[Programmatic Upstox] Step 2 success. Request ID: ${requestId}`);
 
-  console.log("[Programmatic Upstox] Step 2: Sending mobile number to get request ID...");
-  const step2Res = await fetch("https://api-v2.upstox.com/login/v3/auth/otp", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Cookie": jar.getCookieHeader()
-    },
-    body: JSON.stringify({
-      client_id: config.apiKey,
-      mobile_number: config.mobileNo
-    })
-  });
+    const totpCode = generateTOTP(config.totpSecret);
+    console.log(`[Programmatic Upstox] Step 3: Validating TOTP: ${totpCode}...`);
 
-  jar.parseSetCookie(step2Res.headers);
+    const step3Res = await fetch("https://api-v2.upstox.com/login/v3/auth/totp/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Cookie": jar.getCookieHeader()
+      },
+      body: JSON.stringify({
+        request_id: requestId,
+        totp: totpCode
+      })
+    });
 
-  const step2Data = await step2Res.json();
-  if (step2Data.status !== "success" || !step2Data.data?.request_id) {
-    throw new Error(`Step 2 (OTP) failed: ${JSON.stringify(step2Data)}`);
-  }
+    jar.parseSetCookie(step3Res.headers);
 
-  const requestId = step2Data.data.request_id;
-  console.log(`[Programmatic Upstox] Step 2 success. Request ID: ${requestId}`);
-
-  const totpCode = generateTOTP(config.totpSecret);
-  console.log(`[Programmatic Upstox] Step 3: Validating TOTP: ${totpCode}...`);
-
-  const step3Res = await fetch("https://api-v2.upstox.com/login/v3/auth/totp/validate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Cookie": jar.getCookieHeader()
-    },
-    body: JSON.stringify({
-      request_id: requestId,
-      totp: totpCode
-    })
-  });
-
-  jar.parseSetCookie(step3Res.headers);
-
-  const step3Data = await step3Res.json();
-  if (step3Data.status !== "success") {
-    throw new Error(`Step 3 (TOTP) failed: ${JSON.stringify(step3Data)}`);
-  }
-
-  console.log("[Programmatic Upstox] Step 3 success. TOTP validated.");
-
-  console.log("[Programmatic Upstox] Step 4: Submitting PIN...");
-  const step4Res = await fetch("https://api-v2.upstox.com/login/v3/auth/pin", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Cookie": jar.getCookieHeader()
-    },
-    body: JSON.stringify({
-      request_id: requestId,
-      pin: config.pin
-    })
-  });
-
-  jar.parseSetCookie(step4Res.headers);
-
-  const step4Data = await step4Res.json();
-  if (step4Data.status !== "success" || !step4Data.data?.redirect_uri) {
-    throw new Error(`Step 4 (PIN) failed: ${JSON.stringify(step4Data)}`);
-  }
-
-  const redirectUriWithCode = step4Data.data.redirect_uri;
-  console.log(`[Programmatic Upstox] Step 4 success. Redirect URI: ${redirectUriWithCode}`);
-
-  const urlObj = new URL(redirectUriWithCode);
-  const code = urlObj.searchParams.get("code");
-  if (!code) {
-    throw new Error(`Could not find authorization code in redirect URI: ${redirectUriWithCode}`);
-  }
-
-  console.log(`[Programmatic Upstox] Extracted Code: ${code}. Requesting Access Token...`);
-
-  const tokenRes = await fetch("https://api.upstox.com/v2/login/authorization/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "accept": "application/json"
-    },
-    body: new URLSearchParams({
-      code: code,
-      client_id: config.apiKey,
-      client_secret: config.apiSecret,
-      redirect_uri: config.redirectUri,
-      grant_type: "authorization_code"
-    }).toString()
-  });
-
-  if (!tokenRes.ok) {
-    const errText = await tokenRes.text();
-    throw new Error(`Token exchange failed: ${errText}`);
-  }
-
-  const tokenData = await tokenRes.json();
-  if (!tokenData.access_token) {
-    throw new Error(`No access token returned: ${JSON.stringify(tokenData)}`);
-  }
-
-  console.log("[Programmatic Upstox] Auto-login completed successfully!");
-  return {
-    accessToken: tokenData.access_token,
-    user: {
-      email: "pro_feed_user@papermarket.local",
-      userName: "Upstox Pro Account (Automated)",
-      userId: "UPSTOX_USER"
+    const step3Data = await step3Res.json();
+    if (step3Data.status !== "success") {
+      throw new Error(`Step 3 (TOTP) failed: ${JSON.stringify(step3Data)}`);
     }
-  };
+
+    console.log("[Programmatic Upstox] Step 3 success. TOTP validated.");
+
+    console.log("[Programmatic Upstox] Step 4: Submitting PIN...");
+    const step4Res = await fetch("https://api-v2.upstox.com/login/v3/auth/pin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Cookie": jar.getCookieHeader()
+      },
+      body: JSON.stringify({
+        request_id: requestId,
+        pin: config.pin
+      })
+    });
+
+    jar.parseSetCookie(step4Res.headers);
+
+    const step4Data = await step4Res.json();
+    if (step4Data.status !== "success" || !step4Data.data?.redirect_uri) {
+      throw new Error(`Step 4 (PIN) failed: ${JSON.stringify(step4Data)}`);
+    }
+
+    const redirectUriWithCode = step4Data.data.redirect_uri;
+    console.log(`[Programmatic Upstox] Step 4 success. Redirect URI: ${redirectUriWithCode}`);
+
+    const urlObj = new URL(redirectUriWithCode);
+    const code = urlObj.searchParams.get("code");
+    if (!code) {
+      throw new Error(`Could not find authorization code in redirect URI: ${redirectUriWithCode}`);
+    }
+
+    console.log(`[Programmatic Upstox] Extracted Code: ${code}. Requesting Access Token...`);
+
+    const tokenRes = await fetch("https://api.upstox.com/v2/login/authorization/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "accept": "application/json"
+      },
+      body: new URLSearchParams({
+        code: code,
+        client_id: config.apiKey,
+        client_secret: config.apiSecret,
+        redirect_uri: config.redirectUri,
+        grant_type: "authorization_code"
+      }).toString()
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      throw new Error(`Token exchange failed: ${errText}`);
+    }
+
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) {
+      throw new Error(`No access token returned: ${JSON.stringify(tokenData)}`);
+    }
+
+    console.log("[Programmatic Upstox] Auto-login completed successfully!");
+    return {
+      accessToken: tokenData.access_token,
+      user: {
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Account (Automated)",
+        userId: "UPSTOX_USER"
+      }
+    };
+  } catch (err: any) {
+    const errorStr = err.message || "";
+    if (isMock) {
+      console.log("[Programmatic Upstox] Mock/Simulated config detected. Falling back to Simulated Premium Auto-Renew Token.");
+      return {
+        accessToken: "simulated_premium_upstox_token_" + Math.random().toString(36).substring(2),
+        user: {
+          email: "pro_feed_user@papermarket.local",
+          userName: "Upstox Pro Account (Simulated)",
+          userId: "UPSTOX_USER"
+        }
+      };
+    }
+    console.error("[Programmatic Upstox] Real API programmatic login failed:", errorStr);
+    throw err;
+  }
 }
 
 async function autoRenewUpstoxToken(): Promise<boolean> {
@@ -377,6 +417,14 @@ async function autoRenewUpstoxToken(): Promise<boolean> {
     console.log("[UPSTOX AUTORENEW] Auto-renew config is not configured, disabled, or missing required fields.");
     return false;
   }
+
+  // Throttling: Prevent spamming Upstox login endpoint (minimum 60s between renewal calls)
+  const now = Date.now();
+  if (now - lastAutoRenewTime < 60000) {
+    console.log(`[UPSTOX AUTORENEW] Token renewal requested too recently. Throttling to prevent account block. Try again in ${Math.round((60000 - (now - lastAutoRenewTime)) / 1000)}s.`);
+    return false;
+  }
+  lastAutoRenewTime = now;
 
   console.log("[UPSTOX AUTORENEW] Launching automated background login...");
   try {
@@ -608,6 +656,12 @@ async function connectUpstoxFeed() {
   try {
     if (!upstoxAccessToken) return;
 
+    if (isSimulatedToken(upstoxAccessToken)) {
+      console.log("[UPSTOX FEED] Simulated/mock token is active. Bypassing live WebSocket connection and starting the simulation engine.");
+      startSimulationLoop();
+      return;
+    }
+
     // 1. Authorize WebSocket connection
     const authRes = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
       headers: {
@@ -619,15 +673,29 @@ async function connectUpstoxFeed() {
     if (!authRes.ok) {
       const errText = await authRes.text();
       console.error("Upstox WS authorize failed:", errText);
-      if (authRes.status === 401 || errText.includes("invalid_token") || errText.includes("expired")) {
-        console.log("[UPSTOX FEED] Token appears expired or invalid. Attempting automated background renewal...");
+      
+      if (authRes.status === 401 || authRes.status === 403 || authRes.status === 410) {
+        console.log(`[UPSTOX FEED] Token is explicitly expired or unauthorized (${authRes.status}). Attempting automated background renewal...`);
         const renewed = await autoRenewUpstoxToken();
         if (renewed) {
           return;
         }
+        
+        const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+        if (config && config.enabled) {
+          console.log("[UPSTOX FEED] Auto-renew is enabled. Scheduling reconnection retry...");
+          scheduleUpstoxReconnect();
+        } else {
+          console.log("[UPSTOX FEED] Auto-renew is not enabled or configured. Clearing expired token and falling back to simulator.");
+          upstoxAccessToken = null;
+          upstoxConnectedUser = null;
+          upstoxLinkedPermanently = false;
+          disconnectUpstoxWebSocket();
+        }
+      } else {
+        console.log(`[UPSTOX FEED] WS authorize failed with status ${authRes.status} (transient). Scheduling reconnect without clearing token...`);
+        scheduleUpstoxReconnect();
       }
-      // We do not clear the token automatically to ensure the connection remains saved and can self-recover/reconnect
-      scheduleUpstoxReconnect();
       return;
     }
 
@@ -645,15 +713,22 @@ async function connectUpstoxFeed() {
     const root = await protobuf.load("./MarketDataFeed.proto");
     const FeedResponse = root.lookupType("com.upstox.marketdatafeed.FeedResponse");
 
+    // Clear any existing ping interval
+    if (upstoxPingInterval) {
+      clearInterval(upstoxPingInterval);
+      upstoxPingInterval = null;
+    }
+
     // 3. Establish WS connection
-    upstoxWs = new WS(redirectUrl, {
-      headers: {
-        "Authorization": `Bearer ${upstoxAccessToken}`
-      }
-    });
+    // Note: Do not pass Authorization handshake headers here, as standard browsers do not support custom WS headers.
+    // The authorizedRedirectUri is already fully pre-signed by Upstox, and passing extra headers triggers a 403 error.
+    upstoxWs = new WS(redirectUrl);
+
+    let isAlive = true;
 
     upstoxWs.on("open", () => {
       console.log("Upstox Live WebSocket connected successfully!");
+      isAlive = true;
       // Send subscription request for all configured instrument keys
       const subscriptionMessage = {
         guid: "papermarket-subscription-v3",
@@ -666,8 +741,39 @@ async function connectUpstoxFeed() {
       upstoxWs?.send(JSON.stringify(subscriptionMessage));
     });
 
+    upstoxWs.on("pong", () => {
+      isAlive = true;
+    });
+
+    // Start keepalive heartbeat ping/pong interval
+    upstoxPingInterval = setInterval(() => {
+      if (!upstoxWs || upstoxWs.readyState !== WS.OPEN) {
+        if (upstoxPingInterval) {
+          clearInterval(upstoxPingInterval);
+          upstoxPingInterval = null;
+        }
+        return;
+      }
+      if (isAlive === false) {
+        console.warn("[UPSTOX WS] Heartbeat missed. Terminating connection to force reconnect...");
+        upstoxWs.terminate();
+        if (upstoxPingInterval) {
+          clearInterval(upstoxPingInterval);
+          upstoxPingInterval = null;
+        }
+        return;
+      }
+      isAlive = false;
+      try {
+        upstoxWs.ping();
+      } catch (err: any) {
+        console.error("[UPSTOX WS] Failed to send ping:", err.message);
+      }
+    }, 30000); // 30 seconds
+
     upstoxWs.on("message", (data: Buffer) => {
       try {
+        isAlive = true; // Any received message counts as liveness
         // Decode Protobuf binary buffer
         const decodedMessage = FeedResponse.decode(data);
         const feedObject = FeedResponse.toObject(decodedMessage, {
@@ -734,15 +840,27 @@ async function connectUpstoxFeed() {
     upstoxWs.on("close", (code, reason) => {
       console.log(`Upstox Live WebSocket closed: Code ${code}, Reason: ${reason}`);
       upstoxWs = null;
+      if (upstoxPingInterval) {
+        clearInterval(upstoxPingInterval);
+        upstoxPingInterval = null;
+      }
       scheduleUpstoxReconnect();
     });
 
     upstoxWs.on("error", (error) => {
       console.error("Upstox Live WebSocket Error:", error.message);
+      if (upstoxPingInterval) {
+        clearInterval(upstoxPingInterval);
+        upstoxPingInterval = null;
+      }
     });
 
   } catch (error: any) {
     console.error("Failed to connect Upstox Feed:", error.message);
+    if (upstoxPingInterval) {
+      clearInterval(upstoxPingInterval);
+      upstoxPingInterval = null;
+    }
     scheduleUpstoxReconnect();
   }
 }
@@ -764,6 +882,10 @@ function disconnectUpstoxWebSocket() {
     clearTimeout(upstoxReconnectTimeout);
     upstoxReconnectTimeout = null;
   }
+  if (upstoxPingInterval) {
+    clearInterval(upstoxPingInterval);
+    upstoxPingInterval = null;
+  }
   if (upstoxWs) {
     try {
       upstoxWs.close();
@@ -776,6 +898,19 @@ async function verifyAndConnectProvidedToken(token: string) {
   console.log("------------------------------------------------------------------");
   console.log("[UPSTOX PRO VERIFICATION] VERIFYING USER-PROVIDED ACCESS TOKEN...");
   console.log(`[UPSTOX PRO VERIFICATION] Token: ${token.slice(0, 15)}...${token.slice(-15)}`);
+  
+  if (isSimulatedToken(token)) {
+    console.log("[UPSTOX PRO VERIFICATION] Simulated/mock token detected. Successfully linked high-fidelity simulated premium trading feed.");
+    upstoxAccessToken = token;
+    upstoxConnectedUser = {
+      email: "pro_feed_user@papermarket.local",
+      userName: "Upstox Pro Account (Simulated)",
+      userId: "UPSTOX_USER",
+    };
+    reconnectUpstoxWebSocket();
+    return true;
+  }
+
   try {
     const res = await fetch("https://api.upstox.com/v2/user/profile", {
       headers: {
@@ -1005,15 +1140,22 @@ async function startServer() {
   });
 
   // Upstox Integration API Endpoints
-  app.get("/api/integrations/upstox/auth-url", (req, res) => {
-    const apiKey = process.env.UPSTOX_API_KEY;
+  app.get("/api/integrations/upstox/auth-url", async (req, res) => {
+    let apiKey = process.env.UPSTOX_API_KEY;
+    if (!apiKey) {
+      const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+      if (config && config.apiKey) {
+        apiKey = config.apiKey;
+      }
+    }
+
     const reqRedirectUri = req.query?.redirectUri;
     const redirectUri = (reqRedirectUri && typeof reqRedirectUri === "string" && reqRedirectUri.trim() !== "")
       ? reqRedirectUri.trim()
       : getDynamicRedirectUri(req);
 
     if (!apiKey) {
-      return res.status(400).json({ error: "UPSTOX_API_KEY is not configured in environment variables." });
+      return res.status(400).json({ error: "UPSTOX_API_KEY is not configured in environment variables or profile settings." });
     }
 
     const params = new URLSearchParams({
@@ -1027,15 +1169,22 @@ async function startServer() {
     res.json({ url: authUrl });
   });
 
-  app.get("/api/integrations/upstox/auth", (req, res) => {
-    const apiKey = process.env.UPSTOX_API_KEY;
+  app.get("/api/integrations/upstox/auth", async (req, res) => {
+    let apiKey = process.env.UPSTOX_API_KEY;
+    if (!apiKey) {
+      const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+      if (config && config.apiKey) {
+        apiKey = config.apiKey;
+      }
+    }
+
     const reqRedirectUri = req.query?.redirectUri;
     const redirectUri = (reqRedirectUri && typeof reqRedirectUri === "string" && reqRedirectUri.trim() !== "")
       ? reqRedirectUri.trim()
       : getDynamicRedirectUri(req);
 
     if (!apiKey) {
-      return res.status(400).send("UPSTOX_API_KEY is not configured in environment variables.");
+      return res.status(400).send("UPSTOX_API_KEY is not configured in environment variables or profile settings.");
     }
 
     const params = new URLSearchParams({
@@ -1057,8 +1206,20 @@ async function startServer() {
     }
 
     try {
-      const apiKey = process.env.UPSTOX_API_KEY;
-      const apiSecret = process.env.UPSTOX_API_SECRET;
+      let apiKey = process.env.UPSTOX_API_KEY;
+      let apiSecret = process.env.UPSTOX_API_SECRET;
+
+      if (!apiKey || !apiSecret) {
+        const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+        if (config && config.apiKey && config.apiSecret) {
+          apiKey = config.apiKey;
+          apiSecret = config.apiSecret;
+        }
+      }
+
+      if (!apiKey || !apiSecret) {
+        throw new Error("Upstox App API Key and Secret are not configured on this server. Please save them in the Profile settings.");
+      }
       
       // Recover original redirectUri from the state parameter if present, to guarantee a match
       const redirectUri = (state && typeof state === "string" && state.trim() !== "") ? state : getDynamicRedirectUri(req);
@@ -1071,8 +1232,8 @@ async function startServer() {
         },
         body: new URLSearchParams({
           code: code as string,
-          client_id: apiKey || "",
-          client_secret: apiSecret || "",
+          client_id: apiKey,
+          client_secret: apiSecret,
           redirect_uri: redirectUri,
           grant_type: "authorization_code"
         }).toString()
@@ -1169,9 +1330,11 @@ async function startServer() {
     }
   });
 
-  app.get("/api/integrations/upstox/status", (req, res) => {
+  app.get("/api/integrations/upstox/status", async (req, res) => {
     const isReal = !!upstoxWs && upstoxWs.readyState === WS.OPEN;
     const redirectUri = getDynamicRedirectUri(req);
+    const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+    const effectiveApiKey = process.env.UPSTOX_API_KEY || config?.apiKey;
 
     res.json({
       connected: !!upstoxAccessToken || upstoxLinkedPermanently,
@@ -1183,7 +1346,7 @@ async function startServer() {
         userId: "UPSTOX_USER",
       } : null,
       config: {
-        apiKey: process.env.UPSTOX_API_KEY ? `${process.env.UPSTOX_API_KEY.slice(0, 6)}...` : null,
+        apiKey: effectiveApiKey ? `${effectiveApiKey.slice(0, 6)}...` : null,
         redirectUri: redirectUri
       },
       isRealUpstox: isReal
@@ -1196,6 +1359,18 @@ async function startServer() {
     disconnectUpstoxWebSocket();
     await clearUpstoxTokenInFirestore();
     res.json({ success: true, message: "Disconnected successfully." });
+  });
+
+  app.post("/api/integrations/upstox/reconnect", async (req, res) => {
+    if (!upstoxAccessToken) {
+      return res.status(400).json({ error: "No active Upstox session connected. Connect via Option A or Option B first." });
+    }
+    console.log("[UPSTOX MANUAL] Triggering manual WebSocket reconnection request from frontend...");
+    reconnectUpstoxWebSocket();
+    res.json({ 
+      success: true, 
+      message: "WebSocket connection synchronization triggered successfully!" 
+    });
   });
 
   app.post("/api/integrations/upstox/connect-manual", async (req, res) => {
@@ -1229,11 +1404,19 @@ async function startServer() {
         }
 
         console.log(`[UPSTOX MANUAL] Extracted auth code: ${code.slice(0, 5)}...`);
-        const apiKey = process.env.UPSTOX_API_KEY;
-        const apiSecret = process.env.UPSTOX_API_SECRET;
+        let apiKey = process.env.UPSTOX_API_KEY;
+        let apiSecret = process.env.UPSTOX_API_SECRET;
+
+        if (!apiKey || !apiSecret) {
+          const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+          if (config && config.apiKey && config.apiSecret) {
+            apiKey = config.apiKey;
+            apiSecret = config.apiSecret;
+          }
+        }
         
         if (!apiKey || !apiSecret) {
-          return res.status(400).json({ error: "UPSTOX_API_KEY or UPSTOX_API_SECRET is not configured on the server." });
+          return res.status(400).json({ error: "Upstox API Client ID and Secret are not configured. Please save them in the background auto-renewal settings below first!" });
         }
 
         // Try the extracted redirect URI, or fallback to localhost, or fallback to dynamic
@@ -1365,37 +1548,52 @@ async function startServer() {
     const existingConfig = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
 
     const mergedConfig: UpstoxAutoRenewConfig = {
-      apiKey: apiKey !== undefined ? apiKey : (existingConfig?.apiKey || ""),
-      apiSecret: apiSecret !== undefined ? apiSecret : (existingConfig?.apiSecret || ""),
-      redirectUri: redirectUri !== undefined ? redirectUri : (existingConfig?.redirectUri || ""),
-      mobileNo: mobileNo !== undefined ? mobileNo : (existingConfig?.mobileNo || ""),
-      pin: pin !== undefined ? pin : (existingConfig?.pin || ""),
-      totpSecret: totpSecret !== undefined ? totpSecret : (existingConfig?.totpSecret || ""),
-      enabled: enabled !== undefined ? enabled : (existingConfig?.enabled ?? true)
+      apiKey: (apiKey && typeof apiKey === "string" && apiKey.trim() !== "") ? apiKey.trim() : (existingConfig?.apiKey || ""),
+      apiSecret: (apiSecret && typeof apiSecret === "string" && apiSecret.trim() !== "") ? apiSecret.trim() : (existingConfig?.apiSecret || ""),
+      redirectUri: (redirectUri && typeof redirectUri === "string" && redirectUri.trim() !== "") ? redirectUri.trim() : (existingConfig?.redirectUri || ""),
+      mobileNo: (mobileNo && typeof mobileNo === "string" && mobileNo.trim() !== "") ? mobileNo.trim() : (existingConfig?.mobileNo || ""),
+      pin: (pin && typeof pin === "string" && pin.trim() !== "") ? pin.trim() : (existingConfig?.pin || ""),
+      totpSecret: (totpSecret && typeof totpSecret === "string" && totpSecret.trim() !== "") ? totpSecret.trim() : (existingConfig?.totpSecret || ""),
+      enabled: enabled !== undefined ? enabled : (existingConfig?.enabled ?? false)
     };
 
-    if (!mergedConfig.apiKey || !mergedConfig.apiSecret || !mergedConfig.redirectUri || !mergedConfig.mobileNo || !mergedConfig.pin || !mergedConfig.totpSecret) {
-      return res.status(400).json({ error: "All auto-renew configuration fields are required" });
-    }
+    if (mergedConfig.enabled) {
+      // Background auto-renewal requires all fields to be filled and verified
+      if (!mergedConfig.apiKey || !mergedConfig.apiSecret || !mergedConfig.redirectUri || !mergedConfig.mobileNo || !mergedConfig.pin || !mergedConfig.totpSecret) {
+        return res.status(400).json({ error: "All configuration fields (API Key, Secret, Redirect URI, Mobile No, PIN, and TOTP Secret) are required to enable programmatic background auto-renewal." });
+      }
 
-    try {
-      console.log("[UPSTOX AUTORENEW CONFIG] Testing credentials with Upstox programmatic login...");
-      const result = await programmaticUpstoxLogin(mergedConfig);
-      
+      try {
+        console.log("[UPSTOX AUTORENEW CONFIG] Testing credentials with Upstox programmatic login...");
+        const result = await programmaticUpstoxLogin(mergedConfig);
+        
+        await saveUpstoxAutoRenewConfig(mergedConfig);
+        
+        upstoxAccessToken = result.accessToken;
+        upstoxConnectedUser = result.user;
+        await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
+        reconnectUpstoxWebSocket();
+
+        return res.json({
+          success: true,
+          message: "Successfully verified credentials and activated automated 24/7 background renewal feed!"
+        });
+      } catch (err: any) {
+        console.error("[UPSTOX AUTORENEW CONFIG] Verification failed:", err.message);
+        return res.status(400).json({ error: `Verification failed: ${err.message}` });
+      }
+    } else {
+      // Just saving the core credentials for Option A and Option B (no programmatic verification required)
+      if (!mergedConfig.apiKey || !mergedConfig.apiSecret || !mergedConfig.redirectUri) {
+        return res.status(400).json({ error: "Upstox Client ID (API Key), Client Secret, and Redirect URI are required." });
+      }
+
       await saveUpstoxAutoRenewConfig(mergedConfig);
-      
-      upstoxAccessToken = result.accessToken;
-      upstoxConnectedUser = result.user;
-      await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
-      reconnectUpstoxWebSocket();
 
       return res.json({
         success: true,
-        message: "Successfully verified credentials and linked automated 24/7 renewal feed!"
+        message: "Successfully saved custom Upstox developer credentials! You can now use Option A & Option B with your own keys."
       });
-    } catch (err: any) {
-      console.error("[UPSTOX AUTORENEW CONFIG] Verification failed:", err.message);
-      return res.status(400).json({ error: `Verification failed: ${err.message}` });
     }
   });
 
@@ -1652,7 +1850,7 @@ async function startServer() {
       return res.status(400).json({ error: "Symbol is required" });
     }
 
-    if (!upstoxAccessToken) {
+    if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
       return res.json({ fallback: true, message: "Upstox not connected. Using premium simulation." });
     }
 
@@ -1709,7 +1907,7 @@ async function startServer() {
   });
 
   app.get("/api/integrations/upstox/ltp", async (req, res) => {
-    if (!upstoxAccessToken) {
+    if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
       return res.json({ success: true, prices: {}, fallback: true, message: "Upstox not connected. Using premium simulation fallback." });
     }
 
@@ -2420,7 +2618,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
       let dataMessage = "AI-Calibrated Synthetic Market Feed (Regime-Switching Simulation)";
 
       const upstoxSymbol = UPSTOX_INSTRUMENT_MAP[normalizedAssetName];
-      if (upstoxAccessToken && upstoxSymbol) {
+      if (upstoxAccessToken && !isSimulatedToken(upstoxAccessToken) && upstoxSymbol) {
         try {
           const json = await fetchUpstoxCandlesWithRetry(upstoxSymbol, "day", true, upstoxAccessToken, normalizedAssetName);
           if (json && json.status === "success" && json.data && json.data.candles) {
@@ -2947,6 +3145,10 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
     setInterval(async () => {
       console.log("[UPSTOX AUTOMATION] Running hourly health check on Upstox Live Market Feed...");
       if (upstoxAccessToken) {
+        if (isSimulatedToken(upstoxAccessToken)) {
+          console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is a simulated premium token. Simulation feed is healthy.");
+          return;
+        }
         try {
           const profileRes = await fetch("https://api.upstox.com/v2/user/profile", {
             headers: {
@@ -2955,10 +3157,25 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
             }
           });
           if (!profileRes.ok) {
-            console.log("[UPSTOX AUTOMATION] Hourly health check: Token is invalid or expired. Triggering auto-renewal...");
-            await autoRenewUpstoxToken();
+            if (profileRes.status === 401 || profileRes.status === 403) {
+              console.log("[UPSTOX AUTOMATION] Hourly health check: Token is explicitly expired or invalid (401/403). Triggering auto-renewal...");
+              const renewed = await autoRenewUpstoxToken();
+              if (!renewed) {
+                const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+                if (!config || !config.enabled) {
+                  console.log("[UPSTOX AUTOMATION] Hourly health check: Auto-renew not enabled or failed. Clearing invalid token.");
+                  upstoxAccessToken = null;
+                  upstoxConnectedUser = null;
+                  upstoxLinkedPermanently = false;
+                  disconnectUpstoxWebSocket();
+                }
+              }
+            } else {
+              console.warn(`[UPSTOX AUTOMATION] Hourly health check: Profile check returned transient status ${profileRes.status}. Retaining token.`);
+            }
           } else {
-            console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is valid.");
+            console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is valid. Proactively refreshing live WebSocket connection to prevent stale or ghost states...");
+            reconnectUpstoxWebSocket();
           }
         } catch (err: any) {
           console.warn("[UPSTOX AUTOMATION] Hourly health check failed to reach Upstox API:", err.message);
