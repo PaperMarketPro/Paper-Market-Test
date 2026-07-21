@@ -670,14 +670,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let ws: WebSocket | null = null;
     let reconnectTimeout: any = null;
     let fallbackInterval: any = null;
+    const lastLiveTicks: Record<string, number> = {};
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
-      console.log("WebSocket inactive. Initializing client-side high-fidelity fallback simulation.");
+      console.log("WebSocket connected/reconnecting. Initializing hybrid adaptive price simulation.");
       fallbackInterval = setInterval(() => {
         // Run local random walk updates for all instruments so the board stays live!
         setInstruments(prev =>
           prev.map(inst => {
+            // Skip simulating if we have received a live tick recently (in the last 15 seconds)
+            if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 15000) {
+              return inst;
+            }
             const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
             const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
             const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
@@ -694,6 +699,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setFutures(prev =>
           prev.map(inst => {
+            // Find underlying symbol (e.g. "RELIANCE JUL FUT" -> "RELIANCE")
+            const underlier = inst.symbol.split(' ')[0];
+            if (lastLiveTicks[underlier] && Date.now() - lastLiveTicks[underlier] < 15000) {
+              return inst;
+            }
             const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
             const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
             const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
@@ -709,21 +719,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
 
         setOptionChain(prev =>
-          prev.map(item => ({
-            ...item,
-            calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.92, item.calls.ltp * 1.08, 0.003) },
-            puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.92, item.puts.ltp * 1.08, 0.003) }
-          }))
+          prev.map(item => {
+            const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
+            if (lastLiveTicks[underlierSymbol] && Date.now() - lastLiveTicks[underlierSymbol] < 15000) {
+              return item;
+            }
+            return {
+              ...item,
+              calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.92, item.calls.ltp * 1.08, 0.003) },
+              puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.92, item.puts.ltp * 1.08, 0.003) }
+            };
+          })
         );
       }, 2500);
     };
 
     const stopFallbackSimulation = () => {
-      if (fallbackInterval) {
-        console.log("WebSocket link established. Stopping fallback simulation.");
-        clearInterval(fallbackInterval);
-        fallbackInterval = null;
-      }
+      // With our hybrid adaptive simulation, we want the fallback interval to keep running to walk the 1600+ instruments
+      // that are not part of Upstox's real-time core subscription.
+      // Therefore, we do not clear the fallbackInterval entirely anymore, ensuring all watchlists tick continuously.
+      console.log("WebSocket link established. Adaptive hybrid simulation is active.");
     };
 
     const connectWS = () => {
@@ -733,7 +748,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        stopFallbackSimulation();
+        console.log("WebSocket link established. Hybrid fallback simulation active.");
       };
 
       ws.onmessage = (event) => {
@@ -746,6 +761,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               user: message.user
             }));
           } else if (message.type === 'TICK') {
+            lastLiveTicks[message.symbol] = Date.now();
             // Update the real-time instrument matching message.symbol
             setInstruments(prev =>
               prev.map(inst => {
@@ -816,6 +832,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             );
 
           } else if (message.type === 'SIM_TICK') {
+            lastLiveTicks[message.symbol] = Date.now();
             // Run a high-fidelity local walk update for message.symbol
             setInstruments(prev =>
               prev.map(inst => {

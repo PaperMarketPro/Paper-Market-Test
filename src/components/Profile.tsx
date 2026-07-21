@@ -835,6 +835,8 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                       </div>
                     </div>
                   </div>
+                </div>
+            )}
 
                 {/* Auto-Renew section */}
                 <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
@@ -1091,8 +1093,6 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                     )}
                   </div>
                 )}
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

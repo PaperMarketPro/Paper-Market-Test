@@ -279,7 +279,7 @@ async function programmaticUpstoxLogin(config: {
     jar.parseSetCookie(step1Res.headers);
 
     console.log("[Programmatic Upstox] Step 2: Sending mobile number to get request ID...");
-    const step2Res = await fetch("https://api-v2.upstox.com/login/v3/auth/otp", {
+    const step2Res = await fetch("https://api.upstox.com/login/v3/auth/otp", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -305,7 +305,7 @@ async function programmaticUpstoxLogin(config: {
     const totpCode = generateTOTP(config.totpSecret);
     console.log(`[Programmatic Upstox] Step 3: Validating TOTP: ${totpCode}...`);
 
-    const step3Res = await fetch("https://api-v2.upstox.com/login/v3/auth/totp/validate", {
+    const step3Res = await fetch("https://api.upstox.com/login/v3/auth/totp/validate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -328,7 +328,7 @@ async function programmaticUpstoxLogin(config: {
     console.log("[Programmatic Upstox] Step 3 success. TOTP validated.");
 
     console.log("[Programmatic Upstox] Step 4: Submitting PIN...");
-    const step4Res = await fetch("https://api-v2.upstox.com/login/v3/auth/pin", {
+    const step4Res = await fetch("https://api.upstox.com/login/v3/auth/pin", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -641,15 +641,40 @@ function broadcastToClients(payload: any) {
   });
 }
 
-function scheduleUpstoxReconnect() {
+function isIndianMarketOpen(): boolean {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istOffset = 5.5 * 3600000;
+  const istTime = new Date(utc + istOffset);
+
+  const day = istTime.getDay(); // 0 is Sunday, 6 is Saturday
+  if (day === 0 || day === 6) {
+    return false; // Weekend
+  }
+
+  const hours = istTime.getHours();
+  const minutes = istTime.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+
+  const marketStart = 9 * 60 + 15; // 9:15 AM
+  const marketEnd = 15 * 60 + 30; // 3:30 PM
+
+  return timeInMinutes >= marketStart && timeInMinutes <= marketEnd;
+}
+
+function scheduleUpstoxReconnect(customDelay?: number) {
   if (upstoxReconnectTimeout) return; // already scheduled
   if (!upstoxAccessToken) return; // no token, don't reconnect
 
-  console.log("[UPSTOX RECONNECT] Scheduling Upstox WebSocket reconnection in 10 seconds...");
+  // 10 seconds during trading hours, 5 minutes during night/weekends to prevent IP blocks
+  const defaultDelay = isIndianMarketOpen() ? 10000 : 300000;
+  const delay = customDelay !== undefined ? customDelay : defaultDelay;
+
+  console.log(`[UPSTOX RECONNECT] Scheduling Upstox WebSocket reconnection in ${delay / 1000} seconds...`);
   upstoxReconnectTimeout = setTimeout(async () => {
     upstoxReconnectTimeout = null;
     await connectUpstoxFeed();
-  }, 10000);
+  }, delay);
 }
 
 async function connectUpstoxFeed() {
@@ -683,8 +708,8 @@ async function connectUpstoxFeed() {
         
         const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
         if (config && config.enabled) {
-          console.log("[UPSTOX FEED] Auto-renew is enabled. Scheduling reconnection retry...");
-          scheduleUpstoxReconnect();
+          console.log("[UPSTOX FEED] Auto-renew is enabled. Scheduling reconnection retry in 1 minute to clear throttling...");
+          scheduleUpstoxReconnect(60000);
         } else {
           console.log("[UPSTOX FEED] Auto-renew is not enabled or configured. Clearing expired token and falling back to simulator.");
           upstoxAccessToken = null;
@@ -724,11 +749,11 @@ async function connectUpstoxFeed() {
     // The authorizedRedirectUri is already fully pre-signed by Upstox, and passing extra headers triggers a 403 error.
     upstoxWs = new WS(redirectUrl);
 
-    let isAlive = true;
+    let lastMessageTime = Date.now();
 
     upstoxWs.on("open", () => {
       console.log("Upstox Live WebSocket connected successfully!");
-      isAlive = true;
+      lastMessageTime = Date.now();
       // Send subscription request for all configured instrument keys
       const subscriptionMessage = {
         guid: "papermarket-subscription-v3",
@@ -742,10 +767,10 @@ async function connectUpstoxFeed() {
     });
 
     upstoxWs.on("pong", () => {
-      isAlive = true;
+      lastMessageTime = Date.now(); // Pong counts as active connection liveness
     });
 
-    // Start keepalive heartbeat ping/pong interval
+    // Start keepalive heartbeat check (runs every 60 seconds)
     upstoxPingInterval = setInterval(() => {
       if (!upstoxWs || upstoxWs.readyState !== WS.OPEN) {
         if (upstoxPingInterval) {
@@ -754,26 +779,33 @@ async function connectUpstoxFeed() {
         }
         return;
       }
-      if (isAlive === false) {
-        console.warn("[UPSTOX WS] Heartbeat missed. Terminating connection to force reconnect...");
-        upstoxWs.terminate();
-        if (upstoxPingInterval) {
-          clearInterval(upstoxPingInterval);
-          upstoxPingInterval = null;
+
+      const elapsed = Date.now() - lastMessageTime;
+
+      // Only enforce silence timeout (5 minutes) during Indian market hours to avoid overnight/weekend reconnect loops
+      if (isIndianMarketOpen()) {
+        if (elapsed > 300000) { // 5 minutes of absolute silence during active trading
+          console.warn("[UPSTOX WS] Silent link detected (no ticks for 5 mins during trading hours). Terminating connection to force reconnect...");
+          upstoxWs.terminate();
+          if (upstoxPingInterval) {
+            clearInterval(upstoxPingInterval);
+            upstoxPingInterval = null;
+          }
+          return;
         }
-        return;
       }
-      isAlive = false;
+
+      // Proactively send a standard WebSocket ping frame to verify TCP health
       try {
         upstoxWs.ping();
       } catch (err: any) {
-        console.error("[UPSTOX WS] Failed to send ping:", err.message);
+        console.error("[UPSTOX WS] Failed to send ping frame:", err.message);
       }
-    }, 30000); // 30 seconds
+    }, 60000); // Check every 60 seconds
 
     upstoxWs.on("message", (data: Buffer) => {
       try {
-        isAlive = true; // Any received message counts as liveness
+        lastMessageTime = Date.now(); // Any received message counts as active liveness
         // Decode Protobuf binary buffer
         const decodedMessage = FeedResponse.decode(data);
         const feedObject = FeedResponse.toObject(decodedMessage, {
@@ -3174,8 +3206,12 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
               console.warn(`[UPSTOX AUTOMATION] Hourly health check: Profile check returned transient status ${profileRes.status}. Retaining token.`);
             }
           } else {
-            console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is valid. Proactively refreshing live WebSocket connection to prevent stale or ghost states...");
-            reconnectUpstoxWebSocket();
+            if (upstoxWs && upstoxWs.readyState === WS.OPEN) {
+              console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is valid and WebSocket is already connected and active. No action required.");
+            } else {
+              console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is valid, but WebSocket is not connected or open. Reconnecting to restore feed...");
+              reconnectUpstoxWebSocket();
+            }
           }
         } catch (err: any) {
           console.warn("[UPSTOX AUTOMATION] Hourly health check failed to reach Upstox API:", err.message);

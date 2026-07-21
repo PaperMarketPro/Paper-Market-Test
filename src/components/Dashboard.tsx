@@ -62,102 +62,111 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [selectedSearchTab, setSelectedSearchTab] = useState<'All' | 'Stocks' | 'Futures' | 'Options'>('All');
 
   // Compile full-segment searchable assets dynamically
-  const searchableAssets = [
-    // 1. Stocks and Indices
-    ...instruments.map(inst => ({
-      symbol: inst.symbol,
-      name: inst.name,
-      ltp: inst.ltp,
-      change: inst.change,
-      type: 'Stock' as const,
-    })),
-    // 2. Futures Contracts
-    ...futures.map(fut => ({
-      symbol: fut.symbol,
-      name: fut.name,
-      ltp: fut.ltp,
-      change: fut.change,
-      type: 'Future' as const,
-    })),
-    // 3 & 4. Option Chain Contracts (Dynamic Multi-Underlier & Multi-Expiry)
-    ...['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'SBIN', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS'].flatMap(underlier => {
-      const underlierInst = instruments.find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
-      const spot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
-      let strikeStep = 50;
-      if (underlier === 'BANKNIFTY') {
-        strikeStep = 100;
-      } else if (spot > 3000) {
-        strikeStep = 100;
-      } else if (spot > 500) {
-        strikeStep = 50;
-      } else {
-        strikeStep = 20;
-      }
-      
-      const atmStrike = Math.round(spot / strikeStep) * strikeStep;
-      const strikes = [atmStrike - strikeStep * 2, atmStrike - strikeStep, atmStrike, atmStrike + strikeStep, atmStrike + strikeStep * 2];
-      const expiries = getWeeklyExpiriesForUnderlier(underlier === 'NIFTY' ? 'NIFTY 50' : underlier).slice(0, 3).map(exp => {
-        const parts = exp.split('-');
-        if (parts.length === 3) {
-          return `${parts[0]}-${parts[1]}-${parts[2].substring(2)}`;
+  const searchableAssets = React.useMemo(() => {
+    if (!isSearchOpen) return [];
+    return [
+      // 1. Stocks and Indices
+      ...instruments.map(inst => ({
+        symbol: inst.symbol,
+        name: inst.name,
+        ltp: inst.ltp,
+        change: inst.change,
+        type: 'Stock' as const,
+      })),
+      // 2. Futures Contracts
+      ...futures.map(fut => ({
+        symbol: fut.symbol,
+        name: fut.name,
+        ltp: fut.ltp,
+        change: fut.change,
+        type: 'Future' as const,
+      })),
+      // 3 & 4. Option Chain Contracts (Dynamic Multi-Underlier & Multi-Expiry)
+      ...['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'SBIN', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS'].flatMap(underlier => {
+        const underlierInst = instruments.find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
+        const spot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
+        let strikeStep = 50;
+        if (underlier === 'BANKNIFTY') {
+          strikeStep = 100;
+        } else if (spot > 3000) {
+          strikeStep = 100;
+        } else if (spot > 500) {
+          strikeStep = 50;
+        } else {
+          strikeStep = 20;
         }
-        return exp;
-      });
-      
-      const underlierNameFull = underlier === 'NIFTY' ? 'Nifty 50' : underlier === 'BANKNIFTY' ? 'Bank Nifty' : underlier;
+        
+        const atmStrike = Math.round(spot / strikeStep) * strikeStep;
+        const strikes = [atmStrike - strikeStep * 2, atmStrike - strikeStep, atmStrike, atmStrike + strikeStep, atmStrike + strikeStep * 2];
+        const expiries = getWeeklyExpiriesForUnderlier(underlier === 'NIFTY' ? 'NIFTY 50' : underlier).slice(0, 3).map(exp => {
+          const parts = exp.split('-');
+          if (parts.length === 3) {
+            return `${parts[0]}-${parts[1]}-${parts[2].substring(2)}`;
+          }
+          return exp;
+        });
+        
+        const underlierNameFull = underlier === 'NIFTY' ? 'Nifty 50' : underlier === 'BANKNIFTY' ? 'Bank Nifty' : underlier;
 
-      return expiries.flatMap(exp => 
-        strikes.flatMap(strike => {
-          const distance = strike - spot;
-          
-          const callIntrinsic = Math.max(0, spot - strike);
-          const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-          const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-          
-          const putIntrinsic = Math.max(0, strike - spot);
-          const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-          const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+        return expiries.flatMap(exp => 
+          strikes.flatMap(strike => {
+            const distance = strike - spot;
+            
+            const callIntrinsic = Math.max(0, spot - strike);
+            const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+            const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+            
+            const putIntrinsic = Math.max(0, strike - spot);
+            const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+            const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
 
-          const callDelta = Number((1 / (1 + Math.exp(distance / (strikeStep * 1.5)))).toFixed(2));
-          const putDelta = Number((callDelta - 1).toFixed(2));
+            const callDelta = Number((1 / (1 + Math.exp(distance / (strikeStep * 1.5)))).toFixed(2));
+            const putDelta = Number((callDelta - 1).toFixed(2));
 
-          return [
-            {
-              symbol: `${underlier} ${exp} ${strike} CE`,
-              name: `${underlierNameFull} ${strike} Call Option (${exp})`,
-              ltp: callLtp < 1.0 ? 1.05 : callLtp,
-              change: callDelta * 100,
-              type: 'Option (CE)' as const,
-            },
-            {
-              symbol: `${underlier} ${exp} ${strike} PE`,
-              name: `${underlierNameFull} ${strike} Put Option (${exp})`,
-              ltp: putLtp < 1.0 ? 1.05 : putLtp,
-              change: putDelta * 100,
-              type: 'Option (PE)' as const,
-            }
-          ];
-        })
-      );
-    })
-  ];
+            return [
+              {
+                symbol: `${underlier} ${exp} ${strike} CE`,
+                name: `${underlierNameFull} ${strike} Call Option (${exp})`,
+                ltp: callLtp < 1.0 ? 1.05 : callLtp,
+                change: callDelta * 100,
+                type: 'Option (CE)' as const,
+              },
+              {
+                symbol: `${underlier} ${exp} ${strike} PE`,
+                name: `${underlierNameFull} ${strike} Put Option (${exp})`,
+                ltp: putLtp < 1.0 ? 1.05 : putLtp,
+                change: putDelta * 100,
+                type: 'Option (PE)' as const,
+              }
+            ];
+          })
+        );
+      })
+    ];
+  }, [isSearchOpen, instruments, futures]);
 
   // Apply tab filters
-  const tabFiltered = searchableAssets.filter(asset => {
-    if (selectedSearchTab === 'Stocks') return asset.type === 'Stock';
-    if (selectedSearchTab === 'Futures') return asset.type === 'Future';
-    if (selectedSearchTab === 'Options') return asset.type.startsWith('Option');
-    return true; // All
-  });
+  const tabFiltered = React.useMemo(() => {
+    if (!isSearchOpen) return [];
+    return searchableAssets.filter(asset => {
+      if (selectedSearchTab === 'Stocks') return asset.type === 'Stock';
+      if (selectedSearchTab === 'Futures') return asset.type === 'Future';
+      if (selectedSearchTab === 'Options') return asset.type.startsWith('Option');
+      return true; // All
+    });
+  }, [isSearchOpen, searchableAssets, selectedSearchTab]);
 
   // Apply text query matching
-  const finalResults = searchQuery.trim() === ''
-    ? tabFiltered.slice(0, 10)
-    : tabFiltered.filter(asset =>
-        asset.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        asset.type.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  const finalResults = React.useMemo(() => {
+    if (!isSearchOpen) return [];
+    return searchQuery.trim() === ''
+      ? tabFiltered.slice(0, 10)
+      : tabFiltered.filter(asset =>
+          asset.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          asset.type.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+  }, [isSearchOpen, tabFiltered, searchQuery]);
 
   // Filter open positions from closed logs in positions store
   const openPositions = positions.filter(p => p.status === 'Open');
