@@ -12,6 +12,80 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import { StockChart } from './StockChart';
 import { getWeeklyExpiriesForUnderlier } from '../derivativesUtils';
 
+const getDynamicOptionChain = (indexSymbol: string, spot: number) => {
+  let strikeStep = 50;
+  if (indexSymbol === 'BANKNIFTY' || indexSymbol === 'SENSEX' || indexSymbol === 'FINNIFTY') {
+    strikeStep = 100;
+  } else if (indexSymbol === 'MIDCPNIFTY') {
+    strikeStep = 50;
+  } else if (spot > 3000) {
+    strikeStep = 100;
+  } else if (spot > 1000) {
+    strikeStep = 50;
+  } else if (spot > 500) {
+    strikeStep = 20;
+  } else if (spot > 100) {
+    strikeStep = 10;
+  } else {
+    strikeStep = 5;
+  }
+  
+  // Round spot to nearest strikeStep
+  const atmStrike = Math.round(spot / strikeStep) * strikeStep;
+  const strikes = [
+    atmStrike - strikeStep * 5,
+    atmStrike - strikeStep * 4,
+    atmStrike - strikeStep * 3,
+    atmStrike - strikeStep * 2,
+    atmStrike - strikeStep * 1,
+    atmStrike,
+    atmStrike + strikeStep * 1,
+    atmStrike + strikeStep * 2,
+    atmStrike + strikeStep * 3,
+    atmStrike + strikeStep * 4,
+    atmStrike + strikeStep * 5,
+  ];
+
+  return strikes.map((strike, idx) => {
+    const distance = strike - spot;
+    
+    const callIntrinsic = Math.max(0, spot - strike);
+    const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+    const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+    
+    const putIntrinsic = Math.max(0, strike - spot);
+    const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+    const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+
+    const callDelta = Number((1 / (1 + Math.exp(distance / (strikeStep * 1.5)))).toFixed(2));
+    const putDelta = Number((callDelta - 1).toFixed(2));
+
+    const baseOi = 50000;
+    const baseVol = 1000000;
+    const factor = Math.exp(-Math.pow(distance / (strikeStep * 2), 2));
+    
+    return {
+      strike,
+      calls: {
+        ltp: callLtp < 1.0 ? 1.05 : callLtp,
+        oi: Math.round(baseOi * factor * (1 + (idx % 3) * 0.2)),
+        volume: Math.round(baseVol * factor * (1 + (idx % 5) * 0.15)),
+        iv: Number((12.0 + Math.abs(distance) / 200).toFixed(1)),
+        delta: callDelta,
+        theta: Number((-8.0 - (idx % 3) * 0.5).toFixed(1))
+      },
+      puts: {
+        ltp: putLtp < 1.0 ? 1.05 : putLtp,
+        oi: Math.round(baseOi * 1.2 * factor * (1 + (idx % 4) * 0.1)),
+        volume: Math.round(baseVol * 1.1 * factor * (1 + (idx % 7) * 0.1)),
+        iv: Number((12.5 + Math.abs(distance) / 200).toFixed(1)),
+        delta: putDelta,
+        theta: Number((-6.0 - (idx % 3) * 0.5).toFixed(1))
+      }
+    };
+  });
+};
+
 interface MarketsProps {
   onNavigate: (tab: string, arg?: any) => void;
   mode?: 'equity' | 'fno';
@@ -95,32 +169,54 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
     }
   }, [mode]);
 
-  const indicesList = ['NIFTY 50', 'BANKNIFTY', 'FINNIFTY', 'SENSEX', 'MIDCPNIFTY'];
+  const indicesList = React.useMemo(() => ['NIFTY 50', 'BANKNIFTY', 'FINNIFTY', 'SENSEX', 'MIDCPNIFTY'], []);
 
-  const filteredInstruments = instruments.filter(inst => {
-    if (mode === 'equity' && indicesList.includes(inst.symbol)) {
-      // If the user explicitly added this index to their watchlist, allow it to be shown in "My Watchlist" view
-      if (selectedList === 'My Watchlist' && myWatchlist.includes(inst.symbol)) {
-        // Keep it
-      } else {
-        return false;
+  const selectedIndexInstrument = React.useMemo(() => {
+    return instruments.find(i => i.symbol === selectedOptionIndex) || instruments[0];
+  }, [instruments, selectedOptionIndex]);
+
+  const spotPrice = selectedIndexInstrument ? selectedIndexInstrument.ltp : 24325.85;
+
+  const currentOptionChain = React.useMemo(() => {
+    return getDynamicOptionChain(selectedOptionIndex, spotPrice);
+  }, [selectedOptionIndex, spotPrice]);
+
+  const filteredOptionsUnderliers = React.useMemo(() => {
+    return instruments.filter(inst => {
+      if (!fnoOptionsSearchQuery) return true;
+      return inst.symbol.toLowerCase().includes(fnoOptionsSearchQuery.toLowerCase()) ||
+             inst.name.toLowerCase().includes(fnoOptionsSearchQuery.toLowerCase());
+    });
+  }, [instruments, fnoOptionsSearchQuery]);
+
+  const filteredInstruments = React.useMemo(() => {
+    return instruments.filter(inst => {
+      if (mode === 'equity' && indicesList.includes(inst.symbol)) {
+        // If the user explicitly added this index to their watchlist, allow it to be shown in "My Watchlist" view
+        if (selectedList === 'My Watchlist' && myWatchlist.includes(inst.symbol)) {
+          // Keep it
+        } else {
+          return false;
+        }
       }
-    }
-    const matchesWatchlist = selectedList === 'My Watchlist' ? myWatchlist.includes(inst.symbol) : true;
-    const matchesSearch = inst.symbol.toLowerCase().includes(equitySearchQuery.toLowerCase()) ||
-                          inst.name.toLowerCase().includes(equitySearchQuery.toLowerCase());
-    return matchesWatchlist && matchesSearch;
-  });
+      const matchesWatchlist = selectedList === 'My Watchlist' ? myWatchlist.includes(inst.symbol) : true;
+      const matchesSearch = inst.symbol.toLowerCase().includes(equitySearchQuery.toLowerCase()) ||
+                            inst.name.toLowerCase().includes(equitySearchQuery.toLowerCase());
+      return matchesWatchlist && matchesSearch;
+    });
+  }, [instruments, mode, selectedList, myWatchlist, equitySearchQuery, indicesList]);
 
   const [visibleCount, setVisibleCount] = useState(50);
   React.useEffect(() => {
     setVisibleCount(50);
   }, [equitySearchQuery, selectedList]);
 
-  const searchResults = instruments.filter(inst =>
-    inst.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inst.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const searchResults = React.useMemo(() => {
+    return instruments.filter(inst =>
+      inst.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inst.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [instruments, searchQuery]);
 
   const addToWatchlist = (symbol: string) => {
     if (!myWatchlist.includes(symbol)) {
@@ -726,86 +822,6 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
               </button>
             </motion.div>
           ) : (() => {
-            const selectedIndexInstrument = instruments.find(i => i.symbol === selectedOptionIndex) || instruments[0];
-            const spotPrice = selectedIndexInstrument ? selectedIndexInstrument.ltp : 24325.85;
-
-            // Dynamic Option Chain Generator
-            const getDynamicOptionChain = (indexSymbol: string, spot: number) => {
-              let strikeStep = 50;
-              if (indexSymbol === 'BANKNIFTY' || indexSymbol === 'SENSEX' || indexSymbol === 'FINNIFTY') {
-                strikeStep = 100;
-              } else if (indexSymbol === 'MIDCPNIFTY') {
-                strikeStep = 50;
-              } else if (spot > 3000) {
-                strikeStep = 100;
-              } else if (spot > 1000) {
-                strikeStep = 50;
-              } else if (spot > 500) {
-                strikeStep = 20;
-              } else if (spot > 100) {
-                strikeStep = 10;
-              } else {
-                strikeStep = 5;
-              }
-              
-              // Round spot to nearest strikeStep
-              const atmStrike = Math.round(spot / strikeStep) * strikeStep;
-              const strikes = [
-                atmStrike - strikeStep * 5,
-                atmStrike - strikeStep * 4,
-                atmStrike - strikeStep * 3,
-                atmStrike - strikeStep * 2,
-                atmStrike - strikeStep * 1,
-                atmStrike,
-                atmStrike + strikeStep * 1,
-                atmStrike + strikeStep * 2,
-                atmStrike + strikeStep * 3,
-                atmStrike + strikeStep * 4,
-                atmStrike + strikeStep * 5,
-              ];
-
-              return strikes.map((strike, idx) => {
-                const distance = strike - spot;
-                
-                const callIntrinsic = Math.max(0, spot - strike);
-                const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-                
-                const putIntrinsic = Math.max(0, strike - spot);
-                const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-
-                const callDelta = Number((1 / (1 + Math.exp(distance / (strikeStep * 1.5)))).toFixed(2));
-                const putDelta = Number((callDelta - 1).toFixed(2));
-
-                const baseOi = 50000;
-                const baseVol = 1000000;
-                const factor = Math.exp(-Math.pow(distance / (strikeStep * 2), 2));
-                
-                return {
-                  strike,
-                  calls: {
-                    ltp: callLtp < 1.0 ? 1.05 : callLtp,
-                    oi: Math.round(baseOi * factor * (1 + (idx % 3) * 0.2)),
-                    volume: Math.round(baseVol * factor * (1 + (idx % 5) * 0.15)),
-                    iv: Number((12.0 + Math.abs(distance) / 200).toFixed(1)),
-                    delta: callDelta,
-                    theta: Number((-8.0 - (idx % 3) * 0.5).toFixed(1))
-                  },
-                  puts: {
-                    ltp: putLtp < 1.0 ? 1.05 : putLtp,
-                    oi: Math.round(baseOi * 1.2 * factor * (1 + (idx % 4) * 0.1)),
-                    volume: Math.round(baseVol * 1.1 * factor * (1 + (idx % 7) * 0.1)),
-                    iv: Number((12.5 + Math.abs(distance) / 200).toFixed(1)),
-                    delta: putDelta,
-                    theta: Number((-6.0 - (idx % 3) * 0.5).toFixed(1))
-                  }
-                };
-              });
-            };
-
-            const currentOptionChain = getDynamicOptionChain(selectedOptionIndex, spotPrice);
-
             return (
               <div className="space-y-4">
                 {/* Active Indicator & Reset Settings */}
@@ -853,34 +869,28 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
 
                   <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                     {/* Filter and Map ALL 62 instruments from useApp store */}
-                    {instruments
-                      .filter(inst => {
-                        if (!fnoOptionsSearchQuery) return true;
-                        return inst.symbol.toLowerCase().includes(fnoOptionsSearchQuery.toLowerCase()) ||
-                               inst.name.toLowerCase().includes(fnoOptionsSearchQuery.toLowerCase());
-                      })
-                      .map(inst => {
-                        const displayName = inst.symbol === 'NIFTY 50' ? 'Nifty 50' : 
-                                            inst.symbol === 'BANKNIFTY' ? 'Bank Nifty' :
-                                            inst.symbol === 'FINNIFTY' ? 'Fin Nifty' :
-                                            inst.symbol === 'SENSEX' ? 'Sensex' :
-                                            inst.symbol === 'MIDCPNIFTY' ? 'Midcap Nifty' : inst.symbol;
-                        return (
-                          <button
-                            key={inst.symbol}
-                            onClick={() => {
-                              setSelectedOptionIndex(inst.symbol);
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border ${
-                              selectedOptionIndex === inst.symbol
-                                ? 'bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:text-black dark:border-sky-500 shadow-md'
-                                : 'bg-white/5 text-gray-400 border-white/5 hover:text-white hover:border-white/10'
-                            }`}
-                          >
-                            {displayName}
-                          </button>
-                        );
-                      })}
+                    {filteredOptionsUnderliers.map(inst => {
+                      const displayName = inst.symbol === 'NIFTY 50' ? 'Nifty 50' : 
+                                          inst.symbol === 'BANKNIFTY' ? 'Bank Nifty' :
+                                          inst.symbol === 'FINNIFTY' ? 'Fin Nifty' :
+                                          inst.symbol === 'SENSEX' ? 'Sensex' :
+                                          inst.symbol === 'MIDCPNIFTY' ? 'Midcap Nifty' : inst.symbol;
+                      return (
+                        <button
+                          key={inst.symbol}
+                          onClick={() => {
+                            setSelectedOptionIndex(inst.symbol);
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition border ${
+                            selectedOptionIndex === inst.symbol
+                              ? 'bg-blue-600 border-blue-600 text-white dark:bg-sky-500 dark:text-black dark:border-sky-500 shadow-md'
+                              : 'bg-white/5 text-gray-400 border-white/5 hover:text-white hover:border-white/10'
+                          }`}
+                        >
+                          {displayName}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 

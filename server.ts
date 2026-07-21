@@ -268,7 +268,7 @@ async function programmaticUpstoxLogin(config: {
     const jar = new CookieJar();
 
     console.log("[Programmatic Upstox] Step 1: Requesting authorization URL...");
-    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?client_id=${config.apiKey}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code`;
+    const authUrl = `https://api-v2.upstox.com/v2/login/authorization/dialog?client_id=${config.apiKey}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code`;
     
     const step1Res = await fetch(authUrl, {
       headers: {
@@ -279,7 +279,7 @@ async function programmaticUpstoxLogin(config: {
     jar.parseSetCookie(step1Res.headers);
 
     console.log("[Programmatic Upstox] Step 2: Sending mobile number to get request ID...");
-    const step2Res = await fetch("https://api.upstox.com/login/v3/auth/otp", {
+    const step2Res = await fetch("https://api-v2.upstox.com/login/v3/auth/otp", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -305,7 +305,7 @@ async function programmaticUpstoxLogin(config: {
     const totpCode = generateTOTP(config.totpSecret);
     console.log(`[Programmatic Upstox] Step 3: Validating TOTP: ${totpCode}...`);
 
-    const step3Res = await fetch("https://api.upstox.com/login/v3/auth/totp/validate", {
+    const step3Res = await fetch("https://api-v2.upstox.com/login/v3/auth/totp/validate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -328,7 +328,7 @@ async function programmaticUpstoxLogin(config: {
     console.log("[Programmatic Upstox] Step 3 success. TOTP validated.");
 
     console.log("[Programmatic Upstox] Step 4: Submitting PIN...");
-    const step4Res = await fetch("https://api.upstox.com/login/v3/auth/pin", {
+    const step4Res = await fetch("https://api-v2.upstox.com/login/v3/auth/pin", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -359,7 +359,7 @@ async function programmaticUpstoxLogin(config: {
 
     console.log(`[Programmatic Upstox] Extracted Code: ${code}. Requesting Access Token...`);
 
-    const tokenRes = await fetch("https://api.upstox.com/v2/login/authorization/token", {
+    const tokenRes = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -885,6 +885,9 @@ async function connectUpstoxFeed() {
         clearInterval(upstoxPingInterval);
         upstoxPingInterval = null;
       }
+      try {
+        upstoxWs?.close();
+      } catch (_) {}
     });
 
   } catch (error: any) {
@@ -995,7 +998,7 @@ function startSimulationLoop() {
     // Only simulate if Upstox WS is NOT active
     if (upstoxWs) return;
 
-    // Simulate tick updates for multiple symbols every 200ms to keep the UI incredibly fast, active and responsive for everyone
+    // Simulate tick updates for multiple symbols every 1000ms to keep the UI smooth and responsive
     const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);
     for (let i = 0; i < 6; i++) {
       const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
@@ -1005,7 +1008,7 @@ function startSimulationLoop() {
       };
       broadcastToClients(payload);
     }
-  }, 200);
+  }, 1000);
 }
 
 function stopSimulationLoop() {
@@ -1197,7 +1200,7 @@ async function startServer() {
       state: redirectUri // Store redirectUri in state so we can recover it on callback
     });
 
-    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
+    const authUrl = `https://api-v2.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
     res.json({ url: authUrl });
   });
 
@@ -1226,7 +1229,7 @@ async function startServer() {
       state: redirectUri // Store redirectUri in state so we can recover it on callback
     });
 
-    const authUrl = `https://api.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
+    const authUrl = `https://api-v2.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
     res.redirect(authUrl);
   });
 
@@ -1256,7 +1259,7 @@ async function startServer() {
       // Recover original redirectUri from the state parameter if present, to guarantee a match
       const redirectUri = (state && typeof state === "string" && state.trim() !== "") ? state : getDynamicRedirectUri(req);
 
-      const tokenResponse = await fetch("https://api.upstox.com/v2/login/authorization/token", {
+      const tokenResponse = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -1455,7 +1458,7 @@ async function startServer() {
         const rUri = redirectUri || "http://localhost:3000/api/integrations/upstox/callback";
         console.log(`[UPSTOX MANUAL] Exchanging code using redirect_uri: ${rUri}`);
 
-        const tokenResponse = await fetch("https://api.upstox.com/v2/login/authorization/token", {
+        const tokenResponse = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
@@ -1480,7 +1483,7 @@ async function startServer() {
             : "http://localhost:3000/api/integrations/upstox/callback";
           
           console.log(`[UPSTOX MANUAL] Retrying code exchange with fallback redirect_uri: ${fallbackUri}`);
-          const retryResponse = await fetch("https://api.upstox.com/v2/login/authorization/token", {
+          const retryResponse = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
             method: "POST",
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",

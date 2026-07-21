@@ -670,74 +670,187 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let ws: WebSocket | null = null;
     let reconnectTimeout: any = null;
     let fallbackInterval: any = null;
+    let batchInterval: any = null;
     const lastLiveTicks: Record<string, number> = {};
+
+    // Map to hold pending ticks: key is symbol, value is the tick data
+    const pendingTicks: Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }> = {};
+
+    // Process pending ticks every 800ms to avoid clogging the main thread
+    batchInterval = setInterval(() => {
+      const keys = Object.keys(pendingTicks);
+      if (keys.length === 0) return;
+
+      // Make a local snapshot and clear the pending map
+      const ticksToProcess = { ...pendingTicks };
+      for (const key of keys) {
+        delete pendingTicks[key];
+      }
+
+      // 1. Batch update instruments
+      setInstruments(prev => {
+        let changed = false;
+        const next = prev.map(inst => {
+          const tick = ticksToProcess[inst.symbol];
+          if (!tick) return inst;
+
+          let nextLtp = inst.ltp;
+          let nextChange = inst.change;
+          let nextHigh = inst.high;
+          let nextLow = inst.low;
+
+          if (tick.isSim) {
+            nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+            nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
+            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+          } else {
+            nextLtp = tick.ltp ?? inst.ltp;
+            nextChange = tick.change ?? inst.change;
+            nextHigh = tick.high ?? inst.high;
+            nextLow = tick.low ?? inst.low;
+          }
+
+          if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
+            return inst;
+          }
+
+          changed = true;
+          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+          return {
+            ...inst,
+            ltp: nextLtp,
+            change: nextChange,
+            high: nextHigh,
+            low: nextLow,
+            sparkline: sparkCopy
+          };
+        });
+        return changed ? next : prev;
+      });
+
+      // 2. Batch update futures
+      setFutures(prev => {
+        let changed = false;
+        const next = prev.map(inst => {
+          // Find matching tick by checking if symbol starts with any tick symbol
+          let matchedSymbol: string | null = null;
+          let matchedTick: any = null;
+
+          const keysToProcess = Object.keys(ticksToProcess);
+          for (const sym of keysToProcess) {
+            if (inst.symbol.startsWith(sym) || 
+                (sym === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
+                (sym === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'))) {
+              matchedSymbol = sym;
+              matchedTick = ticksToProcess[sym];
+              break;
+            }
+          }
+
+          if (!matchedTick) return inst;
+
+          let nextLtp = inst.ltp;
+          let nextChange = inst.change;
+          let nextHigh = inst.high;
+          let nextLow = inst.low;
+
+          if (matchedTick.isSim) {
+            nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+            nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
+            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+          } else {
+            // Adjust future relative to spot tick or update directly
+            const baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
+            nextLtp = baseLtp;
+            nextChange = matchedTick.change ?? inst.change;
+            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+          }
+
+          if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
+            return inst;
+          }
+
+          changed = true;
+          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+          return {
+            ...inst,
+            ltp: nextLtp,
+            change: nextChange,
+            high: nextHigh,
+            low: nextLow,
+            sparkline: sparkCopy,
+          };
+        });
+        return changed ? next : prev;
+      });
+
+      // 3. Batch update optionChain
+      setOptionChain(prev => {
+        let changed = false;
+        const next = prev.map(item => {
+          const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
+          const tick = ticksToProcess[underlierSymbol];
+          if (!tick) return item;
+
+          let callLtp = item.calls.ltp;
+          let putLtp = item.puts.ltp;
+
+          if (tick.isSim) {
+            callLtp = randomWalk(item.calls.ltp, item.calls.ltp * 0.95, item.calls.ltp * 1.05, 0.002);
+            putLtp = randomWalk(item.puts.ltp, item.puts.ltp * 0.95, item.puts.ltp * 1.05, 0.002);
+          } else if (tick.ltp !== undefined) {
+            const strike = item.strikePrice;
+            const spot = tick.ltp;
+            const distance = strike - spot;
+            const strikeStep = (item.underlier === 'BANKNIFTY' || item.underlier === 'SENSEX' || item.underlier === 'FINNIFTY') ? 100 : 50;
+
+            const callIntrinsic = Math.max(0, spot - strike);
+            const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+            const calculatedCallLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+            callLtp = calculatedCallLtp < 1.0 ? 1.05 : calculatedCallLtp;
+
+            const putIntrinsic = Math.max(0, strike - spot);
+            const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+            const calculatedPutLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+            putLtp = calculatedPutLtp < 1.0 ? 1.05 : calculatedPutLtp;
+          }
+
+          if (callLtp === item.calls.ltp && putLtp === item.puts.ltp) {
+            return item;
+          }
+
+          changed = true;
+          return {
+            ...item,
+            calls: { ...item.calls, ltp: callLtp },
+            puts: { ...item.puts, ltp: putLtp }
+          };
+        });
+        return changed ? next : prev;
+      });
+    }, 1200);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
       console.log("WebSocket connected/reconnecting. Initializing hybrid adaptive price simulation.");
       fallbackInterval = setInterval(() => {
-        // Run local random walk updates for all instruments so the board stays live!
-        setInstruments(prev =>
-          prev.map(inst => {
-            // Skip simulating if we have received a live tick recently (in the last 15 seconds)
+        // Queue random walks via pendingTicks for fallback processing
+        setInstruments(prev => {
+          prev.forEach(inst => {
             if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 15000) {
-              return inst;
+              return;
             }
-            const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-            const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
-            return {
-              ...inst,
-              ltp: nextLtp,
-              change: Number(priceChange.toFixed(2)),
-              high: nextLtp > inst.high ? nextLtp : inst.high,
-              low: nextLtp < inst.low ? nextLtp : inst.low,
-              sparkline: sparkCopy,
-            };
-          })
-        );
-
-        setFutures(prev =>
-          prev.map(inst => {
-            // Find underlying symbol (e.g. "RELIANCE JUL FUT" -> "RELIANCE")
-            const underlier = inst.symbol.split(' ')[0];
-            if (lastLiveTicks[underlier] && Date.now() - lastLiveTicks[underlier] < 15000) {
-              return inst;
-            }
-            const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-            const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
-            return {
-              ...inst,
-              ltp: nextLtp,
-              change: Number(priceChange.toFixed(2)),
-              high: nextLtp > inst.high ? nextLtp : inst.high,
-              low: nextLtp < inst.low ? nextLtp : inst.low,
-              sparkline: sparkCopy,
-            };
-          })
-        );
-
-        setOptionChain(prev =>
-          prev.map(item => {
-            const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
-            if (lastLiveTicks[underlierSymbol] && Date.now() - lastLiveTicks[underlierSymbol] < 15000) {
-              return item;
-            }
-            return {
-              ...item,
-              calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.92, item.calls.ltp * 1.08, 0.003) },
-              puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.92, item.puts.ltp * 1.08, 0.003) }
-            };
-          })
-        );
+            pendingTicks[inst.symbol] = { isSim: true };
+          });
+          return prev;
+        });
       }, 2500);
     };
 
     const stopFallbackSimulation = () => {
-      // With our hybrid adaptive simulation, we want the fallback interval to keep running to walk the 1600+ instruments
-      // that are not part of Upstox's real-time core subscription.
-      // Therefore, we do not clear the fallbackInterval entirely anymore, ensuring all watchlists tick continuously.
       console.log("WebSocket link established. Adaptive hybrid simulation is active.");
     };
 
@@ -762,133 +875,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
           } else if (message.type === 'TICK') {
             lastLiveTicks[message.symbol] = Date.now();
-            // Update the real-time instrument matching message.symbol
-            setInstruments(prev =>
-              prev.map(inst => {
-                if (inst.symbol === message.symbol) {
-                  const sparkCopy = [...inst.sparkline.slice(1), message.ltp];
-                  return {
-                    ...inst,
-                    ltp: message.ltp,
-                    change: message.change,
-                    high: message.high,
-                    low: message.low,
-                    sparkline: sparkCopy
-                  };
-                }
-                return inst;
-              })
-            );
-
-            // Update real-time futures matching message.symbol or index spot movement
-            setFutures(prev =>
-              prev.map(inst => {
-                const isMatch = inst.symbol.startsWith(message.symbol) || 
-                  (message.symbol === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
-                  (message.symbol === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'));
-                if (isMatch) {
-                  // Adjust future relative to spot tick or update directly
-                  const nextLtp = inst.symbol === message.symbol ? message.ltp : message.ltp * 1.0025; // standard premium
-                  const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-                  return {
-                    ...inst,
-                    ltp: nextLtp,
-                    change: message.change,
-                    high: nextLtp > inst.high ? nextLtp : inst.high,
-                    low: nextLtp < inst.low ? nextLtp : inst.low,
-                    sparkline: sparkCopy,
-                  };
-                }
-                return inst;
-              })
-            );
-
-            // Dynamically calculate option chain price updates relative to active spot underlier movement
-            setOptionChain(prev =>
-              prev.map(item => {
-                const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
-                if (underlierSymbol === message.symbol) {
-                  const strike = item.strikePrice;
-                  const spot = message.ltp;
-                  const distance = strike - spot;
-                  const strikeStep = (item.underlier === 'BANKNIFTY' || item.underlier === 'SENSEX' || item.underlier === 'FINNIFTY') ? 100 : 50;
-
-                  const callIntrinsic = Math.max(0, spot - strike);
-                  const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                  const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-
-                  const putIntrinsic = Math.max(0, strike - spot);
-                  const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                  const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-
-                  return {
-                    ...item,
-                    calls: { ...item.calls, ltp: callLtp < 1.0 ? 1.05 : callLtp },
-                    puts: { ...item.puts, ltp: putLtp < 1.0 ? 1.05 : putLtp }
-                  };
-                }
-                return item;
-              })
-            );
-
+            pendingTicks[message.symbol] = {
+              ltp: message.ltp,
+              change: message.change,
+              high: message.high,
+              low: message.low,
+              isReal: true
+            };
           } else if (message.type === 'SIM_TICK') {
             lastLiveTicks[message.symbol] = Date.now();
-            // Run a high-fidelity local walk update for message.symbol
-            setInstruments(prev =>
-              prev.map(inst => {
-                if (inst.symbol === message.symbol) {
-                  const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-                  const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-                  const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
-                  return {
-                    ...inst,
-                    ltp: nextLtp,
-                    change: Number(priceChange.toFixed(2)),
-                    high: nextLtp > inst.high ? nextLtp : inst.high,
-                    low: nextLtp < inst.low ? nextLtp : inst.low,
-                    sparkline: sparkCopy,
-                  };
-                }
-                return inst;
-              })
-            );
-
-            // Walk futures and option chains too to keep things ticking
-            setFutures(prev =>
-              prev.map(inst => {
-                const isMatch = inst.symbol.startsWith(message.symbol) || 
-                  (message.symbol === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
-                  (message.symbol === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'));
-                if (isMatch) {
-                  const nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-                  const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-                  const priceChange = ((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100;
-                  return {
-                    ...inst,
-                    ltp: nextLtp,
-                    change: Number(priceChange.toFixed(2)),
-                    high: nextLtp > inst.high ? nextLtp : inst.high,
-                    low: nextLtp < inst.low ? nextLtp : inst.low,
-                    sparkline: sparkCopy,
-                  };
-                }
-                return inst;
-              })
-            );
-
-            setOptionChain(prev =>
-              prev.map(item => {
-                const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
-                if (underlierSymbol === message.symbol) {
-                  return {
-                    ...item,
-                    calls: { ...item.calls, ltp: randomWalk(item.calls.ltp, item.calls.ltp * 0.95, item.calls.ltp * 1.05, 0.002) },
-                    puts: { ...item.puts, ltp: randomWalk(item.puts.ltp, item.puts.ltp * 0.95, item.puts.ltp * 1.05, 0.002) }
-                  };
-                }
-                return item;
-              })
-            );
+            pendingTicks[message.symbol] = { isSim: true };
           }
         } catch (e) {
           console.warn("Client WS parse error:", e);
@@ -897,6 +893,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       ws.onclose = () => {
         startFallbackSimulation();
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+        }
         reconnectTimeout = setTimeout(() => {
           connectWS();
         }, 5000);
@@ -905,10 +904,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ws.onerror = (err) => {
         console.log("Client WS connection inactive or pending; using simulated prices.");
         startFallbackSimulation();
+        try {
+          ws?.close();
+        } catch (_) {}
       };
     };
 
-    // By default start fallback simulation immediately until WS opens
     startFallbackSimulation();
     connectWS();
 
@@ -916,6 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (ws) ws.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (fallbackInterval) clearInterval(fallbackInterval);
+      if (batchInterval) clearInterval(batchInterval);
     };
   }, []);
 

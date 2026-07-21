@@ -45,14 +45,21 @@ interface Candle {
  * Native Ticker Tape Widget
  * Renders a rolling ribbon of live prices for major Indian market assets.
  */
-export const NativeTickerTape: React.FC = () => {
+export const NativeTickerTape: React.FC = React.memo(() => {
   const { instruments } = useApp();
+
+  const majorInstruments = React.useMemo(() => {
+    const list = instruments.filter(inst => 
+      ['NIFTY 50', 'BANKNIFTY', 'SENSEX', 'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'SBIN', 'ICICIBANK', 'BHARTIARTL'].includes(inst.symbol)
+    );
+    return list.length > 0 ? list : instruments.slice(0, 8);
+  }, [instruments]);
 
   return (
     <div className="w-full bg-[#07090e]/85 border-b border-white/5 py-1.5 z-40 relative overflow-hidden select-none">
       <div className="flex w-max whitespace-nowrap animate-marquee">
         {/* Triple the list to ensure a seamless looping scroll animation */}
-        {[...instruments, ...instruments, ...instruments].map((inst, index) => {
+        {[...majorInstruments, ...majorInstruments, ...majorInstruments].map((inst, index) => {
           const isPositive = inst.change >= 0;
           return (
             <div 
@@ -74,7 +81,7 @@ export const NativeTickerTape: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 /**
  * Native Technical Analysis Gauge Widget
