@@ -219,7 +219,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
                   ))}
                   <input
                     type="number"
-                    value={riskPercent}
+                    value={riskPercent ?? ''}
                     onChange={e => setRiskPercent(parseFloat(e.target.value) || 1)}
                     className="w-10 bg-white/5 border border-white/10 rounded-lg px-1.5 py-1 text-center text-[9px] text-white font-mono"
                     placeholder="Custom"
@@ -263,7 +263,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
                 <span className="text-[9px] text-gray-500 font-mono uppercase block">Capital Balance (₹)</span>
                 <input
                   type="number"
-                  value={customBalanceInput}
+                  value={customBalanceInput ?? ''}
                   onChange={e => setCustomBalanceInput(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono placeholder-gray-600"
                   placeholder={`Default: ₹${user.virtualBalance.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
@@ -431,7 +431,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
               <input
                 type="text"
                 disabled={orderType === 'Market'}
-                value={orderType === 'Market' ? `₹${selectedAsset.ltp.toFixed(2)}` : limitPrice}
+                value={orderType === 'Market' ? `₹${selectedAsset.ltp.toFixed(2)}` : (limitPrice ?? '')}
                 onChange={e => setLimitPrice(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-sky-500 placeholder-gray-600 transition tabular-numbers disabled:opacity-50"
               />
@@ -446,7 +446,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
                 type="number"
                 step="0.05"
                 placeholder="Optional ₹ value"
-                value={stopLoss}
+                value={stopLoss ?? ''}
                 onChange={e => setStopLoss(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-sky-500 placeholder-gray-600 transition tabular-numbers"
               />
@@ -458,7 +458,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
                 type="number"
                 step="0.05"
                 placeholder="Optional ₹ value"
-                value={target}
+                value={target ?? ''}
                 onChange={e => setTarget(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-sky-500 placeholder-gray-600 transition tabular-numbers"
               />
@@ -473,7 +473,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
                 type="number"
                 step="0.05"
                 required
-                value={triggerPrice}
+                value={triggerPrice ?? ''}
                 onChange={e => setTriggerPrice(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-sky-500 placeholder-gray-600 transition tabular-numbers"
               />

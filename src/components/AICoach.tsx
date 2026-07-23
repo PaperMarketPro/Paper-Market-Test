@@ -484,7 +484,7 @@ export const AICoach: React.FC = () => {
               >
                 <input
                   type="text"
-                  value={chatInput}
+                  value={chatInput ?? ''}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Describe your emotion (e.g., 'I want to revenge trade after loss')..."
                   className="flex-1 bg-white/2 hover:bg-white/3 border border-white/5 text-xs text-white rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -595,7 +595,7 @@ export const AICoach: React.FC = () => {
                         <div className="space-y-3">
                           <textarea
                             rows={3}
-                            value={exerciseText}
+                            value={exerciseText ?? ''}
                             onChange={e => setExerciseText(e.target.value)}
                             placeholder="Draft your custom If-Then implementation rule here..."
                             className="w-full bg-white/2 hover:bg-white/4 border border-white/5 rounded-xl p-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -779,7 +779,7 @@ export const AICoach: React.FC = () => {
                 <div className="space-y-1">
                   <label className="text-[10px] text-gray-400 block font-mono">Select Target Focus Area</label>
                   <select
-                    value={focusArea}
+                    value={focusArea ?? ''}
                     onChange={e => setFocusArea(e.target.value)}
                     className="w-full bg-[#171b26] border border-white/5 text-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-sky-500"
                   >
@@ -795,7 +795,7 @@ export const AICoach: React.FC = () => {
                   <label className="text-[10px] text-gray-400 block font-mono">Custom Focus Directive</label>
                   <input
                     type="text"
-                    value={customPrompt}
+                    value={customPrompt ?? ''}
                     onChange={e => setCustomPrompt(e.target.value)}
                     placeholder="e.g. Focus on early exits in NIFTY options..."
                     className="w-full bg-[#171b26] border border-white/5 text-xs text-white rounded-xl px-3 py-2.5 focus:outline-none focus:border-sky-500 placeholder-gray-600"

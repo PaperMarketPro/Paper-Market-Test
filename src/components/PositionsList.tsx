@@ -144,7 +144,7 @@ export const PositionsList: React.FC<PositionsListProps> = ({ onJournalShortcut 
                           <label className="text-[9px] font-mono text-gray-500 uppercase">Edit S/L</label>
                           <input
                             type="number"
-                            value={editSL}
+                            value={editSL ?? ''}
                             onChange={e => setEditSL(e.target.value)}
                             className="w-full bg-[#0b0e14] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
                           />
@@ -153,7 +153,7 @@ export const PositionsList: React.FC<PositionsListProps> = ({ onJournalShortcut 
                           <label className="text-[9px] font-mono text-gray-500 uppercase">Edit Target</label>
                           <input
                             type="number"
-                            value={editTgt}
+                            value={editTgt ?? ''}
                             onChange={e => setEditTgt(e.target.value)}
                             className="w-full bg-[#0b0e14] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white"
                           />

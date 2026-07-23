@@ -239,10 +239,10 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
     }
   };
 
-  const handleQuickTrade = (symbol: string) => {
+  const handleQuickTrade = React.useCallback((symbol: string) => {
     setSelectedAssetBySymbol(symbol);
     onNavigate('trade');
-  };
+  }, [setSelectedAssetBySymbol, onNavigate]);
 
   return (
     <div className="space-y-6 pb-24">
@@ -320,7 +320,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
             <input
               type="text"
               placeholder="Filter equity stocks (e.g. RELIANCE, TCS, INFY)..."
-              value={equitySearchQuery}
+              value={equitySearchQuery ?? ''}
               onChange={(e) => setEquitySearchQuery(e.target.value)}
               className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
             />
@@ -506,7 +506,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
               <input
                 type="text"
                 placeholder="Filter futures contracts (e.g. NIFTY, BANKNIFTY, RELIANCE, FUT)..."
-                value={fnoFuturesSearchQuery}
+                value={fnoFuturesSearchQuery ?? ''}
                 onChange={(e) => setFnoFuturesSearchQuery(e.target.value)}
                 className="w-full bg-[#0a0d16] border border-white/5 focus:border-amber-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500/25 transition duration-200"
               />
@@ -527,7 +527,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
               <input
                 type="text"
                 placeholder="Search options (e.g. NIFTY 24300, TCS CE, PE, strike price)..."
-                value={fnoOptionsSearchQuery}
+                value={fnoOptionsSearchQuery ?? ''}
                 onChange={(e) => {
                   const val = e.target.value;
                   setFnoOptionsSearchQuery(val);
@@ -851,7 +851,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                       <input
                         type="text"
                         placeholder="Search underlier (e.g., ZOMATO)..."
-                        value={fnoOptionsSearchQuery}
+                        value={fnoOptionsSearchQuery ?? ''}
                         onChange={e => setFnoOptionsSearchQuery(e.target.value)}
                         className="w-full bg-[#07090e] border border-white/10 rounded-lg pl-7 pr-7 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
@@ -1086,7 +1086,7 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
                 <input
                   type="text"
                   placeholder="Search RELIANCE, TCS, INFY..."
-                  value={searchQuery}
+                  value={searchQuery ?? ''}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white focus:outline-none focus:border-sky-500 placeholder-gray-600 transition"
                   autoFocus

@@ -230,8 +230,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             <input
               type="text"
               placeholder="Search stocks, FUT/CE/PE, index..."
-              className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-2xl pl-10 pr-4 py-3.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200 cursor-pointer"
+              value=""
               readOnly
+              className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-2xl pl-10 pr-4 py-3.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200 cursor-pointer"
             />
           </div>
 
@@ -642,7 +643,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   <input
                     type="text"
                     placeholder="Search e.g. RELIANCE, NIFTY FUT, 24300 CE, PE..."
-                    value={searchQuery}
+                    value={searchQuery ?? ''}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-[#0a0d16] border border-white/10 focus:border-sky-500/20 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
                     autoFocus

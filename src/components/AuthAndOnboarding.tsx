@@ -39,7 +39,12 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup');
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('paper_market_saved_email') || '';
+    }
+    return '';
+  });
   const [password, setPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -86,6 +91,11 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
     setIsLoading(true);
     setErrorMsg('');
 
+    const cleanEmail = email.trim();
+    if (cleanEmail) {
+      localStorage.setItem('paper_market_saved_email', cleanEmail);
+    }
+
     try {
       if (authMode === 'signup') {
         if (!name.trim()) {
@@ -93,11 +103,11 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
         }
         // Create user in firebase Auth
         try {
-          await createUserWithEmailAndPassword(auth, email.trim(), password);
+          await createUserWithEmailAndPassword(auth, cleanEmail, password);
           // Initialize user database on Firestore
           await initializeNewUser({
             name: name.trim(),
-            email: email.trim(),
+            email: cleanEmail,
             experience: exp,
             goals: selectedGoals,
             virtualBalance: startingCap,
@@ -108,7 +118,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
             console.warn("Firebase Auth Email/Password provider is disabled. Gracefully falling back to fully functional local sandbox session.");
             initializeGuestUser({
               name: name.trim(),
-              email: email.trim(),
+              email: cleanEmail,
               experience: exp,
               goals: selectedGoals,
               virtualBalance: startingCap,
@@ -121,13 +131,13 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
       } else {
         // Log in user
         try {
-          await signInWithEmailAndPassword(auth, email.trim(), password);
+          await signInWithEmailAndPassword(auth, cleanEmail, password);
         } catch (fbErr: any) {
           if (fbErr.code === 'auth/operation-not-allowed') {
             console.warn("Firebase Auth Email/Password provider is disabled. Gracefully falling back to fully functional local sandbox session.");
             initializeGuestUser({
-              name: email.split('@')[0] || 'Guest Trader',
-              email: email.trim(),
+              name: cleanEmail.split('@')[0] || 'Guest Trader',
+              email: cleanEmail,
               experience: exp,
               goals: selectedGoals,
               virtualBalance: startingCap,
@@ -638,7 +648,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                     <input
                       type="text"
                       required
-                      value={name}
+                      value={name ?? ''}
                       onChange={e => setName(e.target.value)}
                       placeholder="e.g. Rayyan Naeem"
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500 text-white placeholder-gray-600 transition"
@@ -653,7 +663,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                   <input
                     type="email"
                     required
-                    value={email}
+                    value={email ?? ''}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="e.g. rayyan@papermarket.in"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500 text-white placeholder-gray-600 transition"
@@ -667,7 +677,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                   <input
                     type="password"
                     required
-                    value={password}
+                    value={password ?? ''}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500 text-white placeholder-gray-600 transition"
@@ -706,7 +716,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                         <input
                           type="text"
                           required
-                          value={name}
+                          value={name ?? ''}
                           onChange={e => setName(e.target.value)}
                           placeholder="e.g. Rayyan Naeem"
                           className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500 text-white placeholder-gray-600 transition"
@@ -721,7 +731,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                       <input
                         type="tel"
                         required
-                        value={phoneNumber}
+                        value={phoneNumber ?? ''}
                         onChange={e => setPhoneNumber(e.target.value)}
                         placeholder="e.g. 99999 99999"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-500 text-white placeholder-gray-600 transition"
@@ -757,7 +767,7 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
                         type="text"
                         maxLength={6}
                         required
-                        value={otpCode}
+                        value={otpCode ?? ''}
                         onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
                         placeholder="123456"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] focus:outline-none focus:border-sky-500 text-white placeholder-gray-600 transition"

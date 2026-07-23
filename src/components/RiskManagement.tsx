@@ -165,7 +165,7 @@ export const RiskManagement: React.FC = () => {
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">Select Asset</label>
               <select
-                value={selectedSymbol}
+                value={selectedSymbol ?? ''}
                 onChange={e => setSelectedSymbol(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 transition"
               >
@@ -192,7 +192,7 @@ export const RiskManagement: React.FC = () => {
                 <span className="absolute left-3.5 top-3.5 text-xs text-gray-500 font-mono">₹</span>
                 <input
                   type="number"
-                  value={customBalance}
+                  value={customBalance ?? ''}
                   onChange={e => setCustomBalance(parseFloat(e.target.value) || 0)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                 />
@@ -226,7 +226,7 @@ export const RiskManagement: React.FC = () => {
                 min="0.25"
                 max="10"
                 step="0.25"
-                value={riskPercent}
+                value={riskPercent ?? 1}
                 onChange={e => setRiskPercent(parseFloat(e.target.value))}
                 className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-sky-500 mt-2"
               />
@@ -272,7 +272,7 @@ export const RiskManagement: React.FC = () => {
                 <input
                   type="number"
                   step={stopLossMode === 'percent' ? '0.25' : '0.1'}
-                  value={stopLossValue}
+                  value={stopLossValue ?? ''}
                   onChange={e => setStopLossValue(parseFloat(e.target.value) || 0)}
                   className={`w-full bg-white/5 border border-white/10 rounded-xl py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono ${
                     stopLossMode === 'price' ? 'pl-8 pr-4' : 'px-4'
@@ -289,7 +289,7 @@ export const RiskManagement: React.FC = () => {
                 <input
                   type="number"
                   placeholder="e.g. ₹ price"
-                  value={targetPrice}
+                  value={targetPrice ?? ''}
                   onChange={e => setTargetPrice(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                 />

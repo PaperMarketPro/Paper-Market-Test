@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { UserProfile, Instrument, Order, Position, JournalEntry, AIInsight, Strategy, Course, Challenge, Badge, OptionChainItem, CognitiveRule, LLMConfig } from './types';
 import { INITIAL_INSTRUMENTS, MOCK_OPTION_CHAIN, INITIAL_POSITIONS, CLOSED_POSITIONS, INITIAL_ORDERS, INITIAL_JOURNAL, INITIAL_AI_INSIGHTS, ACADEMY_COURSES, INITIAL_CHALLENGES, INITIAL_BADGES, randomWalk, generateFuturesForInstruments } from './mockData';
 import { auth, db } from './firebase';
@@ -93,8 +93,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // User details - defaults to null until fetched/loaded
-  const [user, setUser] = useState<UserProfile | null>(null);
+  // User details - defaults to restored localStorage session if available
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('paper_market_user_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch (e) {
+        console.error("Error reading saved user session from localStorage:", e);
+      }
+    }
+    return null;
+  });
   const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const isSyncReady = useRef(false);
@@ -256,7 +269,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           if (userSnap.exists()) {
             const data = userSnap.data();
-            if (data.userProfile) setUser(data.userProfile);
+            if (data.userProfile) {
+              setUser(data.userProfile);
+              localStorage.setItem('paper_market_user_session', JSON.stringify(data.userProfile));
+              if (data.userProfile.email) {
+                localStorage.setItem('paper_market_saved_email', data.userProfile.email);
+              }
+            }
             if (data.orders) setOrders(data.orders);
             if (data.positions) setPositions(data.positions);
             if (data.journals) setJournals(data.journals);
@@ -269,14 +288,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             isSyncReady.current = true;
           } else {
-            // User signed up, initializeNewUser will create the profile document
-            setUser(null);
+            // User signed in/up with Firebase Auth but profile document is not created yet
+            // Auto-initialize default profile so user stays logged in
+            const defaultProfile: UserProfile = {
+              name: fUser.displayName || fUser.email?.split('@')[0] || 'Paper Trader',
+              email: fUser.email || '',
+              phoneNumber: fUser.phoneNumber || '',
+              experience: 'intermediate',
+              goals: ['build discipline', 'learn options'],
+              riskTolerance: 45,
+              virtualBalance: 500000.00,
+              initialBalance: 500000.00,
+              streak: 1,
+              xp: 100,
+              level: 1,
+              isPro: false,
+              role: 'user',
+              llmConfig: {
+                selectedModel: 'gemini-3.5-flash',
+                temperature: 0.6,
+                systemPersona: 'Market Veteran',
+                customGrounding: '',
+                injectCognitiveRules: true
+              }
+            };
+
+            setUser(defaultProfile);
+            localStorage.setItem('paper_market_user_session', JSON.stringify(defaultProfile));
+            if (defaultProfile.email) {
+              localStorage.setItem('paper_market_saved_email', defaultProfile.email);
+            }
+
+            try {
+              await setDoc(userRef, {
+                userProfile: defaultProfile,
+                orders: INITIAL_ORDERS,
+                positions: INITIAL_POSITIONS,
+                journals: INITIAL_JOURNAL,
+                cognitiveRules: [
+                  { id: 'cog-1', trigger: "I lose 2 trades in a row", action: "Stop trading, lock screen for 30 minutes, and complete deep breathing", isActive: true, createdAt: new Date().toISOString() },
+                  { id: 'cog-2', trigger: "I experience intense FOMO as stock moves up 3%", action: "Force-close browser tab and write feelings in Trading Journal", isActive: true, createdAt: new Date().toISOString() }
+                ],
+                courses: ACADEMY_COURSES,
+                challenges: INITIAL_CHALLENGES,
+                badges: INITIAL_BADGES
+              }, { merge: true });
+              isSyncReady.current = true;
+            } catch (err) {
+              console.error("Error creating user profile document in Firestore:", err);
+            }
           }
         } catch (error) {
           console.error("Error loading user profile from Firestore:", error);
         }
       } else {
-        setUser(null);
+        // Fallback to restored local user session if available
+        const saved = localStorage.getItem('paper_market_user_session');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+              setUser(parsed);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
       }
       setIsAuthLoading(false);
     });
@@ -284,7 +361,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Sync state back to Firestore on any user-driven state changes with 1s debounce
+  // Maintain instruments ref to avoid unnecessary state updates in fallback timer
+  const instrumentsRef = useRef(instruments);
+  useEffect(() => {
+    instrumentsRef.current = instruments;
+  }, [instruments]);
+
+  // Sync state back to Firestore on structural user-driven state changes with 2s debounce
+  const positionsStructuralKey = useMemo(() => {
+    return JSON.stringify(positions.map(p => ({ id: p.id, symbol: p.symbol, status: p.status, quantity: p.quantity, entryPrice: p.entryPrice, stopLoss: p.stopLoss, target: p.target })));
+  }, [positions]);
+
   useEffect(() => {
     if (!isSyncReady.current || !auth.currentUser) return;
     
@@ -308,9 +395,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     
-    const timer = setTimeout(saveToFirestore, 1000);
+    const timer = setTimeout(saveToFirestore, 2000);
     return () => clearTimeout(timer);
-  }, [user, orders, positions, journals, insights, strategies, cognitiveRules, courses, challenges, badges, notifications]);
+  }, [user, orders, positionsStructuralKey, journals, insights, strategies, cognitiveRules, courses, challenges, badges, notifications]);
 
   // Initialize new user upon signup onboarding completion
   const initializeNewUser = async (profileData: Partial<UserProfile>) => {
@@ -390,6 +477,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(userRef, initialData);
       
       setUser(initialProfile);
+      localStorage.setItem('paper_market_user_session', JSON.stringify(initialProfile));
+      if (initialProfile.email) {
+        localStorage.setItem('paper_market_saved_email', initialProfile.email);
+      }
       setOrders(initialData.orders);
       setPositions(initialData.positions);
       setJournals(initialData.journals);
@@ -408,7 +499,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logoutUser = async () => {
     isSyncReady.current = false;
-    await signOut(auth);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
+    localStorage.removeItem('paper_market_user_session');
     setUser(null);
   };
 
@@ -437,6 +533,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setUser(initialProfile);
+    localStorage.setItem('paper_market_user_session', JSON.stringify(initialProfile));
+    if (initialProfile.email) {
+      localStorage.setItem('paper_market_saved_email', initialProfile.email);
+    }
     setOrders(INITIAL_ORDERS);
     setPositions(INITIAL_POSITIONS);
     setJournals(INITIAL_JOURNAL);
@@ -487,7 +587,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedAssetSymbol, setSelectedAssetSymbol] = useState<string>('RELIANCE');
   
   // Find in equities, futures, or options dynamically
-  const getSelectedAsset = () => {
+  const selectedAsset = useMemo(() => {
     let resolved = instruments.find(i => i.symbol === selectedAssetSymbol);
     if (resolved) return resolved;
 
@@ -535,10 +635,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    return instruments[0];
-  };
-
-  const selectedAsset = getSelectedAsset();
+    return instruments[0] || { symbol: 'RELIANCE', name: 'Reliance Industries', ltp: 2950, change: 0.5, high: 2980, low: 2920, volume: 1000000, sparkline: [2920, 2950] };
+  }, [instruments, futures, selectedAssetSymbol]);
 
   const setSelectedAssetBySymbol = (symbol: string) => {
     setSelectedAssetSymbol(symbol);
@@ -838,14 +936,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log("WebSocket connected/reconnecting. Initializing hybrid adaptive price simulation.");
       fallbackInterval = setInterval(() => {
         // Queue random walks via pendingTicks for fallback processing
-        setInstruments(prev => {
-          prev.forEach(inst => {
-            if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 15000) {
-              return;
-            }
-            pendingTicks[inst.symbol] = { isSim: true };
-          });
-          return prev;
+        instrumentsRef.current.forEach(inst => {
+          if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 15000) {
+            return;
+          }
+          pendingTicks[inst.symbol] = { isSim: true };
         });
       }, 2500);
     };
@@ -1828,63 +1923,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInsights(newInsights);
   };
 
+  const allPositions = useMemo(() => [...positions, ...closedHistory], [positions, closedHistory]);
+
+  const contextValue = useMemo(() => ({
+    user,
+    firebaseUser,
+    isAuthLoading,
+    logoutUser,
+    initializeNewUser,
+    initializeGuestUser,
+    updateLLMConfig,
+    theme,
+    instruments,
+    futures,
+    optionChain,
+    orders,
+    positions: allPositions,
+    journals,
+    insights,
+    strategies,
+    cognitiveRules,
+    addCognitiveRule,
+    deleteCognitiveRule,
+    toggleCognitiveRule,
+    toggleAutoTrade,
+    courses,
+    challenges,
+    badges,
+    notifications,
+    toggleTheme,
+    upgradeToPro,
+    resetAccount,
+    updateBalance,
+    addOrder,
+    exitPosition,
+    modifySLTarget,
+    addJournalEntry,
+    updateInsights,
+    addStrategy,
+    deleteStrategy,
+    updateStrategyRiskParams,
+    runBacktest,
+    completeLesson,
+    submitQuiz,
+    claimChallengeReward,
+    markNotificationAsRead,
+    clearAllNotifications,
+    selectedAsset,
+    setSelectedAssetBySymbol,
+    upstoxStatus,
+    refreshUpstoxStatus,
+    disconnectUpstox,
+    connectUpstoxManually,
+    enforceMarketHours,
+    toggleEnforceMarketHours,
+    isMarketOpen,
+  }), [
+    user,
+    firebaseUser,
+    isAuthLoading,
+    theme,
+    instruments,
+    futures,
+    optionChain,
+    orders,
+    allPositions,
+    journals,
+    insights,
+    strategies,
+    cognitiveRules,
+    courses,
+    challenges,
+    badges,
+    notifications,
+    selectedAsset,
+    upstoxStatus,
+    enforceMarketHours,
+    isMarketOpen,
+  ]);
+
   return (
-    <AppContext.Provider
-      value={{
-        user,
-        firebaseUser,
-        isAuthLoading,
-        logoutUser,
-        initializeNewUser,
-        initializeGuestUser,
-        updateLLMConfig,
-        theme,
-        instruments,
-        futures,
-        optionChain,
-        orders,
-        positions: [...positions, ...closedHistory], // Export all positions (open and closed) to context
-        journals,
-        insights,
-        strategies,
-        cognitiveRules,
-        addCognitiveRule,
-        deleteCognitiveRule,
-        toggleCognitiveRule,
-        toggleAutoTrade,
-        courses,
-        challenges,
-        badges,
-        notifications,
-        toggleTheme,
-        upgradeToPro,
-        resetAccount,
-        updateBalance,
-        addOrder,
-        exitPosition,
-        modifySLTarget,
-        addJournalEntry,
-        updateInsights,
-        addStrategy,
-        deleteStrategy,
-        updateStrategyRiskParams,
-        runBacktest,
-        completeLesson,
-        submitQuiz,
-        claimChallengeReward,
-        markNotificationAsRead,
-        clearAllNotifications,
-        selectedAsset,
-        setSelectedAssetBySymbol,
-        upstoxStatus,
-        refreshUpstoxStatus,
-        disconnectUpstox,
-        connectUpstoxManually,
-        enforceMarketHours,
-        toggleEnforceMarketHours,
-        isMarketOpen,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

@@ -714,7 +714,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                         <input
                           type="text"
                           placeholder="Paste Token, Auth Code, or Redirect URL..."
-                          value={manualToken}
+                          value={manualToken ?? ''}
                           onChange={(e) => setManualToken(e.target.value)}
                           className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:border-sky-500/50"
                         />
@@ -971,7 +971,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                             type="text"
                             required={!autoRenewConfig?.apiKey}
                             placeholder={autoRenewConfig?.apiKey ? `${autoRenewConfig.apiKey} (Saved)` : "e.g. 5d5a7b-3b32..."}
-                            value={autoApiKey}
+                            value={autoApiKey ?? ''}
                             onChange={(e) => setAutoApiKey(e.target.value)}
                             className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
                           />
@@ -984,7 +984,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                             type="password"
                             required={!autoRenewConfig?.configured}
                             placeholder={autoRenewConfig?.configured ? "•••••••••••• (Saved)" : "Your Upstox Developer App Secret"}
-                            value={autoApiSecret}
+                            value={autoApiSecret ?? ''}
                             onChange={(e) => setAutoApiSecret(e.target.value)}
                             className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
                           />
@@ -997,7 +997,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                             type="text"
                             required={!autoRenewConfig?.redirectUri}
                             placeholder={autoRenewConfig?.redirectUri || "e.g. http://localhost:3000/api/integrations/upstox/callback"}
-                            value={autoRedirectUri}
+                            value={autoRedirectUri ?? ''}
                             onChange={(e) => setAutoRedirectUri(e.target.value)}
                             className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
                           />
@@ -1010,7 +1010,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                             type="text"
                             required={autoEnabled && !autoRenewConfig?.mobileNo}
                             placeholder={autoRenewConfig?.mobileNo ? `${autoRenewConfig.mobileNo} (Saved)` : "e.g. 9876543210 (10 digits)"}
-                            value={autoMobileNo}
+                            value={autoMobileNo ?? ''}
                             onChange={(e) => setAutoMobileNo(e.target.value)}
                             className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white disabled:opacity-50"
                           />
@@ -1024,20 +1024,20 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                             required={autoEnabled && !autoRenewConfig?.hasPin}
                             placeholder={autoRenewConfig?.hasPin ? "•••••• (Saved)" : "Your Upstox 6-digit login PIN"}
                             maxLength={6}
-                            value={autoPin}
+                            value={autoPin ?? ''}
                             onChange={(e) => setAutoPin(e.target.value)}
                             className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white disabled:opacity-50"
                           />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            TOTP Key {autoEnabled && !autoRenewConfig?.hasTotpSecret && ' *'}
+                            TOTP Key or 6-Digit Code {autoEnabled && !autoRenewConfig?.hasTotpSecret && ' *'}
                           </label>
                           <input
-                            type="password"
+                            type="text"
                             required={autoEnabled && !autoRenewConfig?.hasTotpSecret}
-                            placeholder={autoRenewConfig?.hasTotpSecret ? "•••••••••••• (Saved)" : "Secret key used to generate your TOTP codes"}
-                            value={autoTotpSecret}
+                            placeholder={autoRenewConfig?.hasTotpSecret ? "•••••••••••• (Saved)" : "Base32 Secret Key or current 6-digit TOTP code"}
+                            value={autoTotpSecret ?? ''}
                             onChange={(e) => setAutoTotpSecret(e.target.value)}
                             className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white disabled:opacity-50"
                           />

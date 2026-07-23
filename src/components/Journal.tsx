@@ -292,7 +292,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
               <input
                 type="text"
                 placeholder="Search rationale, lessons..."
-                value={searchQuery}
+                value={searchQuery ?? ''}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="bg-white/5 border border-white/5 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-sky-500 transition w-full sm:w-56"
               />
@@ -335,7 +335,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
 
           {/* Emotion filter dropdown selector */}
           <select
-            value={selectedEmotionFilter}
+            value={selectedEmotionFilter ?? 'All'}
             onChange={e => setSelectedEmotionFilter(e.target.value as any)}
             className="bg-white/3 border border-white/5 text-[10px] text-gray-300 rounded-lg px-2.5 py-1 focus:outline-none focus:border-sky-500"
           >
@@ -347,7 +347,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
 
           {/* Mistake filter dropdown selector */}
           <select
-            value={selectedMistakeFilter}
+            value={selectedMistakeFilter ?? 'All'}
             onChange={e => setSelectedMistakeFilter(e.target.value as any)}
             className="bg-white/3 border border-white/5 text-[10px] text-gray-300 rounded-lg px-2.5 py-1 focus:outline-none focus:border-sky-500"
           >
@@ -684,7 +684,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
                             <label className="text-[9px] font-mono text-sky-400 uppercase font-bold">Suggested Entry Setup</label>
                             <textarea
                               rows={3}
-                              value={wizEntryReason}
+                              value={wizEntryReason ?? ''}
                               onChange={e => setWizEntryReason(e.target.value)}
                               className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-[11px] focus:outline-none focus:border-sky-500 text-gray-200"
                             />
@@ -693,7 +693,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
                             <label className="text-[9px] font-mono text-sky-400 uppercase font-bold">Suggested Exit Setup</label>
                             <textarea
                               rows={3}
-                              value={wizExitReason}
+                              value={wizExitReason ?? ''}
                               onChange={e => setWizExitReason(e.target.value)}
                               className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-[11px] focus:outline-none focus:border-sky-500 text-gray-200"
                             />
@@ -705,7 +705,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
                           <label className="text-[9px] font-mono text-sky-400 uppercase font-bold">Suggested Cognitive Lesson</label>
                           <textarea
                             rows={2}
-                            value={wizLessons}
+                            value={wizLessons ?? ''}
                             onChange={e => setWizLessons(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-[11px] focus:outline-none focus:border-sky-500 text-gray-200 italic"
                           />
@@ -805,7 +805,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
                           <label className="text-[9px] font-mono text-gray-400 uppercase">Entry Setup Setup & Trigger</label>
                           <textarea
                             rows={2}
-                            value={wizEntryReason}
+                            value={wizEntryReason ?? ''}
                             onChange={e => setWizEntryReason(e.target.value)}
                             placeholder="e.g., Price broke above ₹2,950 resistance, triggering our EMA indicators..."
                             className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs focus:outline-none focus:border-sky-500 text-white"
@@ -816,7 +816,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
                           <label className="text-[9px] font-mono text-gray-400 uppercase">Exit Setup Setup & Trigger</label>
                           <textarea
                             rows={2}
-                            value={wizExitReason}
+                            value={wizExitReason ?? ''}
                             onChange={e => setWizExitReason(e.target.value)}
                             placeholder="e.g., Hit targets. Exited manually to lock profits before macro volatility..."
                             className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs focus:outline-none focus:border-sky-500 text-white"
@@ -827,7 +827,7 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
                           <label className="text-[9px] font-mono text-gray-400 uppercase">Key behavioral takeaway</label>
                           <textarea
                             rows={2}
-                            value={wizLessons}
+                            value={wizLessons ?? ''}
                             onChange={e => setWizLessons(e.target.value)}
                             placeholder="e.g., IF I see extreme intraday breakouts, THEN I will decrease my sizing by half."
                             className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs focus:outline-none focus:border-sky-500 text-white"

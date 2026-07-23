@@ -144,7 +144,7 @@ export const StrategyBuilder: React.FC = () => {
                 type="text"
                 required
                 placeholder="e.g. RSI Momentum Scalp"
-                value={name}
+                value={name ?? ''}
                 onChange={e => setName(e.target.value)}
                 className="w-full bg-white/2 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 placeholder-gray-700 transition"
               />
@@ -154,7 +154,7 @@ export const StrategyBuilder: React.FC = () => {
               <input
                 type="text"
                 placeholder="e.g. Scalping Nifty breakouts when momentum is oversold."
-                value={desc}
+                value={desc ?? ''}
                 onChange={e => setDesc(e.target.value)}
                 className="w-full bg-white/2 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 placeholder-gray-700 transition"
               />
@@ -181,7 +181,7 @@ export const StrategyBuilder: React.FC = () => {
               {entryConditions.map(cond => (
                 <div key={cond.id} className="bg-white/2 border border-white/5 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
                   <select
-                    value={cond.indicator}
+                    value={cond.indicator ?? 'RSI'}
                     onChange={e => handleUpdateCondition('entry', cond.id, { indicator: e.target.value as any })}
                     className="bg-[#11141c] border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
                   >
@@ -189,7 +189,7 @@ export const StrategyBuilder: React.FC = () => {
                   </select>
 
                   <select
-                    value={cond.operator}
+                    value={cond.operator ?? 'crosses_above'}
                     onChange={e => handleUpdateCondition('entry', cond.id, { operator: e.target.value as any })}
                     className="bg-[#11141c] border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 col-span-2"
                   >
@@ -199,7 +199,7 @@ export const StrategyBuilder: React.FC = () => {
                   <div className="flex gap-1.5 items-center justify-between">
                     <input
                       type="number"
-                      value={cond.value || ''}
+                      value={cond.value ?? ''}
                       onChange={e => handleUpdateCondition('entry', cond.id, { value: parseFloat(e.target.value) || 0 })}
                       className="w-16 bg-[#11141c] border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
                     />
@@ -236,7 +236,7 @@ export const StrategyBuilder: React.FC = () => {
               {exitConditions.map(cond => (
                 <div key={cond.id} className="bg-white/2 border border-white/5 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
                   <select
-                    value={cond.indicator}
+                    value={cond.indicator ?? 'RSI'}
                     onChange={e => handleUpdateCondition('exit', cond.id, { indicator: e.target.value as any })}
                     className="bg-[#11141c] border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
                   >
@@ -244,7 +244,7 @@ export const StrategyBuilder: React.FC = () => {
                   </select>
 
                   <select
-                    value={cond.operator}
+                    value={cond.operator ?? 'crosses_below'}
                     onChange={e => handleUpdateCondition('exit', cond.id, { operator: e.target.value as any })}
                     className="bg-[#11141c] border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 col-span-2"
                   >
@@ -254,7 +254,7 @@ export const StrategyBuilder: React.FC = () => {
                   <div className="flex gap-1.5 items-center justify-between">
                     <input
                       type="number"
-                      value={cond.value || ''}
+                      value={cond.value ?? ''}
                       onChange={e => handleUpdateCondition('exit', cond.id, { value: parseFloat(e.target.value) || 0 })}
                       className="w-16 bg-[#11141c] border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
                     />
@@ -287,7 +287,7 @@ export const StrategyBuilder: React.FC = () => {
                     step="0.1"
                     min="0.1"
                     max="50"
-                    value={stopLoss}
+                    value={stopLoss ?? ''}
                     onChange={e => setStopLoss(parseFloat(e.target.value) || 0)}
                     className="w-full bg-white/2 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                   />
@@ -303,7 +303,7 @@ export const StrategyBuilder: React.FC = () => {
                     step="0.1"
                     min="0.1"
                     max="500"
-                    value={takeProfit}
+                    value={takeProfit ?? ''}
                     onChange={e => setTakeProfit(parseFloat(e.target.value) || 0)}
                     className="w-full bg-white/2 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                   />
@@ -320,7 +320,7 @@ export const StrategyBuilder: React.FC = () => {
                     step="1000"
                     min="1000"
                     max="10000000"
-                    value={maxPosSize}
+                    value={maxPosSize ?? ''}
                     onChange={e => setMaxPosSize(parseFloat(e.target.value) || 0)}
                     className="w-full bg-white/2 border border-white/5 rounded-xl pl-6 pr-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                   />
@@ -472,8 +472,8 @@ export const StrategyBuilder: React.FC = () => {
                         step="0.1"
                         min="0.1"
                         max="50"
-                        defaultValue={s.stopLossPercent ?? 2.5}
-                        id={`sl-${s.id}`}
+                        value={s.stopLossPercent ?? 2.5}
+                        onChange={e => updateStrategyRiskParams(s.id, parseFloat(e.target.value) || 2.5, s.takeProfitPercent ?? 5.0)}
                         className="w-full bg-[#0b0e14] border border-white/5 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                       />
                     </div>
@@ -484,28 +484,15 @@ export const StrategyBuilder: React.FC = () => {
                         step="0.1"
                         min="0.1"
                         max="500"
-                        defaultValue={s.takeProfitPercent ?? 5.0}
-                        id={`tp-${s.id}`}
+                        value={s.takeProfitPercent ?? 5.0}
+                        onChange={e => updateStrategyRiskParams(s.id, s.stopLossPercent ?? 2.5, parseFloat(e.target.value) || 5.0)}
                         className="w-full bg-[#0b0e14] border border-white/5 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
                       />
                     </div>
                     <div className="space-y-1 flex flex-col justify-end">
-                      <button
-                        onClick={() => {
-                          const slInput = document.getElementById(`sl-${s.id}`) as HTMLInputElement;
-                          const tpInput = document.getElementById(`tp-${s.id}`) as HTMLInputElement;
-                          if (slInput && tpInput) {
-                            updateStrategyRiskParams(
-                              s.id,
-                              parseFloat(slInput.value) || 2.5,
-                              parseFloat(tpInput.value) || 5.0
-                            );
-                          }
-                        }}
-                        className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl py-1.5 font-bold text-[10px] transition cursor-pointer text-center h-[34px] uppercase tracking-wider font-mono"
-                      >
-                        Apply Controls
-                      </button>
+                      <div className="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl py-1.5 font-bold text-[10px] text-center h-[34px] uppercase tracking-wider font-mono flex items-center justify-center gap-1">
+                        <Check className="w-3 h-3 text-emerald-400" /> Auto Saved
+                      </div>
                     </div>
                   </div>
 

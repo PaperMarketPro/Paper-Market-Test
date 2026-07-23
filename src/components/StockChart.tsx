@@ -1728,7 +1728,7 @@ export const TradingViewChart: React.FC<{
               <span>Flag Label:</span>
               <input
                 type="text"
-                value={markerText}
+                value={markerText ?? ''}
                 onChange={e => setMarkerText(e.target.value.toUpperCase())}
                 className="w-24 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white text-xs text-center focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
@@ -1882,7 +1882,7 @@ export const TradingViewChart: React.FC<{
               <input
                 type="text"
                 placeholder={isAnalyzing ? "AI is thinking..." : "Ask in Hinglish, Hindi, etc..."}
-                value={advisorQuestion}
+                value={advisorQuestion ?? ''}
                 onChange={e => setAdvisorQuestion(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && advisorQuestion.trim() && !isAnalyzing) {
@@ -2540,7 +2540,7 @@ export const StockChart: React.FC<StockChartProps> = ({
                 type="number"
                 min="2"
                 max="200"
-                value={emaPeriod}
+                value={emaPeriod ?? 8}
                 onChange={e => {
                   const val = parseInt(e.target.value);
                   if (!isNaN(val) && val >= 2 && val <= 200) setEmaPeriod(val);
@@ -2568,7 +2568,7 @@ export const StockChart: React.FC<StockChartProps> = ({
                 type="number"
                 min="2"
                 max="200"
-                value={smaPeriod}
+                value={smaPeriod ?? 15}
                 onChange={e => {
                   const val = parseInt(e.target.value);
                   if (!isNaN(val) && val >= 2 && val <= 200) setSmaPeriod(val);
@@ -2596,7 +2596,7 @@ export const StockChart: React.FC<StockChartProps> = ({
                 type="number"
                 min="2"
                 max="200"
-                value={bbPeriod}
+                value={bbPeriod ?? 20}
                 onChange={e => {
                   const val = parseInt(e.target.value);
                   if (!isNaN(val) && val >= 2 && val <= 200) setBbPeriod(val);
