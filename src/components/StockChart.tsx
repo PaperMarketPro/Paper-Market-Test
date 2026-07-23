@@ -1910,7 +1910,7 @@ export const TradingViewChart: React.FC<{
   );
 };
 
-export const StockChart: React.FC<StockChartProps> = ({ 
+const StockChartBase: React.FC<StockChartProps> = ({ 
   asset, 
   height = 240, 
   showControls = true 
@@ -2766,3 +2766,12 @@ export const StockChart: React.FC<StockChartProps> = ({
     </div>
   );
 };
+
+export const StockChart = React.memo(StockChartBase, (prevProps, nextProps) => {
+  if (prevProps.height !== nextProps.height) return false;
+  if (prevProps.showControls !== nextProps.showControls) return false;
+  if (prevProps.asset?.symbol !== nextProps.asset?.symbol) return false;
+  if (prevProps.asset?.ltp !== nextProps.asset?.ltp) return false;
+  if (prevProps.asset?.sparkline?.length !== nextProps.asset?.sparkline?.length) return false;
+  return true;
+});
