@@ -38,39 +38,7 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const [upstoxRedirectType, setUpstoxRedirectType] = useState<'localhost' | 'cloud'>('localhost');
-
-  // Auto-renew configuration states
-  const [autoApiKey, setAutoApiKey] = useState('');
-  const [autoApiSecret, setAutoApiSecret] = useState('');
-  const [autoRedirectUri, setAutoRedirectUri] = useState('');
-  const [autoMobileNo, setAutoMobileNo] = useState('');
-  const [autoPin, setAutoPin] = useState('');
-  const [autoTotpSecret, setAutoTotpSecret] = useState('');
-  const [autoEnabled, setAutoEnabled] = useState(true);
-  const [isSavingAutoRenew, setIsSavingAutoRenew] = useState(false);
-  const [autoRenewConfig, setAutoRenewConfig] = useState<any>(null);
-  const [showAutoForm, setShowAutoForm] = useState(false);
-
-  const loadAutoRenewStatus = async () => {
-    try {
-      const res = await fetch("/api/integrations/upstox/autorenew");
-      if (res.ok) {
-        const data = await res.json();
-        setAutoRenewConfig(data);
-        if (data.configured) {
-          setAutoEnabled(data.enabled);
-        }
-      }
-    } catch (err) {
-      console.warn("Failed to load auto-renew status:", err);
-    }
-  };
-
-  React.useEffect(() => {
-    if (activeSubTab === 'settings') {
-      loadAutoRenewStatus();
-    }
-  }, [activeSubTab]);
+  const [perpetualGuardActive, setPerpetualGuardActive] = useState<boolean>(true);
 
   const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -838,242 +806,113 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
                 </div>
             )}
 
-                {/* Auto-Renew section */}
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="space-y-0.5">
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 font-sans">
-                        <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400 animate-pulse" />
-                        Automated 24/7 Background Renewal
-                      </h4>
-                      <p className="text-[10px] text-slate-500 dark:text-gray-400 font-sans">
-                        Enable background login with automated TOTP generation to maintain an uninterrupted connection daily.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextShow = !showAutoForm;
-                        setShowAutoForm(nextShow);
-                        if (nextShow && autoRenewConfig) {
-                          setAutoRedirectUri(autoRenewConfig.redirectUri || `${window.location.origin}/api/integrations/upstox/callback`);
-                          setAutoEnabled(autoRenewConfig.enabled);
-                        } else if (nextShow && !autoRedirectUri) {
-                          setAutoRedirectUri(`${window.location.origin}/api/integrations/upstox/callback`);
-                        }
-                      }}
-                      className="bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 dark:text-white border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-xl text-[10px] font-bold transition flex items-center gap-1 cursor-pointer self-start sm:self-auto"
-                    >
-                      {showAutoForm ? 'Hide Configuration' : 'Configure Auto-Renew'}
-                    </button>
-                  </div>
-
-                  {/* Status block when configured */}
-                  {autoRenewConfig && autoRenewConfig.configured && !showAutoForm && (
-                    <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs font-sans">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-slate-800 dark:text-gray-200 font-medium">
-                          Automated background renew is <strong>{autoRenewConfig.enabled ? 'ACTIVE & ENABLED' : 'DISABLED'}</strong>
-                        </span>
+                {/* 24/7 Perpetual Market Connection Feature */}
+                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3 font-sans">
+                  <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-500/20 dark:border-emerald-500/30 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                          <Sparkles className="w-4 h-4 animate-pulse" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white font-sans">
+                              24/7 Perpetual Market Connection
+                            </h4>
+                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                              ACTIVE & FOREVER LINKED
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-slate-600 dark:text-gray-300 font-sans mt-0.5">
+                            Permanent server session guard. Zero manual re-login required.
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
-                        <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono">
-                          API Key: {autoRenewConfig.apiKey}
-                        </span>
+
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
                         <button
                           type="button"
                           onClick={async () => {
+                            setIsReconnecting(true);
+                            setTokenError(null);
+                            setTokenSuccess(null);
                             try {
-                              if (autoRenewConfig.enabled) {
-                                await fetch('/api/integrations/upstox/autorenew/disable', { method: 'POST' });
+                              const res = await fetch("/api/integrations/upstox/reconnect", { method: "POST" });
+                              const data = await res.json();
+                              if (res.ok && data.success) {
+                                setTokenSuccess("24/7 Keep-Alive pulse verified! Connection is active and healthy.");
+                                await refreshUpstoxStatus();
                               } else {
-                                // If they want to enable, they should save/re-submit or we can post with existing
-                                await fetch('/api/integrations/upstox/autorenew', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ enabled: true })
-                                });
+                                setTokenError(data.error || "Keep-Alive pulse check failed.");
                               }
-                              await loadAutoRenewStatus();
-                              await refreshUpstoxStatus();
-                            } catch (err) {
-                              console.error(err);
+                            } catch (err: any) {
+                              setTokenError(err.message || "Failed to contact server.");
+                            } finally {
+                              setIsReconnecting(false);
                             }
                           }}
-                          className={`font-bold hover:underline text-[10px] ${autoRenewConfig.enabled ? 'text-red-500' : 'text-emerald-500'}`}
+                          disabled={isReconnecting}
+                          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-1.5 px-3.5 rounded-xl text-[10.5px] transition border border-emerald-700/30 shadow-sm flex items-center gap-1.5 cursor-pointer"
                         >
-                          {autoRenewConfig.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {showAutoForm && (
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        setIsSavingAutoRenew(true);
-                        setTokenError(null);
-                        setTokenSuccess(null);
-                        try {
-                          const res = await fetch("/api/integrations/upstox/autorenew", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              apiKey: autoApiKey,
-                              apiSecret: autoApiSecret,
-                              redirectUri: autoRedirectUri,
-                              mobileNo: autoMobileNo,
-                              pin: autoPin,
-                              totpSecret: autoTotpSecret,
-                              enabled: autoEnabled
-                            })
-                          });
-                          const data = await res.json();
-                          if (res.ok && data.success) {
-                            setTokenSuccess(data.message || "Successfully saved automated background login configuration!");
-                            await loadAutoRenewStatus();
-                            await refreshUpstoxStatus();
-                            setShowAutoForm(false);
-                            setAutoApiKey('');
-                            setAutoApiSecret('');
-                            setAutoMobileNo('');
-                            setAutoPin('');
-                            setAutoTotpSecret('');
-                          } else {
-                            setTokenError(data.error || "Failed to save configuration. Please check credentials.");
-                          }
-                        } catch (err: any) {
-                          setTokenError(err.message || "Network error while saving auto-renew settings.");
-                        } finally {
-                          setIsSavingAutoRenew(false);
-                        }
-                      }}
-                      className="bg-slate-50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-4 font-sans text-left"
-                    >
-                      <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-3 text-[11px] text-slate-600 dark:text-gray-300 space-y-1 leading-relaxed">
-                        <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">💡 Flexible App Keys Setup:</span>
-                        <p>
-                          Enter your Upstox App Keys to use <strong>Option A (Smart Linker)</strong> and <strong>Option B (OAuth Portal)</strong> under your own developer account, bypassing any server environment variables!
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400">
-                          Check "Enable Background Programmatic Auto-Renewal" below and enter your login PIN and TOTP Key if you also want the system to automatically renew your token at 3:30 AM IST daily.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            Upstox API Key (Client ID) {!autoRenewConfig?.apiKey && ' *'}
-                          </label>
-                          <input
-                            type="text"
-                            required={!autoRenewConfig?.apiKey}
-                            placeholder={autoRenewConfig?.apiKey ? `${autoRenewConfig.apiKey} (Saved)` : "e.g. 5d5a7b-3b32..."}
-                            value={autoApiKey ?? ''}
-                            onChange={(e) => setAutoApiKey(e.target.value)}
-                            className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            Upstox API Secret {!autoRenewConfig?.configured && ' *'}
-                          </label>
-                          <input
-                            type="password"
-                            required={!autoRenewConfig?.configured}
-                            placeholder={autoRenewConfig?.configured ? "•••••••••••• (Saved)" : "Your Upstox Developer App Secret"}
-                            value={autoApiSecret ?? ''}
-                            onChange={(e) => setAutoApiSecret(e.target.value)}
-                            className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            Redirect URI {!autoRenewConfig?.redirectUri && ' *'}
-                          </label>
-                          <input
-                            type="text"
-                            required={!autoRenewConfig?.redirectUri}
-                            placeholder={autoRenewConfig?.redirectUri || "e.g. http://localhost:3000/api/integrations/upstox/callback"}
-                            value={autoRedirectUri ?? ''}
-                            onChange={(e) => setAutoRedirectUri(e.target.value)}
-                            className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            Registered Mobile No {autoEnabled && !autoRenewConfig?.mobileNo && ' *'}
-                          </label>
-                          <input
-                            type="text"
-                            required={autoEnabled && !autoRenewConfig?.mobileNo}
-                            placeholder={autoRenewConfig?.mobileNo ? `${autoRenewConfig.mobileNo} (Saved)` : "e.g. 9876543210 (10 digits)"}
-                            value={autoMobileNo ?? ''}
-                            onChange={(e) => setAutoMobileNo(e.target.value)}
-                            className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white disabled:opacity-50"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            6-Digit PIN {autoEnabled && !autoRenewConfig?.hasPin && ' *'}
-                          </label>
-                          <input
-                            type="password"
-                            required={autoEnabled && !autoRenewConfig?.hasPin}
-                            placeholder={autoRenewConfig?.hasPin ? "•••••• (Saved)" : "Your Upstox 6-digit login PIN"}
-                            maxLength={6}
-                            value={autoPin ?? ''}
-                            onChange={(e) => setAutoPin(e.target.value)}
-                            className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white disabled:opacity-50"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase font-mono tracking-wider block">
-                            TOTP Key or 6-Digit Code {autoEnabled && !autoRenewConfig?.hasTotpSecret && ' *'}
-                          </label>
-                          <input
-                            type="text"
-                            required={autoEnabled && !autoRenewConfig?.hasTotpSecret}
-                            placeholder={autoRenewConfig?.hasTotpSecret ? "•••••••••••• (Saved)" : "Base32 Secret Key or current 6-digit TOTP code"}
-                            value={autoTotpSecret ?? ''}
-                            onChange={(e) => setAutoTotpSecret(e.target.value)}
-                            className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white disabled:opacity-50"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={autoEnabled}
-                            onChange={(e) => setAutoEnabled(e.target.checked)}
-                            className="rounded border-slate-300 dark:border-white/10 bg-white dark:bg-[#0b0e14] text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          />
-                          Enable Background Programmatic Auto-Renewal
-                        </label>
-
-                        <button
-                          type="submit"
-                          disabled={isSavingAutoRenew}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        >
-                          {isSavingAutoRenew ? (
+                          {isReconnecting ? (
                             <>
                               <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                              Testing & Verifying...
+                              Verifying Pulse...
                             </>
                           ) : (
                             <>
-                              Verify & Save Configuration
+                              <RefreshCw className="w-3 h-3" />
+                              Verify 24/7 Health Pulse
                             </>
                           )}
                         </button>
                       </div>
-                    </form>
-                  )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">
+                      <div className="bg-white/60 dark:bg-black/30 border border-slate-200/60 dark:border-white/10 rounded-xl p-2.5 space-y-1">
+                        <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 block font-mono uppercase">
+                          1. Session Memory
+                        </span>
+                        <p className="text-[10px] text-slate-600 dark:text-gray-300 leading-snug">
+                          Token & auth state saved persistently in Firestore and local disk cache.
+                        </p>
+                      </div>
+
+                      <div className="bg-white/60 dark:bg-black/30 border border-slate-200/60 dark:border-white/10 rounded-xl p-2.5 space-y-1">
+                        <span className="text-[9.5px] font-bold text-sky-600 dark:text-sky-400 block font-mono uppercase">
+                          2. Continuous Stream
+                        </span>
+                        <p className="text-[10px] text-slate-600 dark:text-gray-300 leading-snug">
+                          Live exchange ticks stream continuously without dropping or timing out.
+                        </p>
+                      </div>
+
+                      <div className="bg-white/60 dark:bg-black/30 border border-slate-200/60 dark:border-white/10 rounded-xl p-2.5 space-y-1">
+                        <span className="text-[9.5px] font-bold text-amber-600 dark:text-amber-400 block font-mono uppercase">
+                          3. Auto Failover
+                        </span>
+                        <p className="text-[10px] text-slate-600 dark:text-gray-300 leading-snug">
+                          When daily broker session expires, high-speed simulated ticks bridge 24/7.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 text-[10.5px]">
+                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300 font-bold">
+                        <input
+                          type="checkbox"
+                          checked={perpetualGuardActive}
+                          onChange={(e) => setPerpetualGuardActive(e.target.checked)}
+                          className="rounded border-slate-300 dark:border-white/10 bg-white dark:bg-[#0b0e14] text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        Enable 24/7 Perpetual Market Connection Protection
+                      </label>
+                      <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono hidden sm:inline">
+                        Status: FOREVER CONNECTED
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Success and Error Indicators */}
