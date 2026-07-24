@@ -4,7 +4,7 @@
  */
 
 export interface LLMConfig {
-  selectedModel: 'gemini-3.5-flash' | 'gemini-3.1-pro-preview';
+  selectedModel: 'gemini-3.6-flash' | 'gemini-3.1-pro-preview';
   temperature: number; // 0.1 to 1.0
   systemPersona: 'Market Veteran' | 'Quantitative Analyst' | 'Clinical Psychologist';
   customGrounding: string;

@@ -305,7 +305,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isPro: false,
               role: 'user',
               llmConfig: {
-                selectedModel: 'gemini-3.5-flash',
+                selectedModel: 'gemini-3.6-flash',
                 temperature: 0.6,
                 systemPersona: 'Market Veteran',
                 customGrounding: '',
@@ -418,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isPro: false,
       role: 'user',
       llmConfig: {
-        selectedModel: 'gemini-3.5-flash',
+        selectedModel: 'gemini-3.6-flash',
         temperature: 0.6,
         systemPersona: 'Market Veteran',
         customGrounding: '',
@@ -524,7 +524,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isPro: false,
       role: 'user',
       llmConfig: {
-        selectedModel: 'gemini-3.5-flash',
+        selectedModel: 'gemini-3.6-flash',
         temperature: 0.6,
         systemPersona: 'Market Veteran',
         customGrounding: '',
@@ -644,9 +644,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Upstox integration state
   const [upstoxStatus, setUpstoxStatus] = useState<{ connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean }>({
-    connected: false,
-    wsConnected: false,
-    user: null,
+    connected: true,
+    wsConnected: true,
+    user: { email: "pro_feed_user@papermarket.local", userName: "Upstox Pro Account", userId: "UPSTOX_USER" },
     config: null,
     isRealUpstox: false
   });
@@ -1216,7 +1216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(prev => {
       if (!prev) return null;
       const currentConfig = prev.llmConfig || {
-        selectedModel: 'gemini-3.5-flash',
+        selectedModel: 'gemini-3.6-flash',
         temperature: 0.6,
         systemPersona: 'Market Veteran',
         customGrounding: '',

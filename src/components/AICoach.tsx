@@ -39,15 +39,15 @@ export const AICoach: React.FC = () => {
 
   // LLM Config state from user profile or default values
   const currentLlmConfig = user?.llmConfig || {
-    selectedModel: 'gemini-3.5-flash',
+    selectedModel: 'gemini-3.6-flash',
     temperature: 0.6,
     systemPersona: 'Market Veteran',
     customGrounding: '',
     injectCognitiveRules: true
   };
 
-  const [selectedModel, setSelectedModel] = useState<'gemini-3.5-flash' | 'gemini-3.1-pro-preview'>(
-    currentLlmConfig.selectedModel || 'gemini-3.5-flash'
+  const [selectedModel, setSelectedModel] = useState<'gemini-3.6-flash' | 'gemini-3.1-pro-preview'>(
+    (currentLlmConfig.selectedModel as any) === 'gemini-3.5-flash' ? 'gemini-3.6-flash' : (currentLlmConfig.selectedModel || 'gemini-3.6-flash')
   );
   const [temperature, setTemperature] = useState<number>(
     currentLlmConfig.temperature !== undefined ? currentLlmConfig.temperature : 0.6
