@@ -10,7 +10,7 @@ import {
   BarChart, Bar, Cell, Legend
 } from 'recharts';
 
-export const Analytics: React.FC = () => {
+export const Analytics: React.FC = React.memo(() => {
   const { positions, journals, user } = useApp();
   const [timeframe, setTimeframe] = useState<'All' | 'Month' | 'Week'>('All');
   const [assetFilter, setAssetFilter] = useState<'All' | 'Equity' | 'FnO'>('All');
@@ -643,4 +643,4 @@ export const Analytics: React.FC = () => {
       </div>
     </div>
   );
-};
+});

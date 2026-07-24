@@ -18,19 +18,21 @@ interface DashboardProps {
   onNavigate: (tab: string, arg?: any) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
+export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) => {
   const { user, positions, instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useApp();
   if (!user) return null;
   const [activeTab, setActiveTab] = useState<'equity' | 'monthly'>('equity');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filter indices list
-  const indicesList = instruments.filter(inst => 
-    ['NIFTY 50', 'BANKNIFTY', 'SENSEX', 'FINNIFTY'].includes(inst.symbol)
-  );
+  const indicesList = React.useMemo(() => {
+    return instruments.filter(inst => 
+      ['NIFTY 50', 'BANKNIFTY', 'SENSEX', 'FINNIFTY'].includes(inst.symbol)
+    );
+  }, [instruments]);
 
   // Sparkline generator helper
-  const renderMiniSparkline = (points: number[], isPositive: boolean) => {
+  const renderMiniSparkline = React.useCallback((points: number[], isPositive: boolean) => {
     if (!points || points.length === 0) return null;
     const min = Math.min(...points);
     const max = Math.max(...points);
@@ -54,7 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         />
       </svg>
     );
-  };
+  }, []);
 
   // Search overlay states
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -169,53 +171,63 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   }, [isSearchOpen, tabFiltered, searchQuery]);
 
   // Filter open positions from closed logs in positions store
-  const openPositions = positions.filter(p => p.status === 'Open');
+  const openPositions = React.useMemo(() => positions.filter(p => p.status === 'Open'), [positions]);
 
   // Compute stats dynamically
-  const closedPositions = positions.filter(p => p.status === 'Closed');
-  const winsCount = closedPositions.filter(p => (p.realizedPnl || 0) > 0).length;
-  const lossesCount = closedPositions.filter(p => (p.realizedPnl || 0) < 0).length;
-  const totalClosedCount = closedPositions.length || 1;
-  const winRate = Math.round((winsCount / totalClosedCount) * 100);
+  const { winRate, profitFactor, openPositionsPnl, dailyPnl, totalPnl } = React.useMemo(() => {
+    const closedPositions = positions.filter(p => p.status === 'Closed');
+    const winsCount = closedPositions.filter(p => (p.realizedPnl || 0) > 0).length;
+    const lossesCount = closedPositions.filter(p => (p.realizedPnl || 0) < 0).length;
+    const totalClosedCount = closedPositions.length || 1;
+    const winRateVal = Math.round((winsCount / totalClosedCount) * 100);
 
-  // Profit factor = Sum(Wins) / Sum(Losses)
-  const grossWins = closedPositions.reduce((acc, curr) => (curr.realizedPnl || 0) > 0 ? acc + (curr.realizedPnl || 0) : acc, 0);
-  const grossLosses = Math.abs(closedPositions.reduce((acc, curr) => (curr.realizedPnl || 0) < 0 ? acc + (curr.realizedPnl || 0) : acc, 0)) || 1;
-  const profitFactor = Number((grossWins / grossLosses).toFixed(2));
+    const grossWins = closedPositions.reduce((acc, curr) => (curr.realizedPnl || 0) > 0 ? acc + (curr.realizedPnl || 0) : acc, 0);
+    const grossLosses = Math.abs(closedPositions.reduce((acc, curr) => (curr.realizedPnl || 0) < 0 ? acc + (curr.realizedPnl || 0) : acc, 0)) || 1;
+    const profitFactorVal = Number((grossWins / grossLosses).toFixed(2));
 
-  // Compute total unrealized P&L from open positions
-  const openPositionsPnl = openPositions.reduce((acc, p) => {
-    const singlePnl = p.direction === 'Long' ? (p.currentPrice - p.entryPrice) : (p.entryPrice - p.currentPrice);
-    return acc + (singlePnl * p.quantity);
-  }, 0);
+    const openPnl = openPositions.reduce((acc, p) => {
+      const singlePnl = p.direction === 'Long' ? (p.currentPrice - p.entryPrice) : (p.entryPrice - p.currentPrice);
+      return acc + (singlePnl * p.quantity);
+    }, 0);
 
-  const dailyPnl = openPositionsPnl + 2254.50; // Dynamic simulated baseline
-  const totalPnl = (user.virtualBalance - user.initialBalance) + openPositionsPnl;
+    const dailyPnlVal = openPnl + 2254.50; // Dynamic simulated baseline
+    const totalPnlVal = (user.virtualBalance - user.initialBalance) + openPnl;
 
-  const handleRefresh = () => {
+    return {
+      winRate: winRateVal,
+      profitFactor: profitFactorVal,
+      openPositionsPnl: openPnl,
+      dailyPnl: dailyPnlVal,
+      totalPnl: totalPnlVal
+    };
+  }, [positions, openPositions, user.virtualBalance, user.initialBalance]);
+
+  const handleRefresh = React.useCallback(() => {
     setIsRefreshing(true);
     setTimeout(() => {
       setIsRefreshing(false);
     }, 1000);
-  };
+  }, []);
 
   // Custom Equity Curve Coordinates for responsive SVG
-  const equityData = [480000, 485000, 478000, 492000, 498000, 488000, 501000, user.virtualBalance + openPositionsPnl];
-  const maxEquity = Math.max(...equityData);
-  const minEquity = Math.min(...equityData);
-  const range = maxEquity - minEquity || 1;
+  const equityData = React.useMemo(() => [480000, 485000, 478000, 492000, 498000, 488000, 501000, user.virtualBalance + openPositionsPnl], [user.virtualBalance, openPositionsPnl]);
+  
+  const { points, areaPoints, width, height, minEquity, range } = React.useMemo(() => {
+    const maxEquity = Math.max(...equityData);
+    const minEq = Math.min(...equityData);
+    const rng = maxEquity - minEq || 1;
 
-  // Render SVG Line Path
-  const width = 500;
-  const height = 180;
-  const points = equityData.map((val, index) => {
-    const x = (index / (equityData.length - 1)) * width;
-    const y = height - ((val - minEquity) / range) * (height - 30) - 15;
-    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-  }).join(' ');
+    const w = 500;
+    const h = 180;
+    const pts = equityData.map((val, index) => {
+      const x = (index / (equityData.length - 1)) * w;
+      const y = h - ((val - minEq) / rng) * (h - 30) - 15;
+      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
 
-  // SVG Area Path
-  const areaPoints = `${points} L ${width} ${height} L 0 ${height} Z`;
+    const aPts = `${pts} L ${w} ${h} L 0 ${h} Z`;
+    return { points: pts, areaPoints: aPts, width: w, height: h, minEquity: minEq, range: rng };
+  }, [equityData]);
 
   return (
     <div className="space-y-5 pb-24 max-w-5xl mx-auto w-full">
@@ -749,4 +761,4 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       </AnimatePresence>
     </div>
   );
-};
+});

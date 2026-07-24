@@ -13,7 +13,7 @@ interface TradeScreenProps {
   onSuccess: () => void;
 }
 
-export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
+export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }) => {
   const { selectedAsset, addOrder, user, isMarketOpen } = useApp();
   if (!user) return null;
   
@@ -66,39 +66,54 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
   const activePrice = orderType === 'Market' ? selectedAsset.ltp : parseFloat(limitPrice) || selectedAsset.ltp;
   
   // Position Sizing calculations
-  const plannerBalance = customBalanceInput ? (parseFloat(customBalanceInput) || user.virtualBalance) : user.virtualBalance;
-  const plannerRiskCapital = plannerBalance * (riskPercent / 100);
-  
-  const formSLVal = parseFloat(stopLoss);
-  const hasFormSL = !isNaN(formSLVal) && formSLVal > 0;
-  
-  const slPriceForSizing = hasFormSL 
-    ? formSLVal 
-    : (direction === 'Buy' ? activePrice * (1 - simSLPercent / 100) : activePrice * (1 + simSLPercent / 100));
+  const { plannerRecommendedQty, slPriceForSizing, hasFormSL, formSLVal, marginRequired, taxesAndCharges, plannerRiskCapital, plannerRiskPerShare, plannerRequiredMargin } = React.useMemo(() => {
+    const plannerBalance = customBalanceInput ? (parseFloat(customBalanceInput) || user.virtualBalance) : user.virtualBalance;
+    const riskCap = plannerBalance * (riskPercent / 100);
     
-  const plannerRiskPerShare = Math.max(0.01, Math.abs(activePrice - slPriceForSizing));
-  const plannerRecommendedQty = Math.max(1, Math.floor(plannerRiskCapital / plannerRiskPerShare));
-  const plannerRequiredMargin = plannerRecommendedQty * activePrice;
+    const slVal = parseFloat(stopLoss);
+    const formSLValid = !isNaN(slVal) && slVal > 0;
+    
+    const slPrice = formSLValid 
+      ? slVal 
+      : (direction === 'Buy' ? activePrice * (1 - simSLPercent / 100) : activePrice * (1 + simSLPercent / 100));
+      
+    const riskPerShare = Math.max(0.01, Math.abs(activePrice - slPrice));
+    const recommendedQty = Math.max(1, Math.floor(riskCap / riskPerShare));
+    const reqMargin = recommendedQty * activePrice;
 
-  const handleApplySizing = () => {
+    const marginReq = activePrice * qty;
+    const taxes = Number((marginReq * 0.0012).toFixed(2)); // STT, SEBI, GST estimation
+
+    return {
+      plannerRecommendedQty: recommendedQty,
+      slPriceForSizing: slPrice,
+      hasFormSL: formSLValid,
+      formSLVal: slVal,
+      marginRequired: marginReq,
+      taxesAndCharges: taxes,
+      plannerRiskCapital: riskCap,
+      plannerRiskPerShare: riskPerShare,
+      plannerRequiredMargin: reqMargin
+    };
+  }, [customBalanceInput, user.virtualBalance, riskPercent, stopLoss, direction, activePrice, simSLPercent, qty]);
+
+  const handleApplySizing = React.useCallback(() => {
     setQty(plannerRecommendedQty);
     if (!hasFormSL) {
       setStopLoss(slPriceForSizing.toFixed(2));
     }
-  };
+  }, [plannerRecommendedQty, hasFormSL, slPriceForSizing]);
 
-  const marginRequired = activePrice * qty;
   const estimatedBrokerage = direction === 'Buy' && orderType === 'Market' ? 20.00 : 0.00; // Zerodha delivery modeling
-  const taxesAndCharges = Number((marginRequired * 0.0012).toFixed(2)); // STT, SEBI, GST estimation
 
-  const handleQtyStep = (amt: number) => {
+  const handleQtyStep = React.useCallback((amt: number) => {
     setQty(prev => {
       const next = prev + amt;
       return next <= 0 ? 1 : next;
     });
-  };
+  }, []);
 
-  const handleOrderSubmission = (e: React.FormEvent) => {
+  const handleOrderSubmission = React.useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setFeedback(null);
@@ -124,7 +139,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
         }, 1500);
       }
     }, 1000);
-  };
+  }, [addOrder, selectedAsset.symbol, direction, orderType, qty, limitPrice, triggerPrice, stopLoss, target, onSuccess]);
 
   // Mock TradingView-style candlestick coordinates for SVG
   const candleCount = 12;
@@ -533,4 +548,4 @@ export const TradeScreen: React.FC<TradeScreenProps> = ({ onSuccess }) => {
     </div>
   </div>
   );
-};
+});

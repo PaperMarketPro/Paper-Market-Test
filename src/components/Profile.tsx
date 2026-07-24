@@ -17,7 +17,7 @@ interface ProfileProps {
   initialSubTab?: 'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings';
 }
 
-export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'stats' }) => {
+export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSubTab = 'stats' }) => {
   const { 
     user, badges, challenges, notifications, markNotificationAsRead, 
     clearAllNotifications, resetAccount, updateBalance, upgradeToPro, 
@@ -1076,4 +1076,4 @@ export const Profile: React.FC<ProfileProps> = ({ onLogout, initialSubTab = 'sta
       )}
     </div>
   );
-};
+});

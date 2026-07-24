@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Instrument } from '../types';
 
-export const RiskManagement: React.FC = () => {
+export const RiskManagement: React.FC = React.memo(() => {
   const { user, instruments, futures, setSelectedAssetBySymbol } = useApp();
   if (!user) return null;
 
@@ -434,4 +434,4 @@ export const RiskManagement: React.FC = () => {
       </div>
     </div>
   );
-};
+});

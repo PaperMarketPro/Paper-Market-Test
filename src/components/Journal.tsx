@@ -18,7 +18,7 @@ interface JournalProps {
   onClearPreselected: () => void;
 }
 
-export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPreselected }) => {
+export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition, onClearPreselected }) => {
   const { journals, positions, addJournalEntry, user, cognitiveRules } = useApp();
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showWizard, setShowWizard] = useState(false);
@@ -918,4 +918,4 @@ export const Journal: React.FC<JournalProps> = ({ preselectedPosition, onClearPr
       </AnimatePresence>
     </div>
   );
-};
+});

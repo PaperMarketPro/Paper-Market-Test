@@ -9,7 +9,7 @@ import { useApp } from '../store';
 import { Course, Lesson } from '../types';
 import { GraduationCap, BookOpen, Clock, Lock, CheckCircle2, ChevronRight, X, Play, ArrowRight, Award, Star, Info } from 'lucide-react';
 
-export const Academy: React.FC = () => {
+export const Academy: React.FC = React.memo(() => {
   const { courses, completeLesson, submitQuiz, user } = useApp();
   
   // Selection states
@@ -402,4 +402,4 @@ export const Academy: React.FC = () => {
       </AnimatePresence>
     </div>
   );
-};
+});

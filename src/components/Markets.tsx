@@ -91,7 +91,7 @@ interface MarketsProps {
   mode?: 'equity' | 'fno';
 }
 
-export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
+export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode }) => {
   const { instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useApp();
   const [activeTab, setActiveTab] = useState<'watchlist' | 'options' | 'indices'>(
     mode === 'fno' ? 'options' : 'watchlist'
@@ -218,26 +218,22 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
     );
   }, [instruments, searchQuery]);
 
-  const addToWatchlist = (symbol: string) => {
+  const addToWatchlist = React.useCallback((symbol: string) => {
     if (!myWatchlist.includes(symbol)) {
       setMyWatchlist(prev => [...prev, symbol]);
     }
     setShowSearchModal(false);
     setSearchQuery('');
-  };
+  }, [myWatchlist]);
 
-  const removeFromWatchlist = (symbol: string, e: React.MouseEvent) => {
+  const removeFromWatchlist = React.useCallback((symbol: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setMyWatchlist(prev => prev.filter(s => s !== symbol));
-  };
+  }, []);
 
-  const handleAssetTap = (inst: Instrument) => {
-    if (expandedAsset?.symbol === inst.symbol) {
-      setExpandedAsset(null);
-    } else {
-      setExpandedAsset(inst);
-    }
-  };
+  const handleAssetTap = React.useCallback((inst: Instrument) => {
+    setExpandedAsset(prev => prev?.symbol === inst.symbol ? null : inst);
+  }, []);
 
   const handleQuickTrade = React.useCallback((symbol: string) => {
     setSelectedAssetBySymbol(symbol);
@@ -1129,4 +1125,4 @@ export const Markets: React.FC<MarketsProps> = ({ onNavigate, mode }) => {
       </AnimatePresence>
     </div>
   );
-};
+});

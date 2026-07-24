@@ -12,7 +12,7 @@ interface BrandLogoProps {
   layout?: 'inline' | 'stacked';
 }
 
-export const BrandLogo: React.FC<BrandLogoProps> = ({ 
+export const BrandLogo: React.FC<BrandLogoProps> = React.memo(({ 
   className = '', 
   iconOnly = false,
   size = 'md',
@@ -120,4 +120,4 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       )}
     </div>
   );
-};
+});

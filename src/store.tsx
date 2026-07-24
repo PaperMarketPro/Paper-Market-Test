@@ -929,7 +929,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         return changed ? next : prev;
       });
-    }, 1200);
+    }, 2000);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
@@ -963,11 +963,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const message = JSON.parse(event.data);
           if (message.type === 'STATUS') {
-            setUpstoxStatus(prev => ({
-              ...prev,
-              connected: message.connected,
-              user: message.user
-            }));
+            setUpstoxStatus(prev => {
+              if (prev.connected === message.connected && prev.user?.email === message.user?.email) return prev;
+              return { ...prev, connected: message.connected, user: message.user };
+            });
           } else if (message.type === 'TICK') {
             lastLiveTicks[message.symbol] = Date.now();
             pendingTicks[message.symbol] = {

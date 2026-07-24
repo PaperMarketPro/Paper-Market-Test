@@ -20,17 +20,17 @@ interface NavigationProps {
   children: React.ReactNode;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, children }) => {
+export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
   const { user, notifications, theme, toggleTheme, isMarketOpen, enforceMarketHours } = useApp();
   if (!user) return null;
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const unreadNotifCount = notifications.filter(n => !n.isRead).length;
+  const unreadNotifCount = React.useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
-  const handleNavClick = (tab: string) => {
+  const handleNavClick = React.useCallback((tab: string) => {
     onNavigate(tab);
     setIsDrawerOpen(false);
-  };
+  }, [onNavigate]);
 
   const navItems = [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },
@@ -354,4 +354,4 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onNavigate, 
       </AnimatePresence>
     </div>
   );
-};
+});

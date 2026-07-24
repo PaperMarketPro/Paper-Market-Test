@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 
-export const StrategyBuilder: React.FC = () => {
+export const StrategyBuilder: React.FC = React.memo(() => {
   const { strategies, addStrategy, deleteStrategy, runBacktest, toggleAutoTrade, updateStrategyRiskParams } = useApp();
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
@@ -845,4 +845,4 @@ export const StrategyBuilder: React.FC = () => {
       )}
     </div>
   );
-};
+});

@@ -24,7 +24,7 @@ interface CustomLesson {
   quizExplanation: string;
 }
 
-export const AICoach: React.FC = () => {
+export const AICoach: React.FC = React.memo(() => {
   const { 
     insights, 
     journals, 
@@ -922,4 +922,4 @@ export const AICoach: React.FC = () => {
       </AnimatePresence>
     </div>
   );
-};
+});

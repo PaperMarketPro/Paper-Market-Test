@@ -13,45 +13,47 @@ interface PositionsListProps {
   onJournalShortcut: (pos: Position) => void;
 }
 
-export const PositionsList: React.FC<PositionsListProps> = ({ onJournalShortcut }) => {
+export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJournalShortcut }) => {
   const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen } = useApp();
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'orders'>('open');
 
   // Filter lists
-  const openPositions = positions.filter(p => p.status === 'Open');
-  const closedPositions = positions.filter(p => p.status === 'Closed');
+  const openPositions = React.useMemo(() => positions.filter(p => p.status === 'Open'), [positions]);
+  const closedPositions = React.useMemo(() => positions.filter(p => p.status === 'Closed'), [positions]);
 
   // Check if position already has a journal logged
-  const isJournaled = (posId: string) => journals.some(j => j.positionId === posId);
+  const isJournaled = React.useCallback((posId: string) => journals.some(j => j.positionId === posId), [journals]);
 
   // Total Open Unrealized P&L
-  const totalUnrealizedPnl = openPositions.reduce((acc, pos) => {
-    const singlePnl = pos.direction === 'Long'
-      ? (pos.currentPrice - pos.entryPrice)
-      : (pos.entryPrice - pos.currentPrice);
-    return acc + (singlePnl * pos.quantity);
-  }, 0);
+  const totalUnrealizedPnl = React.useMemo(() => {
+    return openPositions.reduce((acc, pos) => {
+      const singlePnl = pos.direction === 'Long'
+        ? (pos.currentPrice - pos.entryPrice)
+        : (pos.entryPrice - pos.currentPrice);
+      return acc + (singlePnl * pos.quantity);
+    }, 0);
+  }, [openPositions]);
 
   // Exit trigger handle
-  const handleExit = (id: string) => {
+  const handleExit = React.useCallback((id: string) => {
     exitPosition(id);
-  };
+  }, [exitPosition]);
 
   // State for modifying SL/Tgt
   const [editingPosId, setEditingPosId] = useState<string | null>(null);
   const [editSL, setEditSL] = useState<string>('');
   const [editTgt, setEditTgt] = useState<string>('');
 
-  const handleEditRiskStart = (p: Position) => {
+  const handleEditRiskStart = React.useCallback((p: Position) => {
     setEditingPosId(p.id);
     setEditSL(p.stopLoss?.toString() || '');
     setEditTgt(p.target?.toString() || '');
-  };
+  }, []);
 
-  const handleEditRiskSave = (id: string) => {
+  const handleEditRiskSave = React.useCallback((id: string) => {
     modifySLTarget(id, editSL ? parseFloat(editSL) : undefined, editTgt ? parseFloat(editTgt) : undefined);
     setEditingPosId(null);
-  };
+  }, [modifySLTarget, editSL, editTgt]);
 
   return (
     <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
@@ -338,4 +340,4 @@ export const PositionsList: React.FC<PositionsListProps> = ({ onJournalShortcut 
       )}
     </div>
   );
-};
+});

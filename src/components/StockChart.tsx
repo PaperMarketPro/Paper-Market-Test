@@ -87,7 +87,7 @@ export const NativeTickerTape: React.FC = React.memo(() => {
  * Native Technical Analysis Gauge Widget
  * Renders buy/sell gauges computed over standard technical oscillators and moving averages.
  */
-export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: Instrument; height?: number }> = ({ 
+export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: Instrument; height?: number }> = React.memo(({ 
   candles, 
   activeAsset, 
   height = 220 
@@ -320,7 +320,7 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
       </div>
     </div>
   );
-};
+});
 
 // Helper to enrich candles with continuous sequential Unix timestamps for lightweight-charts
 const enrichCandlesWithTimestamps = (rawCandles: Candle[], tf: string) => {
