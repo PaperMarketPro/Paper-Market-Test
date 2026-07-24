@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { AppProvider, useApp } from './store';
 import { Navigation } from './components/Navigation';
 import { AuthAndOnboarding } from './components/AuthAndOnboarding';
@@ -38,19 +38,27 @@ function MainAppCoordinator() {
     };
   }, []);
 
-  const handleJournalShortcut = (pos: Position) => {
+  const handleJournalShortcut = useCallback((pos: Position) => {
     setJournalPosition(pos);
     setCurrentTab('journal');
-  };
+  }, []);
 
-  const handleLogout = async () => {
+  const handleClearPreselected = useCallback(() => {
+    setJournalPosition(null);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
     try {
       await logoutUser();
     } catch (err) {
       console.error("Error logging out:", err);
     }
     setCurrentTab('dashboard');
-  };
+  }, [logoutUser]);
+
+  const handleTradeSuccess = useCallback(() => {
+    setCurrentTab('positions');
+  }, []);
 
   if (isAuthLoading) {
     return (
@@ -81,7 +89,7 @@ function MainAppCoordinator() {
         <Markets mode="fno" onNavigate={setCurrentTab} />
       )}
       {currentTab === 'trade' && (
-        <TradeScreen onSuccess={() => setCurrentTab('positions')} />
+        <TradeScreen onSuccess={handleTradeSuccess} />
       )}
       {currentTab === 'positions' && (
         <PositionsList onJournalShortcut={handleJournalShortcut} />
@@ -92,7 +100,7 @@ function MainAppCoordinator() {
       {currentTab === 'journal' && (
         <Journal
           preselectedPosition={journalPosition}
-          onClearPreselected={() => setJournalPosition(null)}
+          onClearPreselected={handleClearPreselected}
         />
       )}
       {currentTab === 'ai-coach' && (
