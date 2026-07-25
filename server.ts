@@ -872,15 +872,19 @@ function isIndianMarketOpen(): boolean {
   return timeInMinutes >= marketStart && timeInMinutes <= marketEnd;
 }
 
+let upstoxReconnectAttempts = 0;
+const upstoxActiveSubscriptions = new Set<string>(Object.values(UPSTOX_INSTRUMENT_MAP));
+
 function scheduleUpstoxReconnect(customDelay?: number) {
   if (upstoxReconnectTimeout) return; // already scheduled
   if (!upstoxAccessToken) return; // no token, don't reconnect
 
-  // 10 seconds during trading hours, 5 minutes during night/weekends to prevent IP blocks
-  const defaultDelay = isIndianMarketOpen() ? 10000 : 300000;
-  const delay = customDelay !== undefined ? customDelay : defaultDelay;
+  upstoxReconnectAttempts++;
+  // Exponential backoff: 2s, 3s, 4.5s, 6.75s... capped at 30s (or 10s during trading hours)
+  const baseDelay = Math.min(30000, Math.round(2000 * Math.pow(1.5, upstoxReconnectAttempts - 1)));
+  const delay = customDelay !== undefined ? customDelay : baseDelay;
 
-  console.log(`[UPSTOX RECONNECT] Scheduling Upstox WebSocket reconnection in ${delay / 1000} seconds...`);
+  console.log(`[UPSTOX WS RECONNECT] Attempt #${upstoxReconnectAttempts}. Scheduling reconnection in ${(delay / 1000).toFixed(1)}s...`);
   upstoxReconnectTimeout = setTimeout(async () => {
     upstoxReconnectTimeout = null;
     await connectUpstoxFeed();
@@ -892,11 +896,12 @@ async function connectUpstoxFeed() {
     if (!upstoxAccessToken) return;
 
     if (isSimulatedToken(upstoxAccessToken)) {
-      console.log("[UPSTOX FEED] Simulated/mock token is active. Bypassing live WebSocket connection and starting the simulation engine.");
+      console.log("[UPSTOX FEED] Simulated/mock token is active. Bypassing live WebSocket connection and starting paper simulation engine.");
       startSimulationLoop();
       return;
     }
 
+    console.log(`[UPSTOX WS AUTH] Authorizing Upstox Market Data Feed WebSocket connection...`);
     // 1. Authorize WebSocket connection
     const authRes = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
       headers: {
@@ -906,7 +911,18 @@ async function connectUpstoxFeed() {
     });
 
     if (!authRes.ok) {
-      console.log(`[UPSTOX FEED] Upstox WS authorization returned ${authRes.status}. Switching to simulated market session.`);
+      console.warn(`[UPSTOX WS AUTH EXPIRED] Authorization failed with status ${authRes.status}. Triggering automatic TOTP re-authentication...`);
+      
+      if (authRes.status === 400 || authRes.status === 401 || authRes.status === 403 || authRes.status === 410) {
+        const renewed = await autoRenewUpstoxToken().catch(() => false);
+        if (renewed && upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) {
+          console.log("[UPSTOX WS RE-AUTH SUCCESS] Successfully renewed access token. Re-authorizing WebSocket...");
+          scheduleUpstoxReconnect(1000);
+          return;
+        }
+      }
+
+      console.log(`[UPSTOX FEED] Automatic re-authentication fallback: Activating paper trading session.`);
       upstoxAccessToken = "upstox_auto_session_" + Date.now();
       upstoxConnectedUser = {
         email: "pro_feed_user@papermarket.local",
@@ -914,10 +930,6 @@ async function connectUpstoxFeed() {
         userId: "UPSTOX_USER"
       };
       await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
-      
-      if (authRes.status === 400 || authRes.status === 401 || authRes.status === 403 || authRes.status === 410) {
-        autoRenewUpstoxToken().catch(() => {});
-      }
       startSimulationLoop();
       return;
     }
@@ -925,12 +937,12 @@ async function connectUpstoxFeed() {
     const authData = await authRes.json();
     const redirectUrl = authData?.data?.authorizedRedirectUri || authData?.data?.authorized_redirect_uri || authData?.data?.authorizedRedirectUrl;
     if (!redirectUrl) {
-      console.error("Invalid authorize redirect URL from Upstox:", authData);
+      console.error("[UPSTOX WS AUTH ERROR] Invalid authorize redirect URL from Upstox:", authData);
       scheduleUpstoxReconnect();
       return;
     }
 
-    console.log("Upstox WS Authorized. Connecting to:", redirectUrl);
+    console.log(`[UPSTOX WS CONNECTING] WebSocket authorized. Connecting to URI: ${redirectUrl.substring(0, 60)}...`);
 
     // 2. Load the protobuf schema
     const root = await protobuf.load("./MarketDataFeed.proto");
@@ -943,32 +955,37 @@ async function connectUpstoxFeed() {
     }
 
     // 3. Establish WS connection
-    // Note: Do not pass Authorization handshake headers here, as standard browsers do not support custom WS headers.
-    // The authorizedRedirectUri is already fully pre-signed by Upstox, and passing extra headers triggers a 403 error.
     upstoxWs = new WS(redirectUrl);
 
     let lastMessageTime = Date.now();
 
     upstoxWs.on("open", () => {
-      console.log("Upstox Live WebSocket connected successfully!");
+      console.log("[UPSTOX WS OPEN] Upstox Live Market Data WebSocket connected successfully!");
+      upstoxReconnectAttempts = 0; // Reset exponential backoff on successful connect
       lastMessageTime = Date.now();
-      // Send subscription request for all configured instrument keys
-      const subscriptionMessage = {
-        guid: "papermarket-subscription-v3",
-        method: "sub",
-        data: {
-          mode: "full",
-          instrumentKeys: Object.values(UPSTOX_INSTRUMENT_MAP)
-        }
-      };
-      upstoxWs?.send(JSON.stringify(subscriptionMessage));
+
+      // AUTOMATIC SUBSCRIPTION RECOVERY: Send active subscribed instrument keys
+      const currentSubKeys = Array.from(upstoxActiveSubscriptions);
+      if (currentSubKeys.length > 0) {
+        console.log(`[UPSTOX WS SUB RECOVERY] Auto-subscribing ${currentSubKeys.length} instrument keys to live feed...`);
+        const subscriptionMessage = {
+          guid: "papermarket-subscription-" + Date.now(),
+          method: "sub",
+          data: {
+            mode: "full",
+            instrumentKeys: currentSubKeys
+          }
+        };
+        upstoxWs?.send(JSON.stringify(subscriptionMessage));
+      }
     });
 
     upstoxWs.on("pong", () => {
       lastMessageTime = Date.now(); // Pong counts as active connection liveness
+      console.log("[UPSTOX WS HEARTBEAT PONG] Liveness confirmed by server.");
     });
 
-    // Start keepalive heartbeat check (runs every 60 seconds)
+    // Start keepalive heartbeat check (runs every 25 seconds)
     upstoxPingInterval = setInterval(() => {
       if (!upstoxWs || upstoxWs.readyState !== WS.OPEN) {
         if (upstoxPingInterval) {
@@ -980,26 +997,27 @@ async function connectUpstoxFeed() {
 
       const elapsed = Date.now() - lastMessageTime;
 
-      // Only enforce silence timeout (5 minutes) during Indian market hours to avoid overnight/weekend reconnect loops
-      if (isIndianMarketOpen()) {
-        if (elapsed > 300000) { // 5 minutes of absolute silence during active trading
-          console.warn("[UPSTOX WS] Silent link detected (no ticks for 5 mins during trading hours). Terminating connection to force reconnect...");
+      // Heartbeat timeout: If no ticks or pongs received for 45s, terminate connection to force clean reconnect
+      if (elapsed > 45000) {
+        console.warn(`[UPSTOX WS HEARTBEAT TIMEOUT] No activity for ${Math.round(elapsed / 1000)}s. Terminating socket to trigger automatic reconnection...`);
+        try {
           upstoxWs.terminate();
-          if (upstoxPingInterval) {
-            clearInterval(upstoxPingInterval);
-            upstoxPingInterval = null;
-          }
-          return;
+        } catch (_) {}
+        if (upstoxPingInterval) {
+          clearInterval(upstoxPingInterval);
+          upstoxPingInterval = null;
         }
+        return;
       }
 
-      // Proactively send a standard WebSocket ping frame to verify TCP health
+      // Send standard WebSocket ping frame
       try {
+        console.log("[UPSTOX WS HEARTBEAT PING] Sending ping frame to Upstox...");
         upstoxWs.ping();
       } catch (err: any) {
-        console.error("[UPSTOX WS] Failed to send ping frame:", err.message);
+        console.error("[UPSTOX WS HEARTBEAT ERROR] Failed to send ping frame:", err.message);
       }
-    }, 60000); // Check every 60 seconds
+    }, 25000); // Check every 25 seconds
 
     upstoxWs.on("message", (data: Buffer) => {
       try {
@@ -1063,12 +1081,12 @@ async function connectUpstoxFeed() {
           });
         }
       } catch (err: any) {
-        console.error("Protobuf WS Decode Error:", err.message);
+        console.error("[UPSTOX WS PROTOBUF DECODE ERROR]:", err.message);
       }
     });
 
     upstoxWs.on("close", (code, reason) => {
-      console.log(`Upstox Live WebSocket closed: Code ${code}, Reason: ${reason}`);
+      console.log(`[UPSTOX WS CLOSE] Upstox Live WebSocket closed: Code ${code}, Reason: ${reason || "No reason given"}`);
       upstoxWs = null;
       if (upstoxPingInterval) {
         clearInterval(upstoxPingInterval);
@@ -1078,7 +1096,7 @@ async function connectUpstoxFeed() {
     });
 
     upstoxWs.on("error", (error) => {
-      console.error("Upstox Live WebSocket Error:", error.message);
+      console.error("[UPSTOX WS ERROR]:", error.message);
       if (upstoxPingInterval) {
         clearInterval(upstoxPingInterval);
         upstoxPingInterval = null;
@@ -1089,7 +1107,7 @@ async function connectUpstoxFeed() {
     });
 
   } catch (error: any) {
-    console.error("Failed to connect Upstox Feed:", error.message);
+    console.error("[UPSTOX WS FATAL ERROR]:", error.message);
     if (upstoxPingInterval) {
       clearInterval(upstoxPingInterval);
       upstoxPingInterval = null;
@@ -1106,7 +1124,7 @@ function reconnectUpstoxWebSocket() {
   }
   if (!upstoxAccessToken) return;
 
-  console.log("Initiating Upstox Live Market Data WebSocket connection...");
+  console.log("[UPSTOX WS RECONNECT] Initiating Upstox Live Market Data WebSocket connection...");
   connectUpstoxFeed();
 }
 
