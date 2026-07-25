@@ -1485,7 +1485,56 @@ export const TradingViewChart: React.FC<{
       bbLowerSeriesRef.current = null;
       bbBasisSeriesRef.current = null;
     };
-  }, [candles, timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200, showPatternMarkers]);
+  }, [timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200, showPatternMarkers]);
+
+  // Smoothly update series data whenever candles change without recreating the Lightweight Chart instance
+  useEffect(() => {
+    if (!chartRef.current || candles.length === 0) return;
+    const enrichedCandles = enrichCandlesWithTimestamps(candles, timeframe);
+
+    if (chartType === 'candle' && candlestickSeriesRef.current) {
+      candlestickSeriesRef.current.setData(enrichedCandles.map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      })));
+    } else if (areaSeriesRef.current) {
+      areaSeriesRef.current.setData(enrichedCandles.map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        value: c.close,
+      })));
+    }
+
+    if (volumeSeriesRef.current) {
+      volumeSeriesRef.current.setData(enrichedCandles.map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+      })));
+    }
+
+    if (emaSeriesRef.current) {
+      emaSeriesRef.current.setData(enrichedCandles.filter(c => c.ema !== undefined).map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        value: c.ema!,
+      })));
+    }
+
+    if (smaSeriesRef.current) {
+      smaSeriesRef.current.setData(enrichedCandles.filter(c => c.sma !== undefined).map(c => ({
+        time: c.timestamp as UTCTimestamp,
+        value: c.sma!,
+      })));
+    }
+
+    if (bbUpperSeriesRef.current && bbLowerSeriesRef.current && bbBasisSeriesRef.current) {
+      bbUpperSeriesRef.current.setData(enrichedCandles.filter(c => c.bbUpper !== undefined).map(c => ({ time: c.timestamp as UTCTimestamp, value: c.bbUpper! })));
+      bbLowerSeriesRef.current.setData(enrichedCandles.filter(c => c.bbLower !== undefined).map(c => ({ time: c.timestamp as UTCTimestamp, value: c.bbLower! })));
+      bbBasisSeriesRef.current.setData(enrichedCandles.filter(c => c.bbBasis !== undefined).map(c => ({ time: c.timestamp as UTCTimestamp, value: c.bbBasis! })));
+    }
+  }, [candles, timeframe, chartType]);
 
   const riskRewardRatio = useMemo(() => {
     if (!rrSetup) return null;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { UserProfile, Instrument, Order, Position, JournalEntry, AIInsight, Strategy, Course, Challenge, Badge, OptionChainItem, CognitiveRule, LLMConfig } from './types';
 import { INITIAL_INSTRUMENTS, MOCK_OPTION_CHAIN, INITIAL_POSITIONS, CLOSED_POSITIONS, INITIAL_ORDERS, INITIAL_JOURNAL, INITIAL_AI_INSIGHTS, ACADEMY_COURSES, INITIAL_CHALLENGES, INITIAL_BADGES, randomWalk, generateFuturesForInstruments } from './mockData';
 import { auth, db } from './firebase';
@@ -361,11 +361,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Maintain instruments ref to avoid unnecessary state updates in fallback timer
+  // Maintain instruments and positions refs to avoid infinite re-render cycles in effects
   const instrumentsRef = useRef(instruments);
   useEffect(() => {
     instrumentsRef.current = instruments;
   }, [instruments]);
+
+  const positionsRef = useRef(positions);
+  useEffect(() => {
+    positionsRef.current = positions;
+  }, [positions]);
 
   // Sync state back to Firestore on structural user-driven state changes with 2s debounce
   const positionsStructuralKey = useMemo(() => {
@@ -651,7 +656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isRealUpstox: false
   });
 
-  const fetchRealUpstoxLtp = async () => {
+  const fetchRealUpstoxLtp = useCallback(async () => {
     try {
       const res = await fetch('/api/integrations/upstox/ltp');
       if (res.ok) {
@@ -679,9 +684,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.warn("[Upstox LTP Synchronizer] Error fetching LTP (expected during boot, offline, or restart):", err);
     }
-  };
+  }, []);
 
-  const refreshUpstoxStatus = async () => {
+  const refreshUpstoxStatus = useCallback(async () => {
     try {
       const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
       if (res.ok) {
@@ -700,7 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
     }
-  };
+  }, []);
 
   const disconnectUpstox = async () => {
     try {
@@ -737,7 +742,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     refreshUpstoxStatus();
-  }, []);
+  }, [refreshUpstoxStatus]);
 
   useEffect(() => {
     if (upstoxStatus.connected) {
@@ -745,7 +750,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const interval = setInterval(fetchRealUpstoxLtp, 30000);
       return () => clearInterval(interval);
     }
-  }, [upstoxStatus.connected]);
+  }, [upstoxStatus.connected, fetchRealUpstoxLtp]);
 
   // Listen for success messages from OAuth popup
   useEffect(() => {
@@ -785,149 +790,152 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         delete pendingTicks[key];
       }
 
-      // 1. Batch update instruments
-      setInstruments(prev => {
-        let changed = false;
-        const next = prev.map(inst => {
-          const tick = ticksToProcess[inst.symbol];
-          if (!tick) return inst;
+      // Wrap price tick updates in React startTransition so UI button clicks and navigation take immediate priority
+      startTransition(() => {
+        // 1. Batch update instruments
+        setInstruments(prev => {
+          let changed = false;
+          const next = prev.map(inst => {
+            const tick = ticksToProcess[inst.symbol];
+            if (!tick) return inst;
 
-          let nextLtp = inst.ltp;
-          let nextChange = inst.change;
-          let nextHigh = inst.high;
-          let nextLow = inst.low;
+            let nextLtp = inst.ltp;
+            let nextChange = inst.change;
+            let nextHigh = inst.high;
+            let nextLow = inst.low;
 
-          if (tick.isSim) {
-            nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-            nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
-            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
-            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
-          } else {
-            nextLtp = tick.ltp ?? inst.ltp;
-            nextChange = tick.change ?? inst.change;
-            nextHigh = tick.high ?? inst.high;
-            nextLow = tick.low ?? inst.low;
-          }
-
-          if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
-            return inst;
-          }
-
-          changed = true;
-          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-          return {
-            ...inst,
-            ltp: nextLtp,
-            change: nextChange,
-            high: nextHigh,
-            low: nextLow,
-            sparkline: sparkCopy
-          };
-        });
-        return changed ? next : prev;
-      });
-
-      // 2. Batch update futures
-      setFutures(prev => {
-        let changed = false;
-        const next = prev.map(inst => {
-          // Find matching tick by checking if symbol starts with any tick symbol
-          let matchedSymbol: string | null = null;
-          let matchedTick: any = null;
-
-          const keysToProcess = Object.keys(ticksToProcess);
-          for (const sym of keysToProcess) {
-            if (inst.symbol.startsWith(sym) || 
-                (sym === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
-                (sym === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'))) {
-              matchedSymbol = sym;
-              matchedTick = ticksToProcess[sym];
-              break;
+            if (tick.isSim) {
+              nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+              nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
+              nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+              nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+            } else {
+              nextLtp = tick.ltp ?? inst.ltp;
+              nextChange = tick.change ?? inst.change;
+              nextHigh = tick.high ?? inst.high;
+              nextLow = tick.low ?? inst.low;
             }
-          }
 
-          if (!matchedTick) return inst;
+            if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
+              return inst;
+            }
 
-          let nextLtp = inst.ltp;
-          let nextChange = inst.change;
-          let nextHigh = inst.high;
-          let nextLow = inst.low;
-
-          if (matchedTick.isSim) {
-            nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-            nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
-            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
-            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
-          } else {
-            // Adjust future relative to spot tick or update directly
-            const baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
-            nextLtp = baseLtp;
-            nextChange = matchedTick.change ?? inst.change;
-            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
-            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
-          }
-
-          if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
-            return inst;
-          }
-
-          changed = true;
-          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-          return {
-            ...inst,
-            ltp: nextLtp,
-            change: nextChange,
-            high: nextHigh,
-            low: nextLow,
-            sparkline: sparkCopy,
-          };
+            changed = true;
+            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            return {
+              ...inst,
+              ltp: nextLtp,
+              change: nextChange,
+              high: nextHigh,
+              low: nextLow,
+              sparkline: sparkCopy
+            };
+          });
+          return changed ? next : prev;
         });
-        return changed ? next : prev;
-      });
 
-      // 3. Batch update optionChain
-      setOptionChain(prev => {
-        let changed = false;
-        const next = prev.map(item => {
-          const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
-          const tick = ticksToProcess[underlierSymbol];
-          if (!tick) return item;
+        // 2. Batch update futures
+        setFutures(prev => {
+          let changed = false;
+          const next = prev.map(inst => {
+            // Find matching tick by checking if symbol starts with any tick symbol
+            let matchedSymbol: string | null = null;
+            let matchedTick: any = null;
 
-          let callLtp = item.calls.ltp;
-          let putLtp = item.puts.ltp;
+            const keysToProcess = Object.keys(ticksToProcess);
+            for (const sym of keysToProcess) {
+              if (inst.symbol.startsWith(sym) || 
+                  (sym === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
+                  (sym === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'))) {
+                matchedSymbol = sym;
+                matchedTick = ticksToProcess[sym];
+                break;
+              }
+            }
 
-          if (tick.isSim) {
-            callLtp = randomWalk(item.calls.ltp, item.calls.ltp * 0.95, item.calls.ltp * 1.05, 0.002);
-            putLtp = randomWalk(item.puts.ltp, item.puts.ltp * 0.95, item.puts.ltp * 1.05, 0.002);
-          } else if (tick.ltp !== undefined) {
-            const strike = item.strikePrice;
-            const spot = tick.ltp;
-            const distance = strike - spot;
-            const strikeStep = (item.underlier === 'BANKNIFTY' || item.underlier === 'SENSEX' || item.underlier === 'FINNIFTY') ? 100 : 50;
+            if (!matchedTick) return inst;
 
-            const callIntrinsic = Math.max(0, spot - strike);
-            const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-            const calculatedCallLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-            callLtp = calculatedCallLtp < 1.0 ? 1.05 : calculatedCallLtp;
+            let nextLtp = inst.ltp;
+            let nextChange = inst.change;
+            let nextHigh = inst.high;
+            let nextLow = inst.low;
 
-            const putIntrinsic = Math.max(0, strike - spot);
-            const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-            const calculatedPutLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-            putLtp = calculatedPutLtp < 1.0 ? 1.05 : calculatedPutLtp;
-          }
+            if (matchedTick.isSim) {
+              nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
+              nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
+              nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+              nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+            } else {
+              // Adjust future relative to spot tick or update directly
+              const baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
+              nextLtp = baseLtp;
+              nextChange = matchedTick.change ?? inst.change;
+              nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+              nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+            }
 
-          if (callLtp === item.calls.ltp && putLtp === item.puts.ltp) {
-            return item;
-          }
+            if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
+              return inst;
+            }
 
-          changed = true;
-          return {
-            ...item,
-            calls: { ...item.calls, ltp: callLtp },
-            puts: { ...item.puts, ltp: putLtp }
-          };
+            changed = true;
+            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            return {
+              ...inst,
+              ltp: nextLtp,
+              change: nextChange,
+              high: nextHigh,
+              low: nextLow,
+              sparkline: sparkCopy,
+            };
+          });
+          return changed ? next : prev;
         });
-        return changed ? next : prev;
+
+        // 3. Batch update optionChain
+        setOptionChain(prev => {
+          let changed = false;
+          const next = prev.map(item => {
+            const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
+            const tick = ticksToProcess[underlierSymbol];
+            if (!tick) return item;
+
+            let callLtp = item.calls.ltp;
+            let putLtp = item.puts.ltp;
+
+            if (tick.isSim) {
+              callLtp = randomWalk(item.calls.ltp, item.calls.ltp * 0.95, item.calls.ltp * 1.05, 0.002);
+              putLtp = randomWalk(item.puts.ltp, item.puts.ltp * 0.95, item.puts.ltp * 1.05, 0.002);
+            } else if (tick.ltp !== undefined) {
+              const strike = item.strikePrice;
+              const spot = tick.ltp;
+              const distance = strike - spot;
+              const strikeStep = (item.underlier === 'BANKNIFTY' || item.underlier === 'SENSEX' || item.underlier === 'FINNIFTY') ? 100 : 50;
+
+              const callIntrinsic = Math.max(0, spot - strike);
+              const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+              const calculatedCallLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+              callLtp = calculatedCallLtp < 1.0 ? 1.05 : calculatedCallLtp;
+
+              const putIntrinsic = Math.max(0, strike - spot);
+              const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+              const calculatedPutLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+              putLtp = calculatedPutLtp < 1.0 ? 1.05 : calculatedPutLtp;
+            }
+
+            if (callLtp === item.calls.ltp && putLtp === item.puts.ltp) {
+              return item;
+            }
+
+            changed = true;
+            return {
+              ...item,
+              calls: { ...item.calls, ltp: callLtp },
+              puts: { ...item.puts, ltp: putLtp }
+            };
+          });
+          return changed ? next : prev;
+        });
       });
     }, 2000);
 
@@ -1059,7 +1067,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        if (nextPrice !== pos.currentPrice) {
+        if (Math.abs(nextPrice - pos.currentPrice) > 0.01) {
           changed = true;
           return { ...pos, currentPrice: nextPrice };
         }
@@ -1071,6 +1079,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [instruments, futures]);
 
   // AI Auto-Trader Real-Time Strategy Execution Engine
+  const lastAutoTradeRef = useRef<Record<string, number>>({});
+
   useEffect(() => {
     const activeStrategies = strategies.filter(s => s.isAutoTradeActive);
     if (activeStrategies.length === 0) return;
@@ -1078,8 +1088,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Skip trading if market is closed and strict enforcement is active
     if (enforceMarketHours && !isMarketOpen) return;
 
+    const now = Date.now();
+
     // Check every strategy against the currently selected asset's tick
     activeStrategies.forEach(strat => {
+      // Cooldown check (minimum 15 seconds per strategy trigger)
+      const lastRun = lastAutoTradeRef.current[strat.id] || 0;
+      if (now - lastRun < 15000) return;
+
       const symbol = selectedAssetSymbol || 'RELIANCE';
       const asset = instruments.find(i => i.symbol === symbol);
       if (!asset) return;
@@ -1112,20 +1128,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (cond.operator === 'less than') return currentIndicatorVal < valThresh;
         if (cond.operator === 'greater than') return currentIndicatorVal > valThresh;
-        // Mock cross-overs on noisy tick
         if (cond.operator === 'crosses below') return currentIndicatorVal < valThresh + 1 && currentIndicatorVal > valThresh - 2;
         if (cond.operator === 'crosses above') return currentIndicatorVal > valThresh - 1 && currentIndicatorVal < valThresh + 2;
         return false;
       };
 
-      const hasOpenPosition = positions.some(p => p.symbol === symbol && p.status === 'Open');
+      const currentPositions = positionsRef.current;
+      const hasOpenPosition = currentPositions.some(p => p.symbol === symbol && p.status === 'Open');
 
       if (!hasOpenPosition) {
         // Evaluate Entry Conditions (All must be met)
         const entriesMatch = strat.entryConditions.length > 0 && strat.entryConditions.every(c => checkConditionMatches(c));
         
-        // Add a safety check or a subtle randomization (25% chance of entry to keep ticks paced naturally)
-        if (entriesMatch && Math.random() < 0.35) {
+        if (entriesMatch) {
+          lastAutoTradeRef.current[strat.id] = now;
           const qty = symbol.includes('NIFTY') ? 75 : 100;
           addOrder({
             symbol,
@@ -1142,12 +1158,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } else {
         // Evaluate Exit Conditions (Any matching)
-        const openPos = positions.find(p => p.symbol === symbol && p.status === 'Open');
+        const openPos = currentPositions.find(p => p.symbol === symbol && p.status === 'Open');
         if (!openPos) return;
 
         const exitsMatch = strat.exitConditions.length > 0 && strat.exitConditions.some(c => checkConditionMatches(c));
         
-        // Dynamic Stop-loss or Profit Target for Auto-trader security
         const targetPct = (strat.takeProfitPercent !== undefined ? strat.takeProfitPercent : 5.0) / 100;
         const slPct = -(strat.stopLossPercent !== undefined ? strat.stopLossPercent : 2.5) / 100;
 
@@ -1155,7 +1170,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const isTargetHit = changePct >= targetPct;
         const isStopLossHit = changePct <= slPct;
 
-        if ((exitsMatch && Math.random() < 0.35) || isTargetHit || isStopLossHit) {
+        if (exitsMatch || isTargetHit || isStopLossHit) {
+          lastAutoTradeRef.current[strat.id] = now;
           exitPosition(openPos.id);
           const reasonText = isTargetHit 
             ? `Profit Target (${(targetPct * 100).toFixed(1)}%)` 
@@ -1170,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     });
-  }, [instruments, strategies]);
+  }, [instruments, strategies, enforceMarketHours, isMarketOpen, selectedAssetSymbol]);
 
   // Visual Theme Toggle
   const toggleTheme = () => {
@@ -1381,12 +1397,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualBalance: prev.virtualBalance - (orderData.direction === 'Buy' ? orderCost : -orderCost)
       }));
 
-      // Position update
-      const existingPosIndex = positions.findIndex(p => p.symbol === orderData.symbol && p.status === 'Open');
+      // Position update atomic update
+      setPositions(prev => {
+        const existingPosIndex = prev.findIndex(p => p.symbol === orderData.symbol && p.status === 'Open');
 
-      if (existingPosIndex > -1) {
-        // Average-in to existing position
-        setPositions(prev => {
+        if (existingPosIndex > -1) {
           const list = [...prev];
           const pos = list[existingPosIndex];
           const isSameDirection = (pos.direction === 'Long' && orderData.direction === 'Buy') || (pos.direction === 'Short' && orderData.direction === 'Sell');
@@ -1430,23 +1445,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           }
           return list;
-        });
-      } else {
-        // Create new open position
-        const newPos: Position = {
-          id: `pos-${Date.now()}`,
-          symbol: orderData.symbol,
-          direction: orderData.direction === 'Buy' ? 'Long' : 'Short',
-          quantity: orderData.quantity,
-          entryPrice: executionPrice,
-          currentPrice: executionPrice,
-          stopLoss: orderData.stopLoss,
-          target: orderData.target,
-          timestamp: new Date().toISOString(),
-          status: 'Open'
-        };
-        setPositions(prev => [newPos, ...prev]);
-      }
+        } else {
+          // Create new open position
+          const newPos: Position = {
+            id: `pos-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            symbol: orderData.symbol,
+            direction: orderData.direction === 'Buy' ? 'Long' : 'Short',
+            quantity: orderData.quantity,
+            entryPrice: executionPrice,
+            currentPrice: executionPrice,
+            stopLoss: orderData.stopLoss,
+            target: orderData.target,
+            timestamp: new Date().toISOString(),
+            status: 'Open'
+          };
+          return [newPos, ...prev];
+        }
+      });
 
       // Quick gamification check
       addXP(20);

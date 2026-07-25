@@ -52,8 +52,11 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
       setWizPosition(preselectedPosition);
       setShowWizard(true);
       setWizardStep(2); // Jump straight to choice step
+      if (onClearPreselected) {
+        onClearPreselected();
+      }
     }
-  }, [preselectedPosition]);
+  }, [preselectedPosition, onClearPreselected]);
 
   // Filter closed positions that are NOT journaled yet
   const unjournaledPositions = positions.filter(

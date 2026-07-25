@@ -1234,8 +1234,8 @@ function startSimulationLoop() {
   if (simulationInterval) return;
 
   simulationInterval = setInterval(() => {
-    // Only simulate if Upstox WS is NOT active
-    if (upstoxWs) return;
+    // Only simulate if Upstox WS is NOT active and open
+    if (upstoxWs && upstoxWs.readyState === WS.OPEN) return;
 
     // Simulate tick updates for multiple symbols every 1000ms to keep the UI smooth and responsive
     const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);

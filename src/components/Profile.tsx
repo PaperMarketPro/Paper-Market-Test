@@ -38,7 +38,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const [upstoxRedirectType, setUpstoxRedirectType] = useState<'localhost' | 'cloud'>('localhost');
-  const [perpetualGuardActive, setPerpetualGuardActive] = useState<boolean>(true);
 
   const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -805,115 +804,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                   </div>
                 </div>
             )}
-
-                {/* 24/7 Perpetual Market Connection Feature */}
-                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3 font-sans">
-                  <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-500/20 dark:border-emerald-500/30 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-                          <Sparkles className="w-4 h-4 animate-pulse" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-xs font-bold text-slate-900 dark:text-white font-sans">
-                              24/7 Perpetual Market Connection
-                            </h4>
-                            <span className="text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                              ACTIVE & FOREVER LINKED
-                            </span>
-                          </div>
-                          <p className="text-[10.5px] text-slate-600 dark:text-gray-300 font-sans mt-0.5">
-                            Permanent server session guard. Zero manual re-login required.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setIsReconnecting(true);
-                            setTokenError(null);
-                            setTokenSuccess(null);
-                            try {
-                              const res = await fetch("/api/integrations/upstox/reconnect", { method: "POST" });
-                              const data = await res.json();
-                              if (res.ok && data.success) {
-                                setTokenSuccess("24/7 Keep-Alive pulse verified! Connection is active and healthy.");
-                                await refreshUpstoxStatus();
-                              } else {
-                                setTokenError(data.error || "Keep-Alive pulse check failed.");
-                              }
-                            } catch (err: any) {
-                              setTokenError(err.message || "Failed to contact server.");
-                            } finally {
-                              setIsReconnecting(false);
-                            }
-                          }}
-                          disabled={isReconnecting}
-                          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-1.5 px-3.5 rounded-xl text-[10.5px] transition border border-emerald-700/30 shadow-sm flex items-center gap-1.5 cursor-pointer"
-                        >
-                          {isReconnecting ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                              Verifying Pulse...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="w-3 h-3" />
-                              Verify 24/7 Health Pulse
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">
-                      <div className="bg-white/60 dark:bg-black/30 border border-slate-200/60 dark:border-white/10 rounded-xl p-2.5 space-y-1">
-                        <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 block font-mono uppercase">
-                          1. Session Memory
-                        </span>
-                        <p className="text-[10px] text-slate-600 dark:text-gray-300 leading-snug">
-                          Token & auth state saved persistently in Firestore and local disk cache.
-                        </p>
-                      </div>
-
-                      <div className="bg-white/60 dark:bg-black/30 border border-slate-200/60 dark:border-white/10 rounded-xl p-2.5 space-y-1">
-                        <span className="text-[9.5px] font-bold text-sky-600 dark:text-sky-400 block font-mono uppercase">
-                          2. Continuous Stream
-                        </span>
-                        <p className="text-[10px] text-slate-600 dark:text-gray-300 leading-snug">
-                          Live exchange ticks stream continuously without dropping or timing out.
-                        </p>
-                      </div>
-
-                      <div className="bg-white/60 dark:bg-black/30 border border-slate-200/60 dark:border-white/10 rounded-xl p-2.5 space-y-1">
-                        <span className="text-[9.5px] font-bold text-amber-600 dark:text-amber-400 block font-mono uppercase">
-                          3. Auto Failover
-                        </span>
-                        <p className="text-[10px] text-slate-600 dark:text-gray-300 leading-snug">
-                          When daily broker session expires, high-speed simulated ticks bridge 24/7.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 text-[10.5px]">
-                      <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300 font-bold">
-                        <input
-                          type="checkbox"
-                          checked={perpetualGuardActive}
-                          onChange={(e) => setPerpetualGuardActive(e.target.checked)}
-                          className="rounded border-slate-300 dark:border-white/10 bg-white dark:bg-[#0b0e14] text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        />
-                        Enable 24/7 Perpetual Market Connection Protection
-                      </label>
-                      <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono hidden sm:inline">
-                        Status: FOREVER CONNECTED
-                      </span>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Success and Error Indicators */}
                 {(tokenError || tokenSuccess) && (
