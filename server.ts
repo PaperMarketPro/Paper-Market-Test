@@ -906,22 +906,19 @@ async function connectUpstoxFeed() {
     });
 
     if (!authRes.ok) {
-      const errText = await authRes.text();
-      console.log("[UPSTOX FEED] Upstox WS authorization status:", authRes.status, errText);
+      console.log(`[UPSTOX FEED] Upstox WS authorization returned ${authRes.status}. Switching to simulated market session.`);
+      upstoxAccessToken = "upstox_auto_session_" + Date.now();
+      upstoxConnectedUser = {
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Account",
+        userId: "UPSTOX_USER"
+      };
+      await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
       
       if (authRes.status === 400 || authRes.status === 401 || authRes.status === 403 || authRes.status === 410) {
-        console.log(`[UPSTOX FEED] Token is invalid or expired (${authRes.status}). Attempting automated background renewal...`);
-        const renewed = await autoRenewUpstoxToken();
-        if (renewed) {
-          return;
-        }
-        
-        console.log("[UPSTOX FEED] Auto-renewal unavailable. Seamlessly activating simulation feed for paper trading.");
-        startSimulationLoop();
-      } else {
-        console.log(`[UPSTOX FEED] WS authorize returned ${authRes.status}. Activating simulator feed.`);
-        startSimulationLoop();
+        autoRenewUpstoxToken().catch(() => {});
       }
+      startSimulationLoop();
       return;
     }
 
@@ -1158,16 +1155,16 @@ async function verifyAndConnectProvidedToken(token: string) {
     });
 
     if (!res.ok) {
-      console.log(`[UPSTOX PRO VERIFICATION] Token profile status: ${res.status}. Activating 24/7 Perpetual Market Session Guard...`);
-      upstoxAccessToken = token;
+      console.log(`[UPSTOX PRO VERIFICATION] Token profile status: ${res.status}. Switching to 24/7 Paper Trading Session...`);
+      upstoxAccessToken = "upstox_auto_session_" + Date.now();
       upstoxConnectedUser = {
         email: "pro_feed_user@papermarket.local",
         userName: "Upstox Pro Account",
         userId: "UPSTOX_USER",
       };
-      await saveUpstoxTokenToFirestore(token, upstoxConnectedUser);
+      await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
       startSimulationLoop();
-      return true;
+      return false;
     }
 
     const data = await res.json();
@@ -1185,28 +1182,28 @@ async function verifyAndConnectProvidedToken(token: string) {
       reconnectUpstoxWebSocket();
       return true;
     } else {
-      console.log("[UPSTOX PRO VERIFICATION] Activating 24/7 Perpetual Session Guard fallback...");
-      upstoxAccessToken = token;
+      console.log("[UPSTOX PRO VERIFICATION] Profile check not successful. Switching to 24/7 Paper Trading Session...");
+      upstoxAccessToken = "upstox_auto_session_" + Date.now();
       upstoxConnectedUser = {
         email: "pro_feed_user@papermarket.local",
         userName: "Upstox Pro Account",
         userId: "UPSTOX_USER",
       };
-      await saveUpstoxTokenToFirestore(token, upstoxConnectedUser);
+      await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
       startSimulationLoop();
-      return true;
+      return false;
     }
   } catch (err: any) {
-    console.error("[UPSTOX PRO VERIFICATION] Exception raised, applying 24/7 Perpetual Guard:", err.message);
-    upstoxAccessToken = token;
+    console.log("[UPSTOX PRO VERIFICATION] Exception raised, switching to 24/7 Paper Trading Session:", err.message);
+    upstoxAccessToken = "upstox_auto_session_" + Date.now();
     upstoxConnectedUser = {
       email: "pro_feed_user@papermarket.local",
       userName: "Upstox Pro Account",
       userId: "UPSTOX_USER",
     };
-    await saveUpstoxTokenToFirestore(token, upstoxConnectedUser);
+    await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
     startSimulationLoop();
-    return true;
+    return false;
   } finally {
     console.log("------------------------------------------------------------------");
   }
@@ -1393,9 +1390,21 @@ function getLLMParameters(llmConfig: any, cognitiveRules: any, defaultModel: str
 
 async function startServer() {
   const app = express();
+  app.disable("x-powered-by");
+
+  // Harden HTTP Security Headers
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
+
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // API Routes
   app.get("/api/health", (req, res) => {
@@ -3398,11 +3407,11 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
       }
     }
 
-    // 4. Fallback to default/provided token if both saved token and auto-renewal are unavailable
+    // 4. Fallback to simulated token if both saved token and auto-renewal are unavailable
     if (!hasSavedToken) {
-      console.log("[STARTUP] Automated renewal unavailable. Falling back to default token...");
-      const providedToken = "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0VUFQVzYiLCJqdGkiOiI2YTUzNDhmZjA4OWEyZjI0OGM2Y2NjMzkiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6ZmFsc2UsImlhdCI6MTc4Mzg0MzA3MSwiaXNzIjoidWRhcGktZ2F0ZXdheS1zZXJ2aWNlIiwiZXhwIjoxNzgzODkzNjAwfQ.hyMkiLlwaZEpYWGR3k1DenCvfx_KfZZErje_wQfFWdU";
-      await verifyAndConnectProvidedToken(providedToken);
+      console.log("[STARTUP] Live token unavailable. Initializing 24/7 high-fidelity paper trading simulation...");
+      const simulatedToken = "upstox_auto_session_" + Date.now();
+      await verifyAndConnectProvidedToken(simulatedToken);
     }
 
     // 5. Start hourly health-check/autorenew loop
