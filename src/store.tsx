@@ -361,7 +361,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Maintain instruments and positions refs to avoid infinite re-render cycles in effects
+  // Maintain instruments, positions, user, futures, and market hours refs to avoid infinite re-render cycles in effects
   const instrumentsRef = useRef(instruments);
   useEffect(() => {
     instrumentsRef.current = instruments;
@@ -371,6 +371,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     positionsRef.current = positions;
   }, [positions]);
+
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  const futuresRef = useRef(futures);
+  useEffect(() => {
+    futuresRef.current = futures;
+  }, [futures]);
+
+  const enforceMarketHoursRef = useRef(enforceMarketHours);
+  useEffect(() => {
+    enforceMarketHoursRef.current = enforceMarketHours;
+  }, [enforceMarketHours]);
+
+  const isMarketOpenRef = useRef(isMarketOpen);
+  useEffect(() => {
+    isMarketOpenRef.current = isMarketOpen;
+  }, [isMarketOpen]);
 
   // Sync state back to Firestore on structural user-driven state changes with 2s debounce
   const positionsStructuralKey = useMemo(() => {
@@ -742,7 +762,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     refreshUpstoxStatus();
-  }, [refreshUpstoxStatus]);
+  }, []);
 
   useEffect(() => {
     if (upstoxStatus.connected) {
@@ -1249,9 +1269,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Add Notification Helper
-  const pushNotification = (title: string, body: string, type: 'alert' | 'xp' | 'badge' | 'coach') => {
+  const pushNotification = useCallback((title: string, body: string, type: 'alert' | 'xp' | 'badge' | 'coach') => {
     const newNotif: AppNotification = {
-      id: `nt-${Date.now()}`,
+      id: `nt-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       title,
       body,
       timestamp: new Date().toISOString(),
@@ -1259,24 +1279,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isRead: false
     };
     setNotifications(prev => [newNotif, ...prev]);
-  };
+  }, []);
 
   // XP & Level-up system helper
-  const addXP = (amount: number) => {
+  const addXP = useCallback((amount: number) => {
     setUser(prev => {
+      if (!prev) return prev;
       const totalXp = prev.xp + amount;
-      // Formula for level: Lvl 1 = 0, Lvl 2 = 100, Lvl 3 = 250, Lvl 4 = 500, Lvl 5 = 1000, Lvl 6 = 2000
       let nextLvl = prev.level;
-      if (totalXp >= 1000 && prev.level < 5) nextLvl = 5;
+      if (totalXp >= 2000 && prev.level < 6) nextLvl = 6;
+      else if (totalXp >= 1000 && prev.level < 5) nextLvl = 5;
       else if (totalXp >= 500 && prev.level < 4) nextLvl = 4;
       else if (totalXp >= 250 && prev.level < 3) nextLvl = 3;
       else if (totalXp >= 100 && prev.level < 2) nextLvl = 2;
-
-      if (nextLvl > prev.level) {
-        setTimeout(() => {
-          pushNotification(`Level Up! Level ${nextLvl}`, `Phenomenal progress, you have leveled up to Level ${nextLvl}! Complete more quizzes to unlock intermediate badges.`, 'badge');
-        }, 800);
-      }
 
       return {
         ...prev,
@@ -1284,10 +1299,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         level: nextLvl
       };
     });
-  };
+
+    const currentUser = userRef.current;
+    if (currentUser) {
+      const totalXp = currentUser.xp + amount;
+      let nextLvl = currentUser.level;
+      if (totalXp >= 2000 && currentUser.level < 6) nextLvl = 6;
+      else if (totalXp >= 1000 && currentUser.level < 5) nextLvl = 5;
+      else if (totalXp >= 500 && currentUser.level < 4) nextLvl = 4;
+      else if (totalXp >= 250 && currentUser.level < 3) nextLvl = 3;
+      else if (totalXp >= 100 && currentUser.level < 2) nextLvl = 2;
+
+      if (nextLvl > currentUser.level) {
+        pushNotification(`Level Up! Level ${nextLvl}`, `Phenomenal progress, you have leveled up to Level ${nextLvl}! Complete more quizzes to unlock intermediate badges.`, 'badge');
+      }
+    }
+  }, [pushNotification]);
 
   // Place Order (Center screen CTA / Watchlist detail)
-  const addOrder = (orderData: {
+  const addOrder = useCallback((orderData: {
     symbol: string;
     direction: 'Buy' | 'Sell';
     type: 'Market' | 'Limit' | 'Stop-Loss';
@@ -1298,7 +1328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     target?: number;
   }) => {
     // Strict Market Hours Enforcement Check
-    if (enforceMarketHours && !isMarketOpen) {
+    if (enforceMarketHoursRef.current && !isMarketOpenRef.current) {
       pushNotification(
         'Transaction Blocked', 
         'Placing orders is strictly blocked outside Indian Stock Market hours (Monday to Friday, 9:15 AM - 3:30 PM IST).', 
@@ -1310,13 +1340,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const asset = instruments.find(i => i.symbol === orderData.symbol);
+    const asset = instrumentsRef.current.find(i => i.symbol === orderData.symbol);
     let executionPrice = orderData.price;
     if (!executionPrice) {
       if (asset) {
         executionPrice = asset.ltp;
       } else {
-        const matchingFuture = futures.find(f => f.symbol === orderData.symbol);
+        const matchingFuture = futuresRef.current.find(f => f.symbol === orderData.symbol);
         if (matchingFuture) {
           executionPrice = matchingFuture.ltp;
         } else if (orderData.symbol.includes('CE') || orderData.symbol.includes('PE')) {
@@ -1327,7 +1357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (!isNaN(strike)) {
             const underlierName = parts[0];
             const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
-            const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
+            const underlier = instrumentsRef.current.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
             const spot = underlier ? underlier.ltp : 24325.85;
             const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
             const distance = strike - spot;
@@ -1354,8 +1384,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const orderCost = executionPrice * orderData.quantity;
 
     // Pre-trade risk validation
-    if (orderCost > user.virtualBalance && orderData.direction === 'Buy') {
-      return { success: false, message: `Insufficient Balance. Required: ₹${orderCost.toLocaleString('en-IN')}, Available: ₹${user.virtualBalance.toLocaleString('en-IN')}` };
+    const currentBalance = userRef.current?.virtualBalance || 100000;
+    if (orderCost > currentBalance && orderData.direction === 'Buy') {
+      return { success: false, message: `Insufficient Balance. Required: ₹${orderCost.toLocaleString('en-IN')}, Available: ₹${currentBalance.toLocaleString('en-IN')}` };
     }
 
     if (orderData.quantity <= 0) {
@@ -1363,7 +1394,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 1% Risk Size Warning Check
-    const onePercentOfBalance = user.virtualBalance * 0.01;
+    const onePercentOfBalance = currentBalance * 0.01;
     let riskEstimated = 0;
     if (orderData.stopLoss) {
       riskEstimated = Math.abs(executionPrice - orderData.stopLoss) * orderData.quantity;
@@ -1392,10 +1423,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // If Market, execute immediately and modify positions list
     if (orderData.type === 'Market') {
-      setUser(prev => ({
+      setUser(prev => prev ? ({
         ...prev,
         virtualBalance: prev.virtualBalance - (orderData.direction === 'Buy' ? orderCost : -orderCost)
-      }));
+      }) : prev);
+
+      // Pre-compute closed position if opposite direction closes position
+      const existingPos = positionsRef.current.find(p => p.symbol === orderData.symbol && p.status === 'Open');
+      let closedPos: Position | null = null;
+      if (existingPos) {
+        const isSameDirection = (existingPos.direction === 'Long' && orderData.direction === 'Buy') || (existingPos.direction === 'Short' && orderData.direction === 'Sell');
+        if (!isSameDirection) {
+          const remainingQty = existingPos.quantity - orderData.quantity;
+          if (remainingQty <= 0) {
+            const realizedPnl = (existingPos.direction === 'Long') 
+              ? (executionPrice - existingPos.entryPrice) * existingPos.quantity 
+              : (existingPos.entryPrice - executionPrice) * existingPos.quantity;
+            closedPos = {
+              ...existingPos,
+              status: 'Closed',
+              currentPrice: executionPrice,
+              realizedPnl: Number(realizedPnl.toFixed(2)),
+              closedTimestamp: new Date().toISOString()
+            };
+          }
+        }
+      }
 
       // Position update atomic update
       setPositions(prev => {
@@ -1420,22 +1473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Opposite order reducing size
             const remainingQty = pos.quantity - orderData.quantity;
             if (remainingQty <= 0) {
-              // Position closed
-              const realizedPnl = (pos.direction === 'Long') 
-                ? (executionPrice - pos.entryPrice) * pos.quantity 
-                : (pos.entryPrice - executionPrice) * pos.quantity;
-
               list.splice(existingPosIndex, 1);
-              // Save to closed history
-              const closedPos: Position = {
-                ...pos,
-                status: 'Closed',
-                currentPrice: executionPrice,
-                realizedPnl: Number(realizedPnl.toFixed(2)),
-                closedTimestamp: new Date().toISOString()
-              };
-              setClosedHistory(prevHistory => [closedPos, ...prevHistory]);
-              addXP(50); // XP for completion
             } else {
               // Partial reduction
               list[existingPosIndex] = {
@@ -1463,6 +1501,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
+      if (closedPos) {
+        setClosedHistory(prevHistory => [closedPos!, ...prevHistory]);
+        addXP(50);
+      }
+
       // Quick gamification check
       addXP(20);
       pushNotification('Trade Executed', `${orderData.direction} ${orderData.quantity} shares of ${orderData.symbol} at ₹${executionPrice}`, 'alert');
@@ -1472,12 +1515,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pushNotification('Order Placed', `Limit Order to ${orderData.direction} ${orderData.quantity} shares of ${orderData.symbol} at ₹${executionPrice} is now Pending.`, 'alert');
       return { success: true, message: 'Order submitted as pending.' };
     }
-  };
+  }, [pushNotification, addXP]);
+
+  // Add Journal entry
+  const addJournalEntry = useCallback((entryData: Omit<JournalEntry, 'id' | 'timestamp'>) => {
+    const newEntry: JournalEntry = {
+      ...entryData,
+      id: `jr-${Date.now()}`,
+      timestamp: new Date().toISOString()
+    };
+
+    setJournals(prev => [newEntry, ...prev]);
+    pushNotification('Journal Saved', `Excellent discipline! Entry logged for ${entryData.symbol}.`, 'xp');
+    addXP(100); // Massive XP for maintaining journal
+
+    // Check journal challenge reward
+    const journalChallenge = challenges.find(ch => ch.category === 'Journal' && !ch.isCompleted);
+    let rewardXP = 0;
+    if (journalChallenge && journalChallenge.progress + 1 >= journalChallenge.target) {
+      rewardXP = journalChallenge.xpReward;
+    }
+
+    // Update rigorous journal challenge
+    setChallenges(prev =>
+      prev.map(ch => {
+        if (ch.category === 'Journal' && !ch.isCompleted) {
+          const nextProg = ch.progress + 1;
+          const done = nextProg >= ch.target;
+          return { ...ch, progress: nextProg > ch.target ? ch.target : nextProg, isCompleted: done };
+        }
+        return ch;
+      })
+    );
+
+    if (rewardXP > 0) {
+      addXP(rewardXP);
+    }
+
+    // Dynamic prompt mistake evaluator trigger
+    if (entryData.mistakeTags.length > 0) {
+      const mistakeReport: AIInsight = {
+        id: `insight-m-${Date.now()}`,
+        category: 'Psychology',
+        headline: `Discipline Warning: ${entryData.mistakeTags[0]} logged`,
+        description: `Your log for ${entryData.symbol} records '${entryData.mistakeTags[0]}'. Repeating this behavior consistently contributes to a 15% reduction in win rate over 30 days. Consider configuring automatic order triggers in our Strategy Builder to block emotional decisions.`,
+        severity: 'medium',
+        confidence: 91,
+        tradeReference: entryData.symbol
+      };
+      setInsights(prev => [mistakeReport, ...prev]);
+    }
+  }, [pushNotification, addXP]);
 
   // Exit/Close Position manually (Positions Tab)
-  const exitPosition = (positionId: string, quantityToExit?: number) => {
+  const exitPosition = useCallback((positionId: string, quantityToExit?: number) => {
     // Strict Market Hours Enforcement Check
-    if (enforceMarketHours && !isMarketOpen) {
+    if (enforceMarketHoursRef.current && !isMarketOpenRef.current) {
       pushNotification(
         'Transaction Blocked', 
         'Closing positions is strictly blocked outside Indian Stock Market hours (Monday to Friday, 9:15 AM - 3:30 PM IST).', 
@@ -1489,10 +1582,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const pos = positions.find(p => p.id === positionId);
+    const pos = positionsRef.current.find(p => p.id === positionId);
     if (!pos) return { success: false, message: 'Position not found' };
 
-    const asset = instruments.find(i => i.symbol === pos.symbol);
+    const asset = instrumentsRef.current.find(i => i.symbol === pos.symbol);
     const exitPrice = asset ? asset.ltp : pos.currentPrice;
     const qty = quantityToExit || pos.quantity;
 
@@ -1550,12 +1643,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setClosedHistory(prev => [closedPos, ...prev]);
 
     // Challenge check
+    const tradeChallenge = challenges.find(ch => ch.category === 'Trade' && !ch.isCompleted);
+    let tradeChallengeXP = 0;
+    if (tradeChallenge && tradeChallenge.progress + 1 >= tradeChallenge.target) {
+      tradeChallengeXP = tradeChallenge.xpReward;
+    }
+
     setChallenges(prev =>
       prev.map(ch => {
         if (ch.category === 'Trade' && !ch.isCompleted) {
           const nextProg = ch.progress + 1;
           const done = nextProg >= ch.target;
-          if (done) addXP(ch.xpReward);
           return { ...ch, progress: nextProg > ch.target ? ch.target : nextProg, isCompleted: done };
         }
         return ch;
@@ -1583,7 +1681,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setInsights(prev => [newCoachInsight, ...prev]);
     pushNotification('Position Closed', `Exited ${qty} shares of ${pos.symbol} with P&L of ₹${realizedPnl.toFixed(2)}`, isWin ? 'alert' : 'coach');
-    addXP(40);
+    addXP(40 + tradeChallengeXP);
 
     // COMPLETELY AUTOMATED AI TRADE JOURNALING SYSTEM
     (async () => {
@@ -1655,7 +1753,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })();
 
     return { success: true, message: 'Position exited successfully!' };
-  };
+  }, [pushNotification, addXP, addJournalEntry]);
 
   // Modify Stop-Loss and Target levels
   const modifySLTarget = (positionId: string, stopLoss?: number, target?: number) => {
@@ -1670,45 +1768,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pushNotification('S/L & Target Updated', 'Risk parameters updated successfully.', 'alert');
   };
 
-  // Add Journal entry
-  const addJournalEntry = (entryData: Omit<JournalEntry, 'id' | 'timestamp'>) => {
-    const newEntry: JournalEntry = {
-      ...entryData,
-      id: `jr-${Date.now()}`,
-      timestamp: new Date().toISOString()
-    };
 
-    setJournals(prev => [newEntry, ...prev]);
-    pushNotification('Journal Saved', `Excellent discipline! Entry logged for ${entryData.symbol}.`, 'xp');
-    addXP(100); // Massive XP for maintaining journal
-
-    // Update rigorous journal challenge
-    setChallenges(prev =>
-      prev.map(ch => {
-        if (ch.category === 'Journal' && !ch.isCompleted) {
-          const nextProg = ch.progress + 1;
-          const done = nextProg >= ch.target;
-          if (done) addXP(ch.xpReward);
-          return { ...ch, progress: nextProg > ch.target ? ch.target : nextProg, isCompleted: done };
-        }
-        return ch;
-      })
-    );
-
-    // Dynamic prompt mistake evaluator trigger
-    if (entryData.mistakeTags.length > 0) {
-      const mistakeReport: AIInsight = {
-        id: `insight-m-${Date.now()}`,
-        category: 'Psychology',
-        headline: `Discipline Warning: ${entryData.mistakeTags[0]} logged`,
-        description: `Your log for ${entryData.symbol} records '${entryData.mistakeTags[0]}'. Repeating this behavior consistently contributes to a 15% reduction in win rate over 30 days. Consider configuring automatic order triggers in our Strategy Builder to block emotional decisions.`,
-        severity: 'medium',
-        confidence: 91,
-        tradeReference: entryData.symbol
-      };
-      setInsights(prev => [mistakeReport, ...prev]);
-    }
-  };
 
   const addStrategy = (strategyData: Omit<Strategy, 'id' | 'backtestResults'>) => {
     const newStrat: Strategy = {
@@ -1770,22 +1830,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleAutoTrade = (strategyId: string) => {
+    let nextState = false;
+    let stratName = '';
     setStrategies(prev => prev.map(s => {
       if (s.id === strategyId) {
-        const nextState = !s.isAutoTradeActive;
-        setTimeout(() => {
-          pushNotification(
-            nextState ? 'Auto-Trader Active' : 'Auto-Trader Suspended',
-            nextState
-              ? `AI Auto-Trader active. Placing live simulated paper trades for '${s.name}'.`
-              : `Automated trading paused for '${s.name}'.`,
-            'alert'
-          );
-        }, 100);
+        nextState = !s.isAutoTradeActive;
+        stratName = s.name;
         return { ...s, isAutoTradeActive: nextState };
       }
       return s;
     }));
+
+    if (stratName) {
+      pushNotification(
+        nextState ? 'Auto-Trader Active' : 'Auto-Trader Suspended',
+        nextState
+          ? `AI Auto-Trader active. Placing live simulated paper trades for '${stratName}'.`
+          : `Automated trading paused for '${stratName}'.`,
+        'alert'
+      );
+    }
   };
 
   const runBacktest = async (strategyId: string) => {
@@ -1847,16 +1911,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Course completed lessons & complete quiz
   const completeLesson = (courseId: string, lessonId: string) => {
+    let earnedXP = 0;
+    let completedLessonTitle = '';
+
     setCourses(prev =>
       prev.map(course => {
         if (course.id === courseId) {
           const updatedLessons = course.lessons.map(lesson => {
             if (lesson.id === lessonId) {
               if (!lesson.isCompleted) {
-                addXP(20);
-                setTimeout(() => {
-                  pushNotification('Lesson Completed', `Finished: ${lesson.title}. Earned +20 XP.`, 'xp');
-                }, 100);
+                earnedXP += 20;
+                completedLessonTitle = lesson.title;
               }
               return { ...lesson, isCompleted: true };
             }
@@ -1883,12 +1948,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (ch.category === 'Academy' && !ch.isCompleted) {
           const nextProg = ch.progress + 1;
           const done = nextProg >= ch.target;
-          if (done) addXP(ch.xpReward);
+          if (done) earnedXP += ch.xpReward;
           return { ...ch, progress: nextProg > ch.target ? ch.target : nextProg, isCompleted: done };
         }
         return ch;
       })
     );
+
+    if (completedLessonTitle) {
+      pushNotification('Lesson Completed', `Finished: ${completedLessonTitle}. Earned +20 XP.`, 'xp');
+    }
+    if (earnedXP > 0) {
+      addXP(earnedXP);
+    }
   };
 
   const submitQuiz = (courseId: string, score: number) => {
@@ -1897,17 +1969,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (score === 100) {
       // Award Option Chain architect badge if Options Course (crs-2)
+      let badgeEarnedName = '';
       setBadges(prev =>
         prev.map(bd => {
           if (bd.code === 'OPTIONS_PRO' && !bd.isEarned) {
-            setTimeout(() => {
-              pushNotification('Badge Earned!', `Unbelievable! You earned the '${bd.name}' badge!`, 'badge');
-            }, 500);
+            badgeEarnedName = bd.name;
             return { ...bd, isEarned: true, earnedDate: new Date().toISOString().split('T')[0] };
           }
           return bd;
         })
       );
+      if (badgeEarnedName) {
+        pushNotification('Badge Earned!', `Unbelievable! You earned the '${badgeEarnedName}' badge!`, 'badge');
+      }
     }
   };
 

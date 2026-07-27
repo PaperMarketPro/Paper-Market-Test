@@ -46,17 +46,29 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
   const [wizRating, setWizRating] = useState<number>(3);
   const [aiCritique, setAiCritique] = useState('');
 
+  const processedPreselectedRef = React.useRef<string | null>(null);
+  const onClearPreselectedRef = React.useRef(onClearPreselected);
+
+  React.useEffect(() => {
+    onClearPreselectedRef.current = onClearPreselected;
+  });
+
   // Auto trigger wizard if preselected is available
   useEffect(() => {
     if (preselectedPosition) {
-      setWizPosition(preselectedPosition);
-      setShowWizard(true);
-      setWizardStep(2); // Jump straight to choice step
-      if (onClearPreselected) {
-        onClearPreselected();
+      if (processedPreselectedRef.current !== preselectedPosition.id) {
+        processedPreselectedRef.current = preselectedPosition.id;
+        setWizPosition(preselectedPosition);
+        setShowWizard(true);
+        setWizardStep(2); // Jump straight to choice step
+        if (onClearPreselectedRef.current) {
+          onClearPreselectedRef.current();
+        }
       }
+    } else {
+      processedPreselectedRef.current = null;
     }
-  }, [preselectedPosition, onClearPreselected]);
+  }, [preselectedPosition]);
 
   // Filter closed positions that are NOT journaled yet
   const unjournaledPositions = positions.filter(

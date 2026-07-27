@@ -559,269 +559,32 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
 
       {activeSubTab === 'settings' && (
         <div className="space-y-6 max-w-4xl mx-auto w-full">
-          {/* Upstox Live Market Feed card */}
-          <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 space-y-5 shadow-xl">
+          {/* Streamlined Live Market Feed status card */}
+          <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
               <div className="space-y-1">
-                <span className="text-xs font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">Data Feed Provider Settings</span>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Upstox Pro Live Market Feed</h3>
+                <span className="text-xs font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">Data Feed Settings</span>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Automated Real-Time Market Feed</h3>
                 <p className="text-[11px] text-slate-500 dark:text-gray-400 font-sans">
-                  Connect your Upstox Developer account for real-time NSE/BSE tick prices, or fall back to high-fidelity simulated feeds.
+                  Real-time price ticks, orderbook matching, and candlestick data are automatically managed in the background.
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {upstoxStatus.connected ? (
-                  <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 shadow-sm shadow-emerald-500/5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                      {upstoxStatus.isRealUpstox ? 'PRO LIVE FEED ACTIVE' : 'PRO FEED ACTIVE (AUTO-SYNCHRONIZED)'}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 px-3 py-1 rounded-full border border-slate-200 dark:border-white/5">
-                    <span className="h-2 w-2 rounded-full bg-slate-400"></span>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 font-mono">DEMO SIMULATOR ACTIVE</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 shadow-sm shadow-emerald-500/5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                    BACKEND FEED ACTIVE
+                  </span>
+                </div>
               </div>
             </div>
-
-            {upstoxStatus.connected ? (
-              <div className="space-y-4">
-                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">Feed Connection:</span>
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-md">
-                        {upstoxStatus.isRealUpstox ? 'ACTIVE & SECURED' : 'PRO ETERNAL ACTIVE'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-sans leading-relaxed">
-                      {upstoxStatus.isRealUpstox 
-                        ? 'Your real-time NSE/BSE pricing feed is active and synchronized. It updates the terminal orderbook and charts automatically.'
-                        : 'Your Pro account is persistently linked. High-fidelity pricing is auto-synchronized with low-latency ticks to keep the market active 24/7. You can paste a new token anytime to sync direct exchange prices.'}
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2.5 self-stretch sm:self-auto shrink-0">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setIsReconnecting(true);
-                        setTokenError(null);
-                        setTokenSuccess(null);
-                        try {
-                          const res = await fetch("/api/integrations/upstox/reconnect", { method: "POST" });
-                          const data = await res.json();
-                          if (res.ok && data.success) {
-                            setTokenSuccess(data.message || "Connection resync triggered successfully!");
-                            await refreshUpstoxStatus();
-                          } else {
-                            setTokenError(data.error || "Failed to trigger connection resync.");
-                          }
-                        } catch (err: any) {
-                          setTokenError(err.message || "Failed to contact server.");
-                        } finally {
-                          setIsReconnecting(false);
-                        }
-                      }}
-                      disabled={isReconnecting}
-                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-xs transition border border-blue-700 cursor-pointer whitespace-nowrap text-center font-sans flex items-center justify-center gap-1"
-                    >
-                      {isReconnecting ? (
-                        <>
-                          <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                          Resynching...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" />
-                          Resync Connection
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={disconnectUpstox}
-                      className="bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold py-2 px-4 rounded-xl text-xs transition border border-red-500/15 cursor-pointer whitespace-nowrap self-stretch sm:self-auto text-center font-sans"
-                    >
-                      Disconnect Upstox
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 font-sans">
-                {/* Integration Info */}
-                <div className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed font-sans bg-slate-50 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 rounded-xl p-3.5 space-y-1.5">
-                  <p>
-                    ⚡ **Seamless 24/7 Continuity (Dual-Sync Mode):** By default, Paper Market Pro is equipped with a high-fidelity low-latency market pricing simulator. If you link your Upstox Pro Developer Feed, you will receive real exchange tick prices.
-                  </p>
-                  <p className="text-[10px] text-slate-500 dark:text-gray-500 font-sans">
-                    🛡️ **SEBI Regulation & Daily Expiration Policy:** In compliance with Indian exchange security mandates, Upstox access tokens are cleared at approximately 3:30 AM IST daily. There is no refresh token. **Paper Market Pro handles this gracefully:** when your Upstox token expires, the system automatically and silently switches back to high-fidelity live simulated prices. Your order terminal, charts, and portfolios remain 100% active and running continuously without any freezing or broken screens! You can easily link a new token at market open to resume real price feeds.
-                  </p>
-                </div>
-
-
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
-                    {/* Option A: Manual Paste */}
-                    <div className="bg-slate-50/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-3.5">
-                      <div>
-                        <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">Option A: Smart Linker</span>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">Paste Code, URL, or Token</h4>
-                        <p className="text-[10.5px] text-slate-500 dark:text-gray-400 font-sans mt-0.5">
-                          Paste your raw Access Token, authorization code, or the <strong>entire redirect URL</strong> (even if the browser showed a "site can't be reached" error). We will parse it and link you instantly!
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Paste Token, Auth Code, or Redirect URL..."
-                          value={manualToken ?? ''}
-                          onChange={(e) => setManualToken(e.target.value)}
-                          className="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-slate-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:border-sky-500/50"
-                        />
-                        <button
-                          type="button"
-                          disabled={isConnectingToken || !manualToken.trim()}
-                          onClick={async () => {
-                            if (!manualToken.trim()) return;
-                            setIsConnectingToken(true);
-                            setTokenError(null);
-                            setTokenSuccess(null);
-                            const result = await connectUpstoxManually(manualToken.trim());
-                            if (result.success) {
-                              setTokenSuccess("Successfully connected to Upstox Pro Live Feed!");
-                              setManualToken('');
-                            } else {
-                              setTokenError(result.error || "Failed to connect. Check your token.");
-                            }
-                            setIsConnectingToken(false);
-                          }}
-                          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-sans"
-                        >
-                          {isConnectingToken ? (
-                            <>
-                              <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                              Processing & Connecting...
-                            </>
-                          ) : (
-                            <>
-                              Connect & Verify Feed
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Option B: OAuth Flow */}
-                    <div className="bg-slate-50/50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4 space-y-3.5 flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <div>
-                          <span className="text-[10px] font-mono text-amber-500 uppercase tracking-widest block font-bold">Option B: OAuth Portal</span>
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">Developer Login OAuth Portal</h4>
-                        </div>
-
-                        {/* SELECT REDIRECT TYPE */}
-                        <div className="space-y-1.5 bg-slate-100/50 dark:bg-black/10 p-2.5 rounded-lg border border-slate-200/50 dark:border-white/5">
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase font-mono">1. Choose Redirect URI in Upstox Console:</span>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setUpstoxRedirectType('localhost')}
-                              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold font-mono transition text-center border cursor-pointer ${
-                                upstoxRedirectType === 'localhost'
-                                  ? 'bg-amber-600 text-white shadow-sm border-amber-700'
-                                  : 'bg-white dark:bg-[#11141c] text-slate-600 dark:text-gray-400 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`}
-                            >
-                              localhost:3000
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setUpstoxRedirectType('cloud')}
-                              className={`py-1.5 px-2 rounded-lg text-[10px] font-bold font-mono transition text-center border cursor-pointer ${
-                                upstoxRedirectType === 'cloud'
-                                  ? 'bg-amber-600 text-white shadow-sm border-amber-700'
-                                  : 'bg-white dark:bg-[#11141c] text-slate-600 dark:text-gray-400 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`}
-                            >
-                              cloud app URL
-                            </button>
-                          </div>
-                        </div>
-
-                        {upstoxRedirectType === 'localhost' ? (
-                          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed font-sans space-y-1.5">
-                            <span className="font-bold flex items-center gap-1">📍 Localhost Flow Instruction:</span>
-                            <p>
-                              If your Upstox App has the redirect URL set to:
-                            </p>
-                            <div className="bg-slate-200/50 dark:bg-black/40 p-1.5 rounded text-[9.5px] font-mono text-slate-800 dark:text-slate-300 break-all select-all font-bold">
-                              http://localhost:3000/api/integrations/upstox/callback
-                            </div>
-                            <p>
-                              Upstox will redirect to a broken page because the server runs in the cloud, not on your device. <strong>This is normal!</strong>
-                            </p>
-                            <p className="font-bold">
-                              👉 Simply COPY that entire broken address bar URL (containing <code className="font-mono">?code=...</code>) and PASTE it into "Option A: Smart Linker" on the left!
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed font-sans space-y-1.5">
-                            <span className="font-bold flex items-center gap-1 text-emerald-600 dark:text-emerald-400">⚡ Seamless Cloud Flow Instruction:</span>
-                            <p>
-                              For a 100% automatic connection, register this exact Redirect URI in your **Upstox Developer Console**:
-                            </p>
-                            <div className="bg-emerald-500/5 dark:bg-black/40 p-1.5 rounded text-[9.5px] font-mono text-emerald-600 dark:text-emerald-300 break-all select-all font-bold border border-emerald-500/10">
-                              {`${window.location.origin}/api/integrations/upstox/callback`}
-                            </div>
-                            <p className="font-semibold">
-                              Once registered, click Authorize. It will connect automatically and instantly with no copy-pasting required!
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={handleConnectOAuth}
-                          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-xs transition border border-amber-700/30 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-sm"
-                        >
-                          Authorize via Upstox Web
-                        </button>
-
-                        <p className="text-[9.5px] text-slate-400 dark:text-gray-500 leading-normal text-center font-sans">
-                          A popup window will open for official Upstox authorization.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-            )}
-
-                {/* Success and Error Indicators */}
-                {(tokenError || tokenSuccess) && (
-                  <div className="space-y-2">
-                    {tokenError && (
-                      <div className="text-[11px] text-red-500 bg-red-500/10 p-3 rounded-lg border border-red-500/20 leading-relaxed font-sans flex items-start gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-500" />
-                        <span>{tokenError}</span>
-                      </div>
-                    )}
-                    {tokenSuccess && (
-                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20 leading-relaxed font-sans flex items-start gap-1.5">
-                        <Check className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-500" />
-                        <span>{tokenSuccess}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+            <div className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed font-sans bg-slate-50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4">
+              <span className="font-bold text-slate-900 dark:text-white block mb-0.5">High-Fidelity Exchange Engine</span>
+              <span>Market prices, Option chain Greeks, and live tick updates operate continuously on the server without requiring user intervention.</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

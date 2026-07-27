@@ -646,6 +646,7 @@ async function autoRenewUpstoxToken(): Promise<boolean> {
   await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
   if (!isSimulatedToken(upstoxAccessToken)) {
     reconnectUpstoxWebSocket();
+    startLiveLtpPollingLoop();
   } else {
     startSimulationLoop();
   }
@@ -1201,6 +1202,7 @@ async function verifyAndConnectProvidedToken(token: string) {
       console.log("[UPSTOX PRO VERIFICATION] Triggering real-time Live Feed connection...");
       await saveUpstoxTokenToFirestore(token, upstoxConnectedUser);
       reconnectUpstoxWebSocket();
+      startLiveLtpPollingLoop();
       return true;
     } else {
       console.log("[UPSTOX PRO VERIFICATION] Profile check not successful. Switching to 24/7 Paper Trading Session...");
@@ -1255,6 +1257,76 @@ function stopSimulationLoop() {
     clearInterval(simulationInterval);
     simulationInterval = null;
   }
+}
+
+let liveLtpPollingInterval: NodeJS.Timeout | null = null;
+
+function startLiveLtpPollingLoop() {
+  if (liveLtpPollingInterval) return;
+
+  console.log("[UPSTOX LIVE FEED] Activating continuous background Live Market LTP polling loop (2.5s interval)...");
+  liveLtpPollingInterval = setInterval(async () => {
+    if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
+      if (liveLtpPollingInterval) {
+        clearInterval(liveLtpPollingInterval);
+        liveLtpPollingInterval = null;
+      }
+      return;
+    }
+
+    try {
+      const keys = Object.values(UPSTOX_INSTRUMENT_MAP);
+      const chunkSize = 15;
+      const chunks: string[][] = [];
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        chunks.push(keys.slice(i, i + chunkSize));
+      }
+
+      await Promise.all(chunks.map(async (chunk) => {
+        try {
+          const instrumentKeyParam = chunk.map(k => encodeURIComponent(k)).join(",");
+          const url = `https://api.upstox.com/v2/market-quote/ltp?instrument_key=${instrumentKeyParam}`;
+
+          const response = await fetch(url, {
+            headers: {
+              "Authorization": `Bearer ${upstoxAccessToken}`,
+              "Accept": "application/json"
+            }
+          });
+
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              console.warn(`[LIVE FEED] Token expired during LTP polling (status ${response.status}). Triggering auto-renewal check...`);
+              autoRenewUpstoxToken().catch(() => {});
+            }
+            return;
+          }
+
+          const json = await response.json();
+          if (json.status === "success" && json.data) {
+            Object.keys(json.data).forEach(upstoxKey => {
+              const symbol = matchUpstoxKeyToSymbol(upstoxKey);
+              const item = json.data[upstoxKey];
+              const ltp = item ? Number(item.last_price) : 0;
+              if (symbol && ltp > 0) {
+                const payload = {
+                  type: "TICK",
+                  symbol,
+                  ltp,
+                  high: ltp,
+                  low: ltp,
+                  change: 0
+                };
+                broadcastToClients(payload);
+              }
+            });
+          }
+        } catch (_) {}
+      }));
+    } catch (err: any) {
+      console.warn("[LIVE LTP POLLING EXCEPTION]:", err.message);
+    }
+  }, 2500);
 }
 
 // Initialize Razorpay client with environment variables or fallback to provided test credentials
@@ -1409,23 +1481,23 @@ function getLLMParameters(llmConfig: any, cognitiveRules: any, defaultModel: str
   };
 }
 
+export const app = express();
+app.disable("x-powered-by");
+
+// Harden HTTP Security Headers
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
 async function startServer() {
-  const app = express();
-  app.disable("x-powered-by");
-
-  // Harden HTTP Security Headers
-  app.use((req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    next();
-  });
-
   const PORT = Number(process.env.PORT) || 3000;
-
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // API Routes
   app.get("/api/health", (req, res) => {
@@ -1820,6 +1892,7 @@ async function startServer() {
         
         await saveUpstoxTokenToFirestore(finalToken, upstoxConnectedUser);
         reconnectUpstoxWebSocket();
+        startLiveLtpPollingLoop();
 
         return res.json({
           success: true,
@@ -3508,4 +3581,6 @@ process.on("unhandledRejection", (reason) => {
   console.error("[NODE PROCESS UNHANDLED REJECTION]:", reason);
 });
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}

@@ -32,29 +32,18 @@ export const RiskManagement: React.FC = React.memo(() => {
   const [simRiskPercent, setSimRiskPercent] = useState<number>(2);
   const [simBalance, setSimBalance] = useState<number>(100000);
 
-  // Sync selected asset ltp
+  // Sync selected asset ltp and stop loss mode
   useEffect(() => {
     const asset = allAssets.find(a => a.symbol === selectedSymbol);
     if (asset) {
       setEntryPrice(asset.ltp);
-      // Set a reasonable stop loss value based on price if mode is price
-      if (stopLossMode === 'price') {
-        setStopLossValue(Number((asset.ltp * 0.98).toFixed(2)));
-      }
-    }
-  }, [selectedSymbol]);
-
-  // Recalculate price if stopLossMode changes
-  useEffect(() => {
-    const asset = allAssets.find(a => a.symbol === selectedSymbol);
-    if (asset) {
       if (stopLossMode === 'percent') {
         setStopLossValue(2);
       } else {
         setStopLossValue(Number((asset.ltp * 0.98).toFixed(2)));
       }
     }
-  }, [stopLossMode]);
+  }, [selectedSymbol, stopLossMode]);
 
   // Calculations for position size
   const totalBalance = customBalance || user.virtualBalance;

@@ -163,9 +163,9 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
   // Sync activeTab when mode changes
   React.useEffect(() => {
     if (mode === 'fno') {
-      setActiveTab('options');
+      setActiveTab(prev => prev === 'options' ? prev : 'options');
     } else if (mode === 'equity') {
-      setActiveTab('watchlist');
+      setActiveTab(prev => prev === 'watchlist' ? prev : 'watchlist');
     }
   }, [mode]);
 

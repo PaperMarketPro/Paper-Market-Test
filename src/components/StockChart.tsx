@@ -557,7 +557,7 @@ export const TradingViewChart: React.FC<{
   // Synchronize chart theme with global app theme automatically
   useEffect(() => {
     if (theme === 'light') {
-      setChartTheme('light');
+      setChartTheme(prev => prev === 'light' ? prev : 'light');
     } else if (theme === 'dark') {
       setChartTheme(prev => prev === 'light' ? 'charcoal' : prev);
     }
@@ -2322,11 +2322,14 @@ const StockChartBase: React.FC<StockChartProps> = ({
     }
 
     const currentLtp = activeAsset.ltp;
-    if (currentLtp === previousAssetPrice.current || candles.length === 0) {
+    if (currentLtp === previousAssetPrice.current) {
       return;
     }
 
+    previousAssetPrice.current = currentLtp;
+
     setCandles(prev => {
+      if (prev.length === 0) return prev;
       const updated = [...prev];
       const lastCandle = { ...updated[updated.length - 1] };
       
@@ -2341,11 +2344,8 @@ const StockChartBase: React.FC<StockChartProps> = ({
       updated[updated.length - 1] = lastCandle;
       
       // Re-compute indicators so lines follow live ticks flawlessly
-      const withIndicators = computeIndicators(updated);
-      return withIndicators;
+      return computeIndicators(updated);
     });
-
-    previousAssetPrice.current = currentLtp;
   }, [activeAsset.ltp, activeAsset.symbol]);
 
   // Min and Max prices for nice Y-Axis auto fitting
