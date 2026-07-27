@@ -19,6 +19,24 @@ export const StrategyBuilder: React.FC = React.memo(() => {
   const { strategies, addStrategy, deleteStrategy, runBacktest, toggleAutoTrade, updateStrategyRiskParams } = useApp();
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
+  // AI Strategy Generator State
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [targetSymbols, setTargetSymbols] = useState<Record<string, string>>({});
+
+  const TARGET_ASSETS = [
+    { symbol: 'NIFTY 50', name: 'NIFTY 50 Index' },
+    { symbol: 'BANKNIFTY', name: 'NIFTY Bank Index' },
+    { symbol: 'RELIANCE', name: 'Reliance Industries Ltd' },
+    { symbol: 'TCS', name: 'Tata Consultancy Services' },
+    { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd' },
+    { symbol: 'INFY', name: 'Infosys Ltd' },
+    { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd' },
+    { symbol: 'SBIN', name: 'State Bank of India' },
+    { symbol: 'SENSEX', name: 'BSE SENSEX Index' },
+    { symbol: 'TATAMOTORS', name: 'Tata Motors Ltd' }
+  ];
+
   // Create New Strategy State
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -40,6 +58,39 @@ export const StrategyBuilder: React.FC = React.memo(() => {
 
   const INDICATORS = ['RSI', 'EMA', 'SMA', 'MACD', 'Volume', 'Price'] as const;
   const OPERATORS = ['crosses above', 'crosses below', 'greater than', 'less than'] as const;
+
+  const handleGenerateStrategyWithAI = async (promptToUse?: string) => {
+    const text = promptToUse || aiPrompt;
+    if (!text.trim()) return;
+
+    setIsGeneratingAi(true);
+    try {
+      const res = await fetch('/api/strategy/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: text })
+      });
+      const data = await res.json();
+      if (data.success && data.strategy) {
+        const s = data.strategy;
+        if (s.name) setName(s.name);
+        if (s.description) setDesc(s.description);
+        if (s.stopLossPercent) setStopLoss(s.stopLossPercent);
+        if (s.takeProfitPercent) setTakeProfit(s.takeProfitPercent);
+        if (s.maxPositionSize) setMaxPosSize(s.maxPositionSize);
+        if (s.entryConditions && s.entryConditions.length > 0) {
+          setEntryConditions(s.entryConditions);
+        }
+        if (s.exitConditions && s.exitConditions.length > 0) {
+          setExitConditions(s.exitConditions);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to generate AI strategy:', err);
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   const handleAddCondition = (type: 'entry' | 'exit') => {
     const newCond: StrategyCondition = {
@@ -104,7 +155,8 @@ export const StrategyBuilder: React.FC = React.memo(() => {
 
   const handleTriggerBacktest = async (id: string) => {
     setBacktestingId(id);
-    await runBacktest(id);
+    const symbolToTest = targetSymbols[id] || 'NIFTY 50';
+    await runBacktest(id, symbolToTest);
     setBacktestingId(null);
   };
 
@@ -136,6 +188,66 @@ export const StrategyBuilder: React.FC = React.memo(() => {
 
       {activeTab === 'create' && (
         <form onSubmit={handleSaveStrategy} className="space-y-6 max-w-4xl mx-auto w-full font-sans">
+          {/* AI Strategy Prompt Builder Card */}
+          <div className="bg-[#11141c] border border-sky-500/20 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <span className="text-xs font-mono text-sky-400 font-bold uppercase tracking-wider">AI Strategy Prompt Architect</span>
+              </div>
+              <span className="text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-full font-mono">Gemini 3.6 Powered</span>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Describe your trading strategy in natural language or choose a quick prompt below. Gemini AI will configure entry/exit indicators, stop loss, and risk parameters instantly.
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                placeholder="e.g., Buy Nifty when RSI < 30 and EMA 5 crosses above EMA 20, sell when RSI > 70..."
+                className="flex-1 bg-[#0b0e14] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 placeholder-gray-600 font-sans"
+              />
+              <button
+                type="button"
+                onClick={() => handleGenerateStrategyWithAI()}
+                disabled={isGeneratingAi || !aiPrompt.trim()}
+                className="bg-sky-500 hover:bg-sky-400 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                {isGeneratingAi ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Generate Strategy</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick Sample Prompts */}
+            <div className="flex flex-wrap gap-1.5 pt-1 text-[10px]">
+              <span className="text-gray-500 font-mono self-center mr-1">Quick Prompts:</span>
+              {[
+                "RSI Oversold Bounce (RSI < 30)",
+                "EMA Golden Cross Trend (EMA 5 > EMA 20)",
+                "Volume Breakout Momentum Scalp"
+              ].map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => { setAiPrompt(p); handleGenerateStrategyWithAI(p); }}
+                  className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-sky-500/30 text-gray-300 px-2.5 py-1 rounded-lg text-[10px] transition cursor-pointer font-sans"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Metadata Card info */}
           <div className="bg-[#11141c] border border-white/5 rounded-2xl p-5 space-y-3">
             <div className="space-y-1">
@@ -806,14 +918,36 @@ export const StrategyBuilder: React.FC = React.memo(() => {
                   </div>
                 )}
 
+                {/* Target Asset Selector for Real Market Backtest */}
+                <div className="bg-white/2 border border-white/5 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-sky-400" />
+                    <div>
+                      <span className="font-bold text-white block text-xs">Target Real-Market Asset</span>
+                      <span className="text-[10px] text-gray-500">Backtest against 12M historical market prices</span>
+                    </div>
+                  </div>
+                  <select
+                    value={targetSymbols[s.id] || 'NIFTY 50'}
+                    onChange={e => setTargetSymbols({ ...targetSymbols, [s.id]: e.target.value })}
+                    className="bg-[#0b0e14] border border-white/10 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-sky-500 cursor-pointer font-semibold w-full sm:w-auto"
+                  >
+                    {TARGET_ASSETS.map(asset => (
+                      <option key={asset.symbol} value={asset.symbol}>
+                        {asset.symbol} — {asset.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Trigger Buttons */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                   <button
                     type="button"
                     onClick={() => handleTriggerBacktest(s.id)}
-                    className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 font-bold py-2.5 rounded-xl text-xs transition border border-sky-500/10 flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl text-xs transition border border-sky-400/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-sky-500/10"
                   >
-                    <Play className="w-3.5 h-3.5" /> Run 12-Month Historical Simulation
+                    <Play className="w-3.5 h-3.5 fill-current" /> Run 12M Real-Market Backtest
                   </button>
 
                   <button

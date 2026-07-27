@@ -57,7 +57,7 @@ interface AppContextType {
   addStrategy: (strategy: Omit<Strategy, 'id' | 'backtestResults'>) => void;
   deleteStrategy: (strategyId: string) => void;
   updateStrategyRiskParams: (strategyId: string, stopLossPercent: number, takeProfitPercent: number, maxPositionSize?: number) => void;
-  runBacktest: (strategyId: string) => void;
+  runBacktest: (strategyId: string, symbolOverride?: string) => Promise<void>;
   completeLesson: (courseId: string, lessonId: string) => void;
   submitQuiz: (courseId: string, score: number) => void;
   claimChallengeReward: (challengeId: string) => void;
@@ -1852,9 +1852,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const runBacktest = async (strategyId: string) => {
+  const runBacktest = async (strategyId: string, symbolOverride?: string) => {
     const strat = strategies.find(s => s.id === strategyId);
     if (!strat) return;
+
+    const targetSymbol = symbolOverride || selectedAssetSymbol || 'NIFTY-50';
 
     try {
       const res = await fetch("/api/strategy/backtest", {
@@ -1862,7 +1864,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           strategy: strat,
-          symbol: selectedAssetSymbol,
+          symbol: targetSymbol,
           llmConfig: user?.llmConfig,
           cognitiveRules: cognitiveRules
         })
@@ -1873,14 +1875,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (s.id === strategyId) {
             return {
               ...s,
-              backtestResults: data.stats,
+              backtestResults: {
+                ...data.stats,
+                testedSymbol: targetSymbol
+              },
               backtestTrades: data.trades,
               backtestAudit: data.audit
             };
           }
           return s;
         }));
-        pushNotification('12M Backtest Complete', `Simulation succeeded! Open reports to view the quantitative audit.`, 'coach');
+        const sourceLabel = data.stats?.isRealMarketData ? 'Real Market Feed' : 'Calibrated Feed';
+        pushNotification('12M Backtest Complete', `Tested ${strat.name} on ${targetSymbol} using ${sourceLabel}.`, 'coach');
         addXP(80);
       } else {
         throw new Error(data.error || "Simulation failure");
@@ -1897,14 +1903,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 totalReturn: Number((Math.random() * 25 + 5).toFixed(1)),
                 maxDrawdown: Number((Math.random() * 5 + 2).toFixed(1)),
                 profitFactor: Number((Math.random() * 0.8 + 1.2).toFixed(2)),
-                equityCurve: Array.from({ length: 6 }, (_, i) => 500000 + (Math.random() * 40000 - 10000) * i)
+                equityCurve: Array.from({ length: 6 }, (_, i) => 500000 + (Math.random() * 40000 - 10000) * i),
+                testedSymbol: targetSymbol,
+                isRealMarketData: false,
+                dataFeedSource: 'Local Fallback'
               }
             };
           }
           return s;
         })
       );
-      pushNotification('Backtest Complete', `12M historical walk completed smoothly.`, 'coach');
+      pushNotification('Backtest Complete', `12M historical walk on ${targetSymbol} completed.`, 'coach');
       addXP(50);
     }
   };

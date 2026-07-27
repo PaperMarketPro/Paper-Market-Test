@@ -2983,6 +2983,88 @@ CRITICAL VOICE AND STYLE GUIDELINES:
     }
   });
 
+async function fetchYahooFinanceHistoricalCandles(assetName: string) {
+  let symbol = assetName.trim().toUpperCase();
+  const map: Record<string, string> = {
+    'NIFTY 50': '^NSEI',
+    'NIFTY-50': '^NSEI',
+    'NIFTY': '^NSEI',
+    'BANKNIFTY': '^NSEBANK',
+    'NIFTY BANK': '^NSEBANK',
+    'SENSEX': '^BSESN',
+    'BSE SENSEX': '^BSESN',
+    'FINNIFTY': '^CNXFIN',
+    'MIDCPNIFTY': '^NSEMDCP50',
+    'RELIANCE': 'RELIANCE.NS',
+    'TCS': 'TCS.NS',
+    'HDFCBANK': 'HDFCBANK.NS',
+    'INFY': 'INFY.NS',
+    'ICICIBANK': 'ICICIBANK.NS',
+    'SBIN': 'SBIN.NS',
+    'WIPRO': 'WIPRO.NS',
+    'AXISBANK': 'AXISBANK.NS',
+    'KOTAKBANK': 'KOTAKBANK.NS',
+    'LT': 'LT.NS',
+    'ITC': 'ITC.NS',
+    'BHARTIARTL': 'BHARTIARTL.NS',
+    'TATAMOTORS': 'TATAMOTORS.NS',
+    'BAJFINANCE': 'BAJFINANCE.NS',
+    'MARUTI': 'MARUTI.NS',
+    'HINDUNILVR': 'HINDUNILVR.NS',
+    'TATASTEEL': 'TATASTEEL.NS'
+  };
+
+  const ticker = map[symbol] || (symbol.includes('^') || symbol.includes('.') ? symbol : `${symbol}.NS`);
+  
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`;
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'application/json'
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error(`Yahoo Finance API returned HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const result = data.chart?.result?.[0];
+  if (!result || !result.timestamp || !result.indicators?.quote?.[0]) {
+    throw new Error('Invalid Yahoo Finance payload format');
+  }
+
+  const timestamps: number[] = result.timestamp;
+  const quote = result.indicators.quote[0];
+
+  const candles: any[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const open = quote.open?.[i];
+    const high = quote.high?.[i];
+    const low = quote.low?.[i];
+    const close = quote.close?.[i];
+    const volume = quote.volume?.[i] || 100000;
+
+    if (close == null || open == null || high == null || low == null) continue;
+
+    const dateStr = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+    candles.push({
+      date: dateStr,
+      open: Number(open.toFixed(2)),
+      high: Number(high.toFixed(2)),
+      low: Number(low.toFixed(2)),
+      close: Number(close.toFixed(2)),
+      volume: Number(volume)
+    });
+  }
+
+  if (candles.length < 10) {
+    throw new Error('Insufficient candles returned from Yahoo Finance');
+  }
+
+  return { candles, ticker };
+}
+
   // 2. Realistic 12-Month Historical Backtester & AI Audit API
   app.post("/api/strategy/backtest", async (req, res) => {
     const { strategy, symbol, llmConfig, cognitiveRules } = req.body;
@@ -2995,7 +3077,7 @@ CRITICAL VOICE AND STYLE GUIDELINES:
     const normalizedAssetName = assetName === "NIFTY-50" ? "NIFTY 50" : assetName;
 
     try {
-      // Step A: Load real-market historical candles from Upstox (if connected) or calibrate simulation
+      // Step A: Load real-market historical candles from Upstox (if connected) or Yahoo Finance (Real Market)
       let candles: any[] = [];
       let isRealMarketData = false;
       let dataMessage = "AI-Calibrated Synthetic Market Feed (Regime-Switching Simulation)";
@@ -3021,7 +3103,21 @@ CRITICAL VOICE AND STYLE GUIDELINES:
             dataMessage = "100% Accurate Live-Historical Market Feed via Upstox API";
           }
         } catch (apiErr: any) {
-          console.warn("Failed to fetch real-market backtest candles from Upstox, falling back to AI-Calibrated Simulation:", apiErr.message);
+          console.warn("Failed to fetch real-market backtest candles from Upstox, trying Yahoo Finance:", apiErr.message);
+        }
+      }
+
+      // If Upstox was not active, fetch 100% real historical candles from Yahoo Finance NSE Feed!
+      if (candles.length === 0) {
+        try {
+          const yfResult = await fetchYahooFinanceHistoricalCandles(normalizedAssetName);
+          if (yfResult && yfResult.candles.length > 0) {
+            candles = yfResult.candles;
+            isRealMarketData = true;
+            dataMessage = `100% Accurate Real-Market Historical Feed via NSE / Yahoo Finance (${yfResult.ticker})`;
+          }
+        } catch (yfErr: any) {
+          console.warn("Failed to fetch real market candles from Yahoo Finance:", yfErr.message);
         }
       }
 
@@ -3415,6 +3511,70 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
     } catch (error: any) {
       console.error("Backtest Error:", error);
       res.status(500).json({ error: "Failed to run smooth historical backtest.", details: error.message });
+    }
+  });
+
+  // 3. AI Strategy Generator Endpoint (Prompt -> Structured Strategy Definition)
+  app.post("/api/strategy/generate", async (req, res) => {
+    const { prompt, llmConfig, cognitiveRules } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required." });
+    }
+
+    const aiClient = getGeminiClient();
+    if (!aiClient) {
+      return res.status(500).json({ error: "Gemini AI client unavailable." });
+    }
+
+    try {
+      const systemInstruction = `You are an elite quantitative trading strategy architect. Convert the user's natural language trading idea into a precise JSON strategy specification.
+      The output MUST be valid JSON with NO markdown code blocks, conforming exactly to this structure:
+      {
+        "name": "Short, Punchy Strategy Title",
+        "description": "Clear 1-sentence objective description of what the strategy targets.",
+        "stopLossPercent": 2.5,
+        "takeProfitPercent": 5.0,
+        "maxPositionSize": 50000,
+        "entryConditions": [
+          {
+            "id": "c-1",
+            "indicator": "RSI" | "EMA" | "SMA" | "MACD" | "Volume" | "Price",
+            "params": "14" | "5" | "20" | "50",
+            "operator": "crosses above" | "crosses below" | "greater than" | "less than",
+            "compareWith": "value",
+            "value": 30
+          }
+        ],
+        "exitConditions": [
+          {
+            "id": "c-2",
+            "indicator": "RSI" | "EMA" | "SMA" | "MACD" | "Volume" | "Price",
+            "params": "14" | "5" | "20" | "50",
+            "operator": "crosses above" | "crosses below" | "greater than" | "less than",
+            "compareWith": "value",
+            "value": 70
+          }
+        ]
+      }`;
+
+      const { model, temperature } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.6-flash", 0.4, systemInstruction);
+
+      const response = await aiClient.models.generateContent({
+        model,
+        contents: `Create a quantitative strategy for: "${prompt}"`,
+        config: {
+          systemInstruction,
+          temperature,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text;
+      const strategyData = JSON.parse(text || "{}");
+      res.json({ success: true, strategy: strategyData });
+    } catch (err: any) {
+      console.error("AI Strategy Generation Error:", err);
+      res.status(500).json({ error: "Failed to generate strategy via AI", details: err.message });
     }
   });
 

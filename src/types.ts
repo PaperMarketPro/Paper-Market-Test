@@ -153,6 +153,14 @@ export interface Strategy {
     maxDrawdown: number;
     profitFactor: number;
     equityCurve: number[];
+    isRealMarketData?: boolean;
+    dataFeedSource?: string;
+    totalTrades?: number;
+    profitableTrades?: number;
+    initialBalance?: number;
+    finalBalance?: number;
+    totalFrictionFees?: number;
+    testedSymbol?: string;
   };
   backtestTrades?: {
     entryDate: string;
