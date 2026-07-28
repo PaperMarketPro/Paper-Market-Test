@@ -51,7 +51,7 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
 
   React.useEffect(() => {
     onClearPreselectedRef.current = onClearPreselected;
-  });
+  }, [onClearPreselected]);
 
   // Auto trigger wizard if preselected is available
   useEffect(() => {

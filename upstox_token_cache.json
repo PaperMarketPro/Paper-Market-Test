@@ -1,1 +1,11 @@
-{"accessToken":"eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0VUFQVzYiLCJqdGkiOiI2YTY3MGVkOTU1YzBkNDMzZTc0NThhNTAiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6ZmFsc2UsImlhdCI6MTc4NTEzODkwNSwiaXNzIjoidWRhcGktZ2F0ZXdheS1zZXJ2aWNlIiwiZXhwIjoxNzg1MTg5NjAwfQ.UB8t5w3-Fy6eRjYDtN6PJOjXnLdAwyEC7XjoSw7x8h0","user":{"email":"pro_feed_user@papermarket.local","userName":"Upstox Pro Account","userId":"UPSTOX_USER"},"upstoxLinkedPermanently":true,"updatedAt":"2026-07-27T09:00:26.246Z"}
+{
+  "accessToken": "eyJ0eXAiOiJKV1QiLCJrZXlfaWQiOiJza192MS4wIiwiYWxnIjoiSFMyNTYifQ.eyJzdWIiOiI0VUFQVzYiLCJqdGkiOiI2YTY4NmZjNmEzNjUyMzYwMjczZmE4MDYiLCJpc011bHRpQ2xpZW50IjpmYWxzZSwiaXNQbHVzUGxhbiI6ZmFsc2UsImlhdCI6MTc4NTIyOTI1NCwiaXNzIjoidWRhcGktZ2F0ZXdheS1zZXJ2aWNlIiwiZXhwIjoxNzg1Mjc2MDAwfQ.mXRx4bYp2V4zuxoQAQjuXS5QpT2FpEyYkW5PSyXbr5M",
+  "user": {
+    "email": "rayyanhahmed12345@gmail.com",
+    "userName": "ASMA PARVEEN",
+    "userId": "4UAPW6",
+    "broker": "UPSTOX"
+  },
+  "upstoxLinkedPermanently": true,
+  "updatedAt": "2026-07-28T09:06:00.000Z"
+}

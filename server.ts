@@ -881,8 +881,8 @@ function scheduleUpstoxReconnect(customDelay?: number) {
   if (!upstoxAccessToken) return; // no token, don't reconnect
 
   upstoxReconnectAttempts++;
-  // Exponential backoff: 2s, 3s, 4.5s, 6.75s... capped at 30s (or 10s during trading hours)
-  const baseDelay = Math.min(30000, Math.round(2000 * Math.pow(1.5, upstoxReconnectAttempts - 1)));
+  // Sub-second to 1s rapid reconnection strategy for Upstox feed
+  const baseDelay = upstoxReconnectAttempts === 1 ? 500 : Math.min(3000, Math.round(1000 * Math.pow(1.2, upstoxReconnectAttempts - 1)));
   const delay = customDelay !== undefined ? customDelay : baseDelay;
 
   console.log(`[RECONNECT START] Attempt #${upstoxReconnectAttempts}. Scheduling reconnection in ${(delay / 1000).toFixed(1)}s...`);
@@ -3634,6 +3634,15 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
         userId: "UPSTOX_USER",
       } : null
     }));
+
+    ws.on("message", (msg) => {
+      try {
+        const parsed = JSON.parse(msg.toString());
+        if (parsed.type === "PING") {
+          ws.send(JSON.stringify({ type: "PONG" }));
+        }
+      } catch (e) {}
+    });
 
     // Start simulation loop if Upstox is disconnected or to supplement updates
     startSimulationLoop();

@@ -31,8 +31,15 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
   const [customBalanceInput, setCustomBalanceInput] = useState<string>('');
   const [simSLPercent, setSimSLPercent] = useState<number>(2);
 
-  // Load any pre-configured sizing from RiskManagement
+  // Feedback states
+  const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Sync price and load any pre-configured sizing from RiskManagement on asset change
   useEffect(() => {
+    setLimitPrice(selectedAsset.ltp.toFixed(2));
+    setTriggerPrice((selectedAsset.ltp * 0.99).toFixed(2));
+
     const preQty = localStorage.getItem('risk_calc_qty');
     const preSL = localStorage.getItem('risk_calc_sl');
     const preTarget = localStorage.getItem('risk_calc_target');
@@ -44,23 +51,15 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
     if (preSL) {
       setStopLoss(preSL);
       localStorage.removeItem('risk_calc_sl');
+    } else {
+      setStopLoss('');
     }
     if (preTarget) {
       setTarget(preTarget);
       localStorage.removeItem('risk_calc_target');
+    } else {
+      setTarget('');
     }
-  }, [selectedAsset.symbol]);
-  
-  // Feedback states
-  const [isLoading, setIsLoading] = useState(false);
-  const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
-
-  // Sync price on asset change
-  useEffect(() => {
-    setLimitPrice(selectedAsset.ltp.toFixed(2));
-    setTriggerPrice((selectedAsset.ltp * 0.99).toFixed(2));
-    setStopLoss('');
-    setTarget('');
   }, [selectedAsset.symbol]);
 
   const activePrice = orderType === 'Market' ? selectedAsset.ltp : parseFloat(limitPrice) || selectedAsset.ltp;

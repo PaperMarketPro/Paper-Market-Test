@@ -711,12 +711,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
       if (res.ok) {
         const data = await res.json();
-        setUpstoxStatus({
-          connected: data.connected,
-          wsConnected: data.wsConnected,
-          user: data.user,
-          config: data.config,
-          isRealUpstox: data.isRealUpstox
+        setUpstoxStatus(prev => {
+          if (
+            prev.connected === data.connected &&
+            prev.wsConnected === data.wsConnected &&
+            prev.isRealUpstox === data.isRealUpstox &&
+            JSON.stringify(prev.user) === JSON.stringify(data.user) &&
+            JSON.stringify(prev.config) === JSON.stringify(data.config)
+          ) {
+            return prev;
+          }
+          return {
+            connected: data.connected,
+            wsConnected: data.wsConnected,
+            user: data.user,
+            config: data.config,
+            isRealUpstox: data.isRealUpstox
+          };
         });
         if (data.connected) {
           fetchRealUpstoxLtp();
@@ -794,12 +805,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let reconnectTimeout: any = null;
     let fallbackInterval: any = null;
     let batchInterval: any = null;
+    let pingInterval: any = null;
+    let reconnectAttempts = 0;
+    let lastMsgTime = Date.now();
     const lastLiveTicks: Record<string, number> = {};
 
     // Map to hold pending ticks: key is symbol, value is the tick data
     const pendingTicks: Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }> = {};
 
-    // Process pending ticks every 800ms to avoid clogging the main thread
+    // Process pending ticks every 400ms to keep UI responsive and smooth
     batchInterval = setInterval(() => {
       const keys = Object.keys(pendingTicks);
       if (keys.length === 0) return;
@@ -957,39 +971,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? next : prev;
         });
       });
-    }, 2000);
+    }, 400);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
-      console.log("WebSocket connected/reconnecting. Initializing hybrid adaptive price simulation.");
       fallbackInterval = setInterval(() => {
-        // Queue random walks via pendingTicks for fallback processing
         instrumentsRef.current.forEach(inst => {
-          if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 15000) {
+          if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 8000) {
             return;
           }
           pendingTicks[inst.symbol] = { isSim: true };
         });
-      }, 2500);
+      }, 1500);
     };
 
-    const stopFallbackSimulation = () => {
-      console.log("WebSocket link established. Adaptive hybrid simulation is active.");
+    const scheduleReconnect = () => {
+      startFallbackSimulation();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      reconnectAttempts++;
+      // Reconnect within 500ms on first drop, max 2s delay
+      const delay = reconnectAttempts === 1 ? 500 : Math.min(2000, 500 * reconnectAttempts);
+      reconnectTimeout = setTimeout(() => {
+        connectWS();
+      }, delay);
     };
 
     const connectWS = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/ws`;
       
-      ws = new WebSocket(wsUrl);
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        scheduleReconnect();
+        return;
+      }
 
       ws.onopen = () => {
-        console.log("WebSocket link established. Hybrid fallback simulation active.");
+        reconnectAttempts = 0;
+        lastMsgTime = Date.now();
       };
 
       ws.onmessage = (event) => {
+        lastMsgTime = Date.now();
         try {
           const message = JSON.parse(event.data);
+          if (message.type === 'PONG') {
+            return;
+          }
           if (message.type === 'STATUS') {
             setUpstoxStatus(prev => {
               if (prev.connected === message.connected && prev.user?.email === message.user?.email) return prev;
@@ -1014,30 +1043,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       ws.onclose = () => {
-        startFallbackSimulation();
-        if (reconnectTimeout) {
-          clearTimeout(reconnectTimeout);
-        }
-        reconnectTimeout = setTimeout(() => {
-          connectWS();
-        }, 5000);
+        scheduleReconnect();
       };
 
-      ws.onerror = (err) => {
-        console.log("Client WS connection inactive or pending; using simulated prices.");
-        startFallbackSimulation();
+      ws.onerror = () => {
         try {
           ws?.close();
         } catch (_) {}
       };
     };
 
+    // Client heartbeat ping loop every 3 seconds
+    pingInterval = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: 'PING' }));
+        } catch (_) {}
+      }
+      // If connected but no messages for >8 seconds, force reconnect
+      if (ws && ws.readyState === WebSocket.OPEN && Date.now() - lastMsgTime > 8000) {
+        console.warn("Client WS link quiet for >8s, initiating immediate sub-second reconnect...");
+        try {
+          ws.close();
+        } catch (_) {}
+      }
+    }, 3000);
+
     startFallbackSimulation();
     connectWS();
 
     return () => {
-      if (ws) ws.close();
+      if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.close();
+      }
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (pingInterval) clearInterval(pingInterval);
       if (fallbackInterval) clearInterval(fallbackInterval);
       if (batchInterval) clearInterval(batchInterval);
     };

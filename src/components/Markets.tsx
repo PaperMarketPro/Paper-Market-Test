@@ -152,7 +152,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
     if (expiries.length > 0 && !expiries.includes(selectedExpiry)) {
       setSelectedExpiry(expiries[0]);
     }
-  }, [expiries, selectedExpiry]);
+  }, [selectedOptionIndex]);
 
   // Option Greeks toggle
   const [showGreeks, setShowGreeks] = useState(false);

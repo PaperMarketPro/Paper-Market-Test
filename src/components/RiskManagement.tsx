@@ -17,11 +17,11 @@ export const RiskManagement: React.FC = React.memo(() => {
   if (!user) return null;
 
   // Available assets
-  const allAssets = [...instruments, ...futures];
+  const allAssets = React.useMemo(() => [...instruments, ...futures], [instruments, futures]);
   
   // State variables for position size calculator
-  const [selectedSymbol, setSelectedSymbol] = useState<string>(allAssets[0]?.symbol || '');
-  const [entryPrice, setEntryPrice] = useState<number>(allAssets[0]?.ltp || 100);
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+  const [entryPrice, setEntryPrice] = useState<number>(100);
   const [customBalance, setCustomBalance] = useState<number>(user.virtualBalance);
   const [riskPercent, setRiskPercent] = useState<number>(1);
   const [stopLossMode, setStopLossMode] = useState<'price' | 'percent'>('percent');
@@ -32,9 +32,23 @@ export const RiskManagement: React.FC = React.memo(() => {
   const [simRiskPercent, setSimRiskPercent] = useState<number>(2);
   const [simBalance, setSimBalance] = useState<number>(100000);
 
-  // Sync selected asset ltp and stop loss mode
+  // Ref for allAssets to avoid re-triggering effects when asset prices tick live
+  const allAssetsRef = React.useRef(allAssets);
   useEffect(() => {
-    const asset = allAssets.find(a => a.symbol === selectedSymbol);
+    allAssetsRef.current = allAssets;
+  }, [allAssets]);
+
+  // Set default selected symbol if none
+  useEffect(() => {
+    if (!selectedSymbol && allAssetsRef.current.length > 0) {
+      setSelectedSymbol(allAssetsRef.current[0].symbol);
+    }
+  }, [selectedSymbol]);
+
+  // Sync entry price and stop loss value when selectedSymbol or stopLossMode changes
+  useEffect(() => {
+    if (!selectedSymbol) return;
+    const asset = allAssetsRef.current.find(a => a.symbol === selectedSymbol);
     if (asset) {
       setEntryPrice(asset.ltp);
       if (stopLossMode === 'percent') {

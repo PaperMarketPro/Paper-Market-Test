@@ -1,0 +1,9 @@
+{
+  "apiKey": "33bdc12c-d51e-454e-8e3c-7aad31946e67",
+  "apiSecret": "t56mmerudu",
+  "redirectUri": "http://localhost:3000/api/integrations/upstox/callback",
+  "mobileNo": "",
+  "pin": "",
+  "totpSecret": "",
+  "enabled": true
+}
