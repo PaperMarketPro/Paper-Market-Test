@@ -2319,6 +2319,11 @@ const StockChartBase: React.FC<StockChartProps> = ({
   useEffect(() => {
     const currentLtp = activeAsset.ltp;
     
+    // Ignore invalid or missing prices
+    if (typeof currentLtp !== 'number' || isNaN(currentLtp)) {
+      return;
+    }
+
     // If the active asset symbol changed, sync refs and skip updating old candles
     if (activeAsset.symbol !== previousAssetSymbol.current) {
       previousAssetSymbol.current = activeAsset.symbol;
@@ -2326,8 +2331,8 @@ const StockChartBase: React.FC<StockChartProps> = ({
       return;
     }
 
-    // Always update previous price ref
-    if (currentLtp === previousAssetPrice.current) {
+    // Skip if price hasn't changed (uses Object.is for robust equality including NaN comparison)
+    if (Object.is(currentLtp, previousAssetPrice.current)) {
       return;
     }
 

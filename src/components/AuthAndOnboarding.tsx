@@ -114,8 +114,8 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
             initialBalance: startingCap
           });
         } catch (fbErr: any) {
-          if (fbErr.code === 'auth/operation-not-allowed') {
-            console.warn("Firebase Auth Email/Password provider is disabled. Gracefully falling back to fully functional local sandbox session.");
+          if (fbErr.code === 'auth/operation-not-allowed' || fbErr.code === 'auth/network-request-failed') {
+            console.warn(`Firebase Auth (${fbErr.code}). Gracefully falling back to fully functional local sandbox session.`);
             initializeGuestUser({
               name: name.trim(),
               email: cleanEmail,
@@ -133,8 +133,8 @@ export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete
         try {
           await signInWithEmailAndPassword(auth, cleanEmail, password);
         } catch (fbErr: any) {
-          if (fbErr.code === 'auth/operation-not-allowed') {
-            console.warn("Firebase Auth Email/Password provider is disabled. Gracefully falling back to fully functional local sandbox session.");
+          if (fbErr.code === 'auth/operation-not-allowed' || fbErr.code === 'auth/network-request-failed') {
+            console.warn(`Firebase Auth (${fbErr.code}). Gracefully falling back to fully functional local sandbox session.`);
             initializeGuestUser({
               name: cleanEmail.split('@')[0] || 'Guest Trader',
               email: cleanEmail,

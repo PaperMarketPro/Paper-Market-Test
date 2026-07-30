@@ -258,90 +258,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
-      setFirebaseUser(fUser);
-      isSyncReady.current = false;
-      
-      if (fUser) {
-        try {
-          const userRef = doc(db, 'users', fUser.uid);
-          const userSnap = await getDoc(userRef);
-          
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            if (data.userProfile) {
-              setUser(data.userProfile);
-              localStorage.setItem('paper_market_user_session', JSON.stringify(data.userProfile));
-              if (data.userProfile.email) {
-                localStorage.setItem('paper_market_saved_email', data.userProfile.email);
-              }
-            }
-            if (data.orders) setOrders(data.orders);
-            if (data.positions) setPositions(data.positions);
-            if (data.journals) setJournals(data.journals);
-            if (data.strategies) setStrategies(data.strategies);
-            if (data.cognitiveRules) setCognitiveRules(data.cognitiveRules);
-            if (data.courses) setCourses(data.courses);
-            if (data.challenges) setChallenges(data.challenges);
-            if (data.badges) setBadges(data.badges);
-            if (data.notifications) setNotifications(data.notifications);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (fUser) => {
+        setFirebaseUser(fUser);
+        isSyncReady.current = false;
+        
+        if (fUser) {
+          try {
+            const userRef = doc(db, 'users', fUser.uid);
+            const userSnap = await getDoc(userRef);
             
-            isSyncReady.current = true;
-          } else {
-            // User signed in/up with Firebase Auth but profile document is not created yet
-            // Auto-initialize default profile so user stays logged in
-            const defaultProfile: UserProfile = {
-              name: fUser.displayName || fUser.email?.split('@')[0] || 'Paper Trader',
-              email: fUser.email || '',
-              phoneNumber: fUser.phoneNumber || '',
-              experience: 'intermediate',
-              goals: ['build discipline', 'learn options'],
-              riskTolerance: 45,
-              virtualBalance: 500000.00,
-              initialBalance: 500000.00,
-              streak: 1,
-              xp: 100,
-              level: 1,
-              isPro: false,
-              role: 'user',
-              llmConfig: {
-                selectedModel: 'gemini-3.6-flash',
-                temperature: 0.6,
-                systemPersona: 'Market Veteran',
-                customGrounding: '',
-                injectCognitiveRules: true
+            if (userSnap.exists()) {
+              const data = userSnap.data();
+              if (data.userProfile) {
+                setUser(data.userProfile);
+                localStorage.setItem('paper_market_user_session', JSON.stringify(data.userProfile));
+                if (data.userProfile.email) {
+                  localStorage.setItem('paper_market_saved_email', data.userProfile.email);
+                }
               }
-            };
-
-            setUser(defaultProfile);
-            localStorage.setItem('paper_market_user_session', JSON.stringify(defaultProfile));
-            if (defaultProfile.email) {
-              localStorage.setItem('paper_market_saved_email', defaultProfile.email);
-            }
-
-            try {
-              await setDoc(userRef, {
-                userProfile: defaultProfile,
-                orders: INITIAL_ORDERS,
-                positions: INITIAL_POSITIONS,
-                journals: INITIAL_JOURNAL,
-                cognitiveRules: [
-                  { id: 'cog-1', trigger: "I lose 2 trades in a row", action: "Stop trading, lock screen for 30 minutes, and complete deep breathing", isActive: true, createdAt: new Date().toISOString() },
-                  { id: 'cog-2', trigger: "I experience intense FOMO as stock moves up 3%", action: "Force-close browser tab and write feelings in Trading Journal", isActive: true, createdAt: new Date().toISOString() }
-                ],
-                courses: ACADEMY_COURSES,
-                challenges: INITIAL_CHALLENGES,
-                badges: INITIAL_BADGES
-              }, { merge: true });
+              if (data.orders) setOrders(data.orders);
+              if (data.positions) setPositions(data.positions);
+              if (data.journals) setJournals(data.journals);
+              if (data.strategies) setStrategies(data.strategies);
+              if (data.cognitiveRules) setCognitiveRules(data.cognitiveRules);
+              if (data.courses) setCourses(data.courses);
+              if (data.challenges) setChallenges(data.challenges);
+              if (data.badges) setBadges(data.badges);
+              if (data.notifications) setNotifications(data.notifications);
+              
               isSyncReady.current = true;
-            } catch (err) {
-              console.error("Error creating user profile document in Firestore:", err);
+            } else {
+              // User signed in/up with Firebase Auth but profile document is not created yet
+              // Auto-initialize default profile so user stays logged in
+              const defaultProfile: UserProfile = {
+                name: fUser.displayName || fUser.email?.split('@')[0] || 'Paper Trader',
+                email: fUser.email || '',
+                phoneNumber: fUser.phoneNumber || '',
+                experience: 'intermediate',
+                goals: ['build discipline', 'learn options'],
+                riskTolerance: 45,
+                virtualBalance: 500000.00,
+                initialBalance: 500000.00,
+                streak: 1,
+                xp: 100,
+                level: 1,
+                isPro: false,
+                role: 'user',
+                llmConfig: {
+                  selectedModel: 'gemini-3.6-flash',
+                  temperature: 0.6,
+                  systemPersona: 'Market Veteran',
+                  customGrounding: '',
+                  injectCognitiveRules: true
+                }
+              };
+
+              setUser(defaultProfile);
+              localStorage.setItem('paper_market_user_session', JSON.stringify(defaultProfile));
+              if (defaultProfile.email) {
+                localStorage.setItem('paper_market_saved_email', defaultProfile.email);
+              }
+
+              try {
+                await setDoc(userRef, {
+                  userProfile: defaultProfile,
+                  orders: INITIAL_ORDERS,
+                  positions: INITIAL_POSITIONS,
+                  journals: INITIAL_JOURNAL,
+                  cognitiveRules: [
+                    { id: 'cog-1', trigger: "I lose 2 trades in a row", action: "Stop trading, lock screen for 30 minutes, and complete deep breathing", isActive: true, createdAt: new Date().toISOString() },
+                    { id: 'cog-2', trigger: "I experience intense FOMO as stock moves up 3%", action: "Force-close browser tab and write feelings in Trading Journal", isActive: true, createdAt: new Date().toISOString() }
+                  ],
+                  courses: ACADEMY_COURSES,
+                  challenges: INITIAL_CHALLENGES,
+                  badges: INITIAL_BADGES
+                }, { merge: true });
+                isSyncReady.current = true;
+              } catch (err) {
+                console.error("Error creating user profile document in Firestore:", err);
+              }
+            }
+          } catch (error) {
+            console.error("Error loading user profile from Firestore:", error);
+          }
+        } else {
+          // Fallback to restored local user session if available
+          const saved = localStorage.getItem('paper_market_user_session');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed && typeof parsed === 'object') {
+                setUser(parsed);
+              }
+            } catch (e) {
+              // ignore
             }
           }
-        } catch (error) {
-          console.error("Error loading user profile from Firestore:", error);
         }
-      } else {
+        setIsAuthLoading(false);
+      },
+      (error) => {
+        console.warn("Firebase auth observer network/permission error:", error);
         // Fallback to restored local user session if available
         const saved = localStorage.getItem('paper_market_user_session');
         if (saved) {
@@ -354,9 +373,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // ignore
           }
         }
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
-    });
+    );
     
     return () => unsubscribe();
   }, []);
@@ -1129,7 +1148,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        if (Math.abs(nextPrice - pos.currentPrice) > 0.01) {
+        if (typeof nextPrice === 'number' && !isNaN(nextPrice) && Math.abs(nextPrice - pos.currentPrice) > 0.01) {
           changed = true;
           return { ...pos, currentPrice: nextPrice };
         }
