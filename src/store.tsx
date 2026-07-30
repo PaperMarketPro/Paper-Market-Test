@@ -989,8 +989,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       startFallbackSimulation();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       reconnectAttempts++;
-      // Reconnect within 500ms on first drop, max 2s delay
-      const delay = reconnectAttempts === 1 ? 500 : Math.min(2000, 500 * reconnectAttempts);
+      // Rapid sub-second reconnect (300ms) on drop, max 1.5s delay
+      const delay = reconnectAttempts === 1 ? 300 : Math.min(1500, 300 * reconnectAttempts);
       reconnectTimeout = setTimeout(() => {
         connectWS();
       }, delay);
@@ -1060,9 +1060,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ws.send(JSON.stringify({ type: 'PING' }));
         } catch (_) {}
       }
-      // If connected but no messages for >8 seconds, force reconnect
-      if (ws && ws.readyState === WebSocket.OPEN && Date.now() - lastMsgTime > 8000) {
-        console.warn("Client WS link quiet for >8s, initiating immediate sub-second reconnect...");
+      // If connected but no messages for >15 seconds, force reconnect
+      if (ws && ws.readyState === WebSocket.OPEN && Date.now() - lastMsgTime > 15000) {
+        console.warn("Client WS link quiet for >15s, initiating immediate sub-second reconnect...");
         try {
           ws.close();
         } catch (_) {}

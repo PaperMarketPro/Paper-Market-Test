@@ -40,10 +40,10 @@ export const RiskManagement: React.FC = React.memo(() => {
 
   // Set default selected symbol if none
   useEffect(() => {
-    if (!selectedSymbol && allAssetsRef.current.length > 0) {
-      setSelectedSymbol(allAssetsRef.current[0].symbol);
+    if (!selectedSymbol && allAssets.length > 0) {
+      setSelectedSymbol(allAssets[0].symbol);
     }
-  }, [selectedSymbol]);
+  }, [selectedSymbol, allAssets.length]);
 
   // Sync entry price and stop loss value when selectedSymbol or stopLossMode changes
   useEffect(() => {

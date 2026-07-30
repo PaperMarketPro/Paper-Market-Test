@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
 import { 
@@ -2010,7 +2010,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
   }, [timeframe]);
 
   // Technical Indicators Formulas: EMA, SMA, Bollinger Bands, EMA 50/200, VWAP, Supertrend
-  const computeIndicators = (rawCandles: Candle[]): Candle[] => {
+  const computeIndicators = useCallback((rawCandles: Candle[]): Candle[] => {
     if (rawCandles.length === 0) return [];
     
     // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
@@ -2202,7 +2202,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
     }
 
     return data;
-  };
+  }, [emaPeriod, smaPeriod, bbPeriod]);
 
   // Listen for Escape key to exit fullscreen expanded view
   useEffect(() => {
@@ -2313,15 +2313,20 @@ const StockChartBase: React.FC<StockChartProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeAsset.symbol, timeframe, emaPeriod, smaPeriod, bbPeriod]);
+  }, [activeAsset.symbol, timeframe, computeIndicators]);
 
   // Handle live ticking prices from the store
   useEffect(() => {
+    const currentLtp = activeAsset.ltp;
+    
+    // If the active asset symbol changed, sync refs and skip updating old candles
     if (activeAsset.symbol !== previousAssetSymbol.current) {
+      previousAssetSymbol.current = activeAsset.symbol;
+      previousAssetPrice.current = currentLtp;
       return;
     }
 
-    const currentLtp = activeAsset.ltp;
+    // Always update previous price ref
     if (currentLtp === previousAssetPrice.current) {
       return;
     }
@@ -2346,7 +2351,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
       // Re-compute indicators so lines follow live ticks flawlessly
       return computeIndicators(updated);
     });
-  }, [activeAsset.ltp, activeAsset.symbol]);
+  }, [activeAsset.ltp, activeAsset.symbol, computeIndicators]);
 
   // Min and Max prices for nice Y-Axis auto fitting
   const { minPrice, maxPrice } = useMemo(() => {

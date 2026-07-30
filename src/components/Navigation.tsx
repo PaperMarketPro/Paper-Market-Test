@@ -21,7 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
-  const { user, notifications, theme, toggleTheme, isMarketOpen, enforceMarketHours } = useApp();
+  const { user, notifications, theme, toggleTheme, isMarketOpen, enforceMarketHours, upstoxStatus } = useApp();
   if (!user) return null;
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 

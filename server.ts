@@ -654,7 +654,10 @@ async function autoRenewUpstoxToken(): Promise<boolean> {
 }
 
 async function saveUpstoxTokenToFirestore(token: string, user: any) {
-  // Save locally first
+  if (isSimulatedToken(token)) {
+    console.log("[CACHE] Skipping Firestore/cache overwrite for simulated token to preserve real user credentials.");
+    return;
+  }
   upstoxLinkedPermanently = true;
   try {
     fs.writeFileSync(CACHE_PATH, JSON.stringify({ accessToken: token, user, upstoxLinkedPermanently: true, updatedAt: new Date().toISOString() }), "utf8");
@@ -668,11 +671,11 @@ async function saveUpstoxTokenToFirestore(token: string, user: any) {
     const configDocRef = db.collection("config").doc("upstox");
     await configDocRef.set({
       accessToken: token,
-      user: user,
+      user,
       upstoxLinkedPermanently: true,
       updatedAt: new Date().toISOString()
     });
-    console.log("[FIRESTORE] Saved active Upstox credentials to database successfully.");
+    console.log("[FIRESTORE] Saved Upstox credentials to database successfully.");
   } catch (error: any) {
     if (error.message?.includes("PERMISSION_DENIED") || error.code === 7) {
       console.log("[FIRESTORE] Optional Firestore persistence note: Permissions not configured for config collection (normal for sandbox). Relying on local cache file.");
@@ -876,13 +879,29 @@ function isIndianMarketOpen(): boolean {
 let upstoxReconnectAttempts = 0;
 const upstoxActiveSubscriptions = new Set<string>(Object.values(UPSTOX_INSTRUMENT_MAP));
 
+function broadcastUpstoxStatusToClients() {
+  const payload = {
+    type: "STATUS",
+    connected: !!upstoxAccessToken || upstoxLinkedPermanently,
+    isRealUpstox: !!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken),
+    user: (upstoxConnectedUser || upstoxLinkedPermanently) ? {
+      email: "pro_feed_user@papermarket.local",
+      userName: "Upstox Pro Account",
+      userId: "UPSTOX_USER",
+    } : null
+  };
+  broadcastToClients(payload);
+}
+
 function scheduleUpstoxReconnect(customDelay?: number) {
-  if (upstoxReconnectTimeout) return; // already scheduled
-  if (!upstoxAccessToken) return; // no token, don't reconnect
+  if (upstoxReconnectTimeout) {
+    clearTimeout(upstoxReconnectTimeout);
+    upstoxReconnectTimeout = null;
+  }
 
   upstoxReconnectAttempts++;
   // Sub-second to 1s rapid reconnection strategy for Upstox feed
-  const baseDelay = upstoxReconnectAttempts === 1 ? 500 : Math.min(3000, Math.round(1000 * Math.pow(1.2, upstoxReconnectAttempts - 1)));
+  const baseDelay = upstoxReconnectAttempts === 1 ? 500 : Math.min(2500, Math.round(500 * Math.pow(1.2, upstoxReconnectAttempts - 1)));
   const delay = customDelay !== undefined ? customDelay : baseDelay;
 
   console.log(`[RECONNECT START] Attempt #${upstoxReconnectAttempts}. Scheduling reconnection in ${(delay / 1000).toFixed(1)}s...`);
@@ -894,6 +913,19 @@ function scheduleUpstoxReconnect(customDelay?: number) {
 
 async function connectUpstoxFeed() {
   try {
+    // If active token is missing or simulated, check if we can restore saved real token from Firestore/cache
+    if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
+      const saved = await loadUpstoxTokenFromFirestore().catch(() => null);
+      if (saved && saved.accessToken && !isSimulatedToken(saved.accessToken)) {
+        upstoxAccessToken = saved.accessToken;
+        upstoxConnectedUser = saved.user || {
+          email: "pro_feed_user@papermarket.local",
+          userName: "Upstox Pro Account",
+          userId: "UPSTOX_USER"
+        };
+      }
+    }
+
     if (!upstoxAccessToken) return;
 
     if (isSimulatedToken(upstoxAccessToken)) {
@@ -918,20 +950,14 @@ async function connectUpstoxFeed() {
         const renewed = await autoRenewUpstoxToken().catch(() => false);
         if (renewed && upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) {
           console.log("[RECONNECT SUCCESS] Successfully renewed access token. Re-authorizing WebSocket...");
-          scheduleUpstoxReconnect(1000);
+          scheduleUpstoxReconnect(500);
           return;
         }
       }
 
-      console.log(`[RECONNECT FAILURE] Automatic re-authentication fallback: Activating paper trading session.`);
-      upstoxAccessToken = "upstox_auto_session_" + Date.now();
-      upstoxConnectedUser = {
-        email: "pro_feed_user@papermarket.local",
-        userName: "Upstox Pro Account",
-        userId: "UPSTOX_USER"
-      };
-      await saveUpstoxTokenToFirestore(upstoxAccessToken, upstoxConnectedUser);
+      console.log(`[RECONNECT FALLBACK] Live re-authentication pending: Running fallback tick simulation while retrying live connect in background...`);
       startSimulationLoop();
+      scheduleUpstoxReconnect(3000);
       return;
     }
 
@@ -939,7 +965,7 @@ async function connectUpstoxFeed() {
     const redirectUrl = authData?.data?.authorizedRedirectUri || authData?.data?.authorized_redirect_uri || authData?.data?.authorizedRedirectUrl;
     if (!redirectUrl) {
       console.error("[RECONNECT FAILURE] Invalid authorize redirect URL from Upstox:", authData);
-      scheduleUpstoxReconnect();
+      scheduleUpstoxReconnect(2000);
       return;
     }
 
@@ -965,6 +991,8 @@ async function connectUpstoxFeed() {
       console.log("[RECONNECT SUCCESS] WebSocket session established.");
       upstoxReconnectAttempts = 0; // Reset exponential backoff on successful connect
       lastMessageTime = Date.now();
+      broadcastUpstoxStatusToClients();
+      startLiveLtpPollingLoop();
 
       // AUTOMATIC SUBSCRIPTION RECOVERY: Send active subscribed instrument keys
       const currentSubKeys = Array.from(upstoxActiveSubscriptions);
@@ -1168,6 +1196,29 @@ async function verifyAndConnectProvidedToken(token: string) {
   }
 
   try {
+    // 1. First test Market Data Feed Authorize endpoint (works for all market data/analytics access tokens)
+    const feedAuthRes = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/json"
+      }
+    });
+
+    if (feedAuthRes.ok) {
+      console.log(`[TOKEN VALID] Upstox Live Market Data Feed token verified successfully!`);
+      upstoxAccessToken = token;
+      upstoxConnectedUser = {
+        email: "pro_feed_user@papermarket.local",
+        userName: "Upstox Pro Live Account",
+        userId: "UPSTOX_USER",
+      };
+      await saveUpstoxTokenToFirestore(token, upstoxConnectedUser);
+      reconnectUpstoxWebSocket();
+      startLiveLtpPollingLoop();
+      return true;
+    }
+
+    // 2. Fall back to checking user profile API if feed authorize didn't return 200 OK
     const res = await fetch("https://api.upstox.com/v2/user/profile", {
       headers: {
         "Authorization": `Bearer ${token}`,
@@ -1860,29 +1911,40 @@ async function startServer() {
     }
 
     try {
-      const verifyRes = await fetch("https://api.upstox.com/v2/user/profile", {
+      let isVerified = false;
+      const feedCheck = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
         headers: {
           "Authorization": `Bearer ${finalToken}`,
           "Accept": "application/json"
         }
       });
-
-      if (!verifyRes.ok) {
-        const errText = await verifyRes.text();
-        let errMsg = "Verification failed.";
-        try {
-          const errObj = JSON.parse(errText);
-          if (errObj.errors && errObj.errors[0]) {
-            errMsg = errObj.errors[0].message || errMsg;
-          } else if (errObj.message) {
-            errMsg = errObj.message;
+      if (feedCheck.ok) {
+        isVerified = true;
+      } else {
+        const verifyRes = await fetch("https://api.upstox.com/v2/user/profile", {
+          headers: {
+            "Authorization": `Bearer ${finalToken}`,
+            "Accept": "application/json"
           }
-        } catch (_) {}
-        return res.status(400).json({ error: `Upstox rejected token: ${errMsg}` });
+        });
+
+        if (!verifyRes.ok) {
+          const errText = await verifyRes.text();
+          let errMsg = "Verification failed.";
+          try {
+            const errObj = JSON.parse(errText);
+            if (errObj.errors && errObj.errors[0]) {
+              errMsg = errObj.errors[0].message || errMsg;
+            } else if (errObj.message) {
+              errMsg = errObj.message;
+            }
+          } catch (_) {}
+          return res.status(400).json({ error: `Upstox rejected token: ${errMsg}` });
+        }
+        isVerified = true;
       }
 
-      const data = await verifyRes.json();
-      if (data.status === "success" && data.data) {
+      if (isVerified) {
         upstoxAccessToken = finalToken;
         upstoxConnectedUser = {
           email: "pro_feed_user@papermarket.local",
@@ -1899,8 +1961,6 @@ async function startServer() {
           message: "Successfully connected to Upstox Market Data Feed!",
           user: upstoxConnectedUser
         });
-      } else {
-        return res.status(400).json({ error: "Failed to parse profile data from Upstox." });
       }
     } catch (err: any) {
       return res.status(500).json({ error: `Token validation error: ${err.message}` });
@@ -1909,17 +1969,23 @@ async function startServer() {
 
   app.get("/api/integrations/upstox/autorenew", async (req, res) => {
     const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
-    if (!config) {
-      return res.json({ configured: false });
+    const envApiKey = process.env.UPSTOX_API_KEY;
+    const envApiSecret = process.env.UPSTOX_API_SECRET;
+    const envRedirectUri = process.env.UPSTOX_REDIRECT_URI;
+
+    if (!config && !envApiKey) {
+      return res.json({ configured: false, envConfigured: false });
     }
     return res.json({
-      configured: true,
-      enabled: config.enabled,
-      apiKey: config.apiKey ? `${config.apiKey.slice(0, 6)}...` : null,
-      redirectUri: config.redirectUri || null,
-      mobileNo: config.mobileNo ? `${config.mobileNo.slice(0, 3)}*****${config.mobileNo.slice(-2)}` : null,
-      hasPin: !!config.pin,
-      hasTotpSecret: !!config.totpSecret
+      configured: !!config,
+      envConfigured: !!(envApiKey && envApiSecret),
+      enabled: config?.enabled ?? true,
+      apiKey: config?.apiKey || envApiKey || null,
+      redirectUri: config?.redirectUri || envRedirectUri || getDynamicRedirectUri(req),
+      mobileNo: config?.mobileNo || null,
+      hasApiSecret: !!(config?.apiSecret || envApiSecret),
+      hasPin: !!config?.pin,
+      hasTotpSecret: !!config?.totpSecret
     });
   });
 
@@ -3702,19 +3768,28 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
           return;
         }
         try {
-          const profileRes = await fetch("https://api.upstox.com/v2/user/profile", {
+          let isValid = false;
+          const feedRes = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
             headers: {
               "Authorization": `Bearer ${upstoxAccessToken}`,
               "Accept": "application/json"
             }
           });
-          if (!profileRes.ok) {
-            if (profileRes.status === 401 || profileRes.status === 403) {
-              console.log("[UPSTOX AUTOMATION] Hourly health check: Live token expired (401/403). Triggering background renewal...");
-              await autoRenewUpstoxToken();
-            } else {
-              console.warn(`[UPSTOX AUTOMATION] Hourly health check: Profile check status ${profileRes.status}. Retaining session.`);
-            }
+          if (feedRes.ok) {
+            isValid = true;
+          } else {
+            const profileRes = await fetch("https://api.upstox.com/v2/user/profile", {
+              headers: {
+                "Authorization": `Bearer ${upstoxAccessToken}`,
+                "Accept": "application/json"
+              }
+            });
+            if (profileRes.ok) isValid = true;
+          }
+
+          if (!isValid) {
+            console.log("[UPSTOX AUTOMATION] Hourly health check: Live token expired or unauthorized. Triggering background renewal...");
+            await autoRenewUpstoxToken();
           } else {
             if (upstoxWs && upstoxWs.readyState === WS.OPEN) {
               console.log("[UPSTOX AUTOMATION] Hourly health check: Active token is valid and WebSocket is already connected and active. No action required.");

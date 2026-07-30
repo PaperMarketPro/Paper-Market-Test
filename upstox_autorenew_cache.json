@@ -1,9 +1,1 @@
-{
-  "apiKey": "33bdc12c-d51e-454e-8e3c-7aad31946e67",
-  "apiSecret": "t56mmerudu",
-  "redirectUri": "http://localhost:3000/api/integrations/upstox/callback",
-  "mobileNo": "",
-  "pin": "",
-  "totpSecret": "",
-  "enabled": true
-}
+{"apiKey":"33bdc12c-d51e-454e-8e3c-7aad31946e67","apiSecret":"t56mmerudu","redirectUri":"https://ais-dev-dwckjmg4p67qlexyrnnt7s-743038945957","mobileNo":"8393801044","pin":"2525","totpSecret":"","enabled":true}

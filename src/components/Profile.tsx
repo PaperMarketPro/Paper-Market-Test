@@ -9,7 +9,7 @@ import { useApp } from '../store';
 import { 
   Flame, Award, ShieldAlert, CheckCircle, TrendingUp, Activity, 
   Settings, RefreshCw, LogOut, Check, Star, Shield, Bell, X, CreditCard, Sparkles, AlertTriangle,
-  Sun, Moon
+  Sun, Moon, Key, Lock, Phone, ShieldCheck, Link2, ExternalLink, Zap, AlertCircle
 } from 'lucide-react';
 
 interface ProfileProps {
@@ -31,13 +31,78 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     setActiveSubTab(initialSubTab);
   }, [initialSubTab]);
 
-  // Upstox Manual Connection state
+  // Upstox Manual Connection & Credentials state
   const [manualToken, setManualToken] = useState('');
   const [isConnectingToken, setIsConnectingToken] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const [upstoxRedirectType, setUpstoxRedirectType] = useState<'localhost' | 'cloud'>('localhost');
+
+  // Upstox API Keys & Credentials Form state
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiSecretInput, setApiSecretInput] = useState('');
+  const [redirectUriInput, setRedirectUriInput] = useState('http://localhost:3000/api/integrations/upstox/callback');
+  const [mobileNoInput, setMobileNoInput] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [totpSecretInput, setTotpSecretInput] = useState('');
+  const [isSavingCreds, setIsSavingCreds] = useState(false);
+  const [credsSuccess, setCredsSuccess] = useState<string | null>(null);
+  const [credsError, setCredsError] = useState<string | null>(null);
+
+  // Load existing Upstox credentials config
+  React.useEffect(() => {
+    fetch('/api/integrations/upstox/autorenew')
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          if (data.apiKey) setApiKeyInput(data.apiKey);
+          if (data.redirectUri) setRedirectUriInput(data.redirectUri);
+          if (data.mobileNo) setMobileNoInput(data.mobileNo);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveUpstoxCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCredsError(null);
+    setCredsSuccess(null);
+
+    if (!apiKeyInput.trim() || !apiSecretInput.trim()) {
+      setCredsError("Please enter your Upstox Developer API Key (Client ID) and API Secret.");
+      return;
+    }
+
+    setIsSavingCreds(true);
+    try {
+      const res = await fetch('/api/integrations/upstox/autorenew', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: apiKeyInput.trim(),
+          apiSecret: apiSecretInput.trim(),
+          redirectUri: redirectUriInput.trim() || 'http://localhost:3000/api/integrations/upstox/callback',
+          mobileNo: mobileNoInput.trim(),
+          pin: pinInput.trim(),
+          totpSecret: totpSecretInput.trim(),
+          enabled: true
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to save Upstox API credentials.");
+      }
+
+      setCredsSuccess(data.message || "Upstox API credentials saved successfully! Initiating live feed connection...");
+      refreshUpstoxStatus();
+    } catch (err: any) {
+      setCredsError(err.message || "Error saving credentials.");
+    } finally {
+      setIsSavingCreds(false);
+    }
+  };
 
   const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -559,32 +624,190 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
 
       {activeSubTab === 'settings' && (
         <div className="space-y-6 max-w-4xl mx-auto w-full">
-          {/* Streamlined Live Market Feed status card */}
-          <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+          {/* Upstox API Developer Credentials Connection Panel */}
+          <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 space-y-6 shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100 dark:border-white/5">
               <div className="space-y-1">
-                <span className="text-xs font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">Data Feed Settings</span>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Automated Real-Time Market Feed</h3>
+                <span className="text-xs font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
+                  Live Market Data Feed Integration
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                  <Key className="w-4 h-4 text-sky-400" />
+                  Upstox Developer API Credentials Connection
+                </h3>
                 <p className="text-[11px] text-slate-500 dark:text-gray-400 font-sans">
-                  Real-time price ticks, orderbook matching, and candlestick data are automatically managed in the background.
+                  Connect your Upstox Developer App using API Key, API Secret, Redirect URI, PIN, and TOTP Secret for automated live ticks.
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 shadow-sm shadow-emerald-500/5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                    BACKEND FEED ACTIVE
-                  </span>
-                </div>
+                {upstoxStatus.connected ? (
+                  <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 shadow-sm">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                      UPSTOX LIVE CONNECTED
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 shadow-sm">
+                    <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                      SIMULATED / DISCONNECTED
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed font-sans bg-slate-50 dark:bg-white/2 border border-slate-200/50 dark:border-white/5 rounded-xl p-4">
-              <span className="font-bold text-slate-900 dark:text-white block mb-0.5">High-Fidelity Exchange Engine</span>
-              <span>Market prices, Option chain Greeks, and live tick updates operate continuously on the server without requiring user intervention.</span>
-            </div>
+
+            {/* Error or Success alerts */}
+            {credsError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-sans flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                <span>{credsError}</span>
+              </div>
+            )}
+            {credsSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-sans flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+                <span>{credsSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveUpstoxCredentials} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* API Key */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-sky-400" /> Upstox API Key (Client ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="e.g. 12345678-abcd-4321-9876-0123456789ab"
+                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+
+                {/* API Secret */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-sky-400" /> Upstox API Secret (Client Secret)
+                  </label>
+                  <input
+                    type="password"
+                    value={apiSecretInput}
+                    onChange={(e) => setApiSecretInput(e.target.value)}
+                    placeholder="Enter Client Secret"
+                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+
+                {/* Redirect URI */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-sky-400" /> Redirect URI (Configured in Upstox Developer Console)
+                  </label>
+                  <input
+                    type="text"
+                    value={redirectUriInput}
+                    onChange={(e) => setRedirectUriInput(e.target.value)}
+                    placeholder="http://localhost:3000/api/integrations/upstox/callback"
+                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 dark:text-gray-500 font-sans">
+                    Ensure this exact Redirect URI matches the Redirect URI entered in your Upstox Developer Console app details.
+                  </p>
+                </div>
+
+                {/* Mobile No */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-amber-400" /> Mobile Number / User ID (Optional for TOTP)
+                  </label>
+                  <input
+                    type="text"
+                    value={mobileNoInput}
+                    onChange={(e) => setMobileNoInput(e.target.value)}
+                    placeholder="e.g. 9876543210"
+                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+
+                {/* PIN */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-400" /> Upstox 4-Digit Login PIN (Optional for TOTP)
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="e.g. 1234"
+                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+
+                {/* TOTP Secret Key */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 2FA TOTP Secret Key / Seed (Optional for Automatic Background Login)
+                  </label>
+                  <input
+                    type="password"
+                    value={totpSecretInput}
+                    onChange={(e) => setTotpSecretInput(e.target.value)}
+                    placeholder="e.g. JBSWY3DPEHPK3PXP"
+                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 dark:text-gray-500 font-sans">
+                    Providing TOTP Secret Key allows the server to automatically log in and renew access tokens 24/7 without requiring manual daily logins.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingCreds}
+                  className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-sky-600/20 disabled:opacity-50"
+                >
+                  {isSavingCreds ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      Connecting Upstox API...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" /> Save API Credentials & Connect Live Feed
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleConnectOAuth}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl text-xs transition border border-slate-200 dark:border-white/10 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4 text-sky-400" />
+                  1-Click Upstox OAuth Login
+                </button>
+
+                {upstoxStatus.connected && (
+                  <button
+                    type="button"
+                    onClick={disconnectUpstox}
+                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-3 px-4 rounded-xl text-xs transition border border-red-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    Disconnect
+                  </button>
+                )}
+              </div>
+            </form>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
