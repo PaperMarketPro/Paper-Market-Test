@@ -701,10 +701,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.prices) {
-          setInstruments(prev =>
-            prev.map(inst => {
+          setInstruments(prev => {
+            let changed = false;
+            const next = prev.map(inst => {
               const realLtp = data.prices[inst.symbol];
-              if (realLtp && realLtp > 0) {
+              if (realLtp && realLtp > 0 && Math.abs(realLtp - inst.ltp) > 0.001) {
+                changed = true;
                 const sparkCopy = [...inst.sparkline.slice(1), realLtp];
                 return {
                   ...inst,
@@ -715,8 +717,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 };
               }
               return inst;
-            })
-          );
+            });
+            return changed ? next : prev;
+          });
           console.log("[Upstox LTP Synchronizer] Synced current market prices successfully.", data.prices);
         }
       }
