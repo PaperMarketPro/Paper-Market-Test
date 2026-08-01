@@ -2340,18 +2340,22 @@ const StockChartBase: React.FC<StockChartProps> = ({
 
     setCandles(prev => {
       if (prev.length === 0) return prev;
+      const lastCandle = prev[prev.length - 1];
+      if (lastCandle && lastCandle.close === currentLtp && currentLtp <= lastCandle.high && currentLtp >= lastCandle.low) {
+        return prev;
+      }
       const updated = [...prev];
-      const lastCandle = { ...updated[updated.length - 1] };
+      const updatedLast = { ...lastCandle };
       
       // Update the live last candle metrics
-      lastCandle.close = currentLtp;
-      if (currentLtp > lastCandle.high) lastCandle.high = currentLtp;
-      if (currentLtp < lastCandle.low) lastCandle.low = currentLtp;
+      updatedLast.close = currentLtp;
+      if (currentLtp > updatedLast.high) updatedLast.high = currentLtp;
+      if (currentLtp < updatedLast.low) updatedLast.low = currentLtp;
       
       // Update volume slightly for the tick
-      lastCandle.volume = lastCandle.volume + Math.round(Math.random() * 5000);
+      updatedLast.volume = updatedLast.volume + Math.round(Math.random() * 500);
 
-      updated[updated.length - 1] = lastCandle;
+      updated[updated.length - 1] = updatedLast;
       
       // Re-compute indicators so lines follow live ticks flawlessly
       return computeIndicators(updated);

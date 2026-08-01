@@ -41,7 +41,7 @@ export const RiskManagement: React.FC = React.memo(() => {
   // Set default selected symbol if none
   useEffect(() => {
     if (!selectedSymbol && allAssets.length > 0) {
-      setSelectedSymbol(allAssets[0].symbol);
+      setSelectedSymbol(prev => prev || (allAssets[0]?.symbol || ''));
     }
   }, [selectedSymbol, allAssets.length]);
 

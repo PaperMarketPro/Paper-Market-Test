@@ -795,18 +795,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    if (upstoxStatus.connected) {
-      fetchRealUpstoxLtp();
-      const interval = setInterval(fetchRealUpstoxLtp, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [upstoxStatus.connected, fetchRealUpstoxLtp]);
+    fetchRealUpstoxLtp();
+    const interval = setInterval(fetchRealUpstoxLtp, 3000);
+    return () => clearInterval(interval);
+  }, [fetchRealUpstoxLtp]);
 
   // Listen for success messages from OAuth popup
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1') && !origin.includes('vercel.app')) {
         return;
       }
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
@@ -1004,12 +1002,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }, 1500);
     };
 
+    const MAX_WS_RECONNECT_ATTEMPTS = 5;
+
     const scheduleReconnect = () => {
       startFallbackSimulation();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS) {
+        console.info("[Upstox Feed] Running active simulation feed.");
+        return;
+      }
       reconnectAttempts++;
-      // Rapid sub-second reconnect (300ms) on drop, max 1.5s delay
-      const delay = reconnectAttempts === 1 ? 300 : Math.min(1500, 300 * reconnectAttempts);
+      const delay = reconnectAttempts === 1 ? 500 : Math.min(3000, 1000 * reconnectAttempts);
       reconnectTimeout = setTimeout(() => {
         connectWS();
       }, delay);
@@ -1111,6 +1114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       let changed = false;
       const nextPositions = prevPositions.map(pos => {
+        if (pos.status !== 'Open') return pos;
         let nextPrice = pos.currentPrice;
 
         const matchingAsset = instruments.find(i => i.symbol === pos.symbol);

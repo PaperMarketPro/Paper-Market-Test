@@ -28,7 +28,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 
   React.useEffect(() => {
-    setActiveSubTab(initialSubTab);
+    setActiveSubTab(prev => prev === initialSubTab ? prev : initialSubTab);
   }, [initialSubTab]);
 
   // Upstox Manual Connection & Credentials state
