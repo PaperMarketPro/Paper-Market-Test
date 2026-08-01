@@ -3712,6 +3712,10 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
+    // Return 404 JSON for unmatched API endpoints to prevent serving index.html on missing API calls
+    app.use("/api/*", (req, res) => {
+      res.status(404).json({ success: false, error: "API route not found" });
+    });
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {

@@ -695,36 +695,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isRealUpstox: false
   });
 
+  const pendingTicksRef = useRef<Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }>>({});
+  const lastLiveTicksRef = useRef<Record<string, number>>({});
+
   const fetchRealUpstoxLtp = useCallback(async () => {
     try {
       const res = await fetch('/api/integrations/upstox/ltp');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.prices) {
-          setInstruments(prev => {
-            let changed = false;
-            const next = prev.map(inst => {
-              const realLtp = data.prices[inst.symbol];
-              if (realLtp && realLtp > 0 && Math.abs(realLtp - inst.ltp) > 0.001) {
-                changed = true;
-                const sparkCopy = [...inst.sparkline.slice(1), realLtp];
-                return {
-                  ...inst,
-                  ltp: realLtp,
-                  high: realLtp > inst.high ? realLtp : inst.high,
-                  low: realLtp < inst.low ? realLtp : inst.low,
-                  sparkline: sparkCopy
-                };
-              }
-              return inst;
-            });
-            return changed ? next : prev;
+          Object.keys(data.prices).forEach(sym => {
+            const price = data.prices[sym];
+            if (price && price > 0) {
+              pendingTicksRef.current[sym] = {
+                ltp: price,
+                isReal: !data.fallback
+              };
+              lastLiveTicksRef.current[sym] = Date.now();
+            }
           });
-          console.log("[Upstox LTP Synchronizer] Synced current market prices successfully.", data.prices);
         }
       }
     } catch (err) {
-      console.warn("[Upstox LTP Synchronizer] Error fetching LTP (expected during boot, offline, or restart):", err);
+      console.warn("[Upstox LTP Synchronizer] Error fetching LTP:", err);
     }
   }, []);
 
@@ -828,20 +821,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let pingInterval: any = null;
     let reconnectAttempts = 0;
     let lastMsgTime = Date.now();
-    const lastLiveTicks: Record<string, number> = {};
 
-    // Map to hold pending ticks: key is symbol, value is the tick data
-    const pendingTicks: Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }> = {};
-
-    // Process pending ticks every 400ms to keep UI responsive and smooth
+    // Process pending ticks every 300ms to keep UI responsive and smooth
     batchInterval = setInterval(() => {
-      const keys = Object.keys(pendingTicks);
+      const pendingMap = pendingTicksRef.current;
+      const keys = Object.keys(pendingMap);
       if (keys.length === 0) return;
 
       // Make a local snapshot and clear the pending map
-      const ticksToProcess = { ...pendingTicks };
+      const ticksToProcess = { ...pendingMap };
       for (const key of keys) {
-        delete pendingTicks[key];
+        delete pendingMap[key];
       }
 
       // Wrap price tick updates in React startTransition so UI button clicks and navigation take immediate priority
@@ -892,7 +882,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setFutures(prev => {
           let changed = false;
           const next = prev.map(inst => {
-            // Find matching tick by checking if symbol starts with any tick symbol
             let matchedSymbol: string | null = null;
             let matchedTick: any = null;
 
@@ -920,7 +909,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
               nextLow = nextLtp < inst.low ? nextLtp : inst.low;
             } else {
-              // Adjust future relative to spot tick or update directly
               const baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
               nextLtp = baseLtp;
               nextChange = matchedTick.change ?? inst.change;
@@ -991,18 +979,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? next : prev;
         });
       });
-    }, 400);
+    }, 300);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
       fallbackInterval = setInterval(() => {
         instrumentsRef.current.forEach(inst => {
-          if (lastLiveTicks[inst.symbol] && Date.now() - lastLiveTicks[inst.symbol] < 8000) {
+          if (lastLiveTicksRef.current[inst.symbol] && Date.now() - lastLiveTicksRef.current[inst.symbol] < 4000) {
             return;
           }
-          pendingTicks[inst.symbol] = { isSim: true };
+          pendingTicksRef.current[inst.symbol] = { isSim: true };
         });
-      }, 1500);
+      }, 1200);
     };
 
     const MAX_WS_RECONNECT_ATTEMPTS = 5;
@@ -1050,8 +1038,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return { ...prev, connected: message.connected, user: message.user };
             });
           } else if (message.type === 'TICK') {
-            lastLiveTicks[message.symbol] = Date.now();
-            pendingTicks[message.symbol] = {
+            lastLiveTicksRef.current[message.symbol] = Date.now();
+            pendingTicksRef.current[message.symbol] = {
               ltp: message.ltp,
               change: message.change,
               high: message.high,
@@ -1059,8 +1047,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isReal: true
             };
           } else if (message.type === 'SIM_TICK') {
-            lastLiveTicks[message.symbol] = Date.now();
-            pendingTicks[message.symbol] = { isSim: true };
+            lastLiveTicksRef.current[message.symbol] = Date.now();
+            pendingTicksRef.current[message.symbol] = { isSim: true };
           }
         } catch (e) {
           console.warn("Client WS parse error:", e);
