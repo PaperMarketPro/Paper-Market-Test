@@ -711,7 +711,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ltp: price,
                 isReal: !data.fallback
               };
-              lastLiveTicksRef.current[sym] = Date.now();
+              if (!data.fallback) {
+                lastLiveTicksRef.current[sym] = Date.now();
+              }
             }
           });
         }
@@ -850,14 +852,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             if (tick.isSim) {
               nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-              nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
+              const baseVal = inst.sparkline[0] || nextLtp;
+              nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
               nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
               nextLow = nextLtp < inst.low ? nextLtp : inst.low;
             } else {
               nextLtp = tick.ltp ?? inst.ltp;
-              nextChange = tick.change ?? inst.change;
-              nextHigh = tick.high ?? inst.high;
-              nextLow = tick.low ?? inst.low;
+              const baseVal = inst.sparkline[0] || nextLtp;
+              nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
+              nextHigh = tick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
+              nextLow = tick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
             }
 
             if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
@@ -905,15 +909,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             if (matchedTick.isSim) {
               nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-              nextChange = Number((((nextLtp - inst.sparkline[0]) / inst.sparkline[0]) * 100).toFixed(2));
+              const baseVal = inst.sparkline[0] || nextLtp;
+              nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
               nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
               nextLow = nextLtp < inst.low ? nextLtp : inst.low;
             } else {
               const baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
               nextLtp = baseLtp;
-              nextChange = matchedTick.change ?? inst.change;
-              nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
-              nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+              const baseVal = inst.sparkline[0] || nextLtp;
+              nextChange = matchedTick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
+              nextHigh = matchedTick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
+              nextLow = matchedTick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
             }
 
             if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
