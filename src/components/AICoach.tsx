@@ -207,7 +207,9 @@ export const AICoach: React.FC = React.memo(() => {
         })
       });
 
-      const data = await res.json();
+      const resText1 = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(resText1); } catch (_) {}
       if (res.ok && data.success) {
         setTimeout(() => {
           setDispScore(data.disciplineScore);
@@ -252,7 +254,9 @@ export const AICoach: React.FC = React.memo(() => {
           cognitiveRules: cognitiveRules
         })
       });
-      const data = await res.json();
+      const resText2 = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(resText2); } catch (_) {}
       if (res.ok && data.success && data.lesson) {
         setLessonData(data.lesson);
       } else {
@@ -298,7 +302,9 @@ export const AICoach: React.FC = React.memo(() => {
         })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = {};
+      try { data = JSON.parse(responseText); } catch (_) {}
       if (response.ok && data.text) {
         setChatHistory(prev => [...prev, {
           role: 'assistant',

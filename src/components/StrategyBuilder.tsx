@@ -70,7 +70,9 @@ export const StrategyBuilder: React.FC = React.memo(() => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: text })
       });
-      const data = await res.json();
+      const resText = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(resText); } catch (_) {}
       if (data.success && data.strategy) {
         const s = data.strategy;
         if (s.name) setName(s.name);

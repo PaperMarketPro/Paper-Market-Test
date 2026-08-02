@@ -149,7 +149,9 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
           try {
             const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
             if (res.ok) {
-              const data = await res.json();
+              const statusText = await res.text();
+              let data: any = {};
+              try { data = JSON.parse(statusText); } catch (_) {}
               if (data.connected) {
                 if (pollingIntervalRef.current) {
                   clearInterval(pollingIntervalRef.current);
@@ -227,7 +229,9 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
         throw new Error(`Failed to create payment order: ${errText}`);
       }
 
-      const orderData = await res.json();
+      const orderText = await res.text();
+      let orderData: any = {};
+      try { orderData = JSON.parse(orderText); } catch (_) {}
       if (!orderData.success) {
         throw new Error(orderData.error || "Order creation failed on server.");
       }
@@ -257,11 +261,18 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
             });
 
             if (!verifyRes.ok) {
-              const verifyErr = await verifyRes.json();
-              throw new Error(verifyErr.error || "Payment signature verification failed.");
+              const verifyText = await verifyRes.text();
+              let verifyErrMsg = "Payment signature verification failed.";
+              try {
+                const verifyErrObj = JSON.parse(verifyText);
+                if (verifyErrObj.error) verifyErrMsg = verifyErrObj.error;
+              } catch (_) {}
+              throw new Error(verifyErrMsg);
             }
 
-            const verifyData = await verifyRes.json();
+            const verifyText = await verifyRes.text();
+            let verifyData: any = {};
+            try { verifyData = JSON.parse(verifyText); } catch (_) {}
             if (verifyData.success) {
               // Upgrade user
               upgradeToPro();

@@ -1834,7 +1834,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
         });
 
-        const data = await res.json();
+        const resText = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(resText); } catch (_) {}
         if (res.ok && data.success && data.entry) {
           const { entry } = data;
           addJournalEntry({
@@ -1994,7 +1996,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           cognitiveRules: cognitiveRules
         })
       });
-      const data = await res.json();
+      const backtestResText = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(backtestResText); } catch (_) {}
       if (data.success) {
         setStrategies(prev => prev.map(s => {
           if (s.id === strategyId) {

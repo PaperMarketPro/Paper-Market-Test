@@ -155,7 +155,9 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
         })
       });
 
-      const data = await res.json();
+      const resText = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(resText); } catch (_) {}
       if (res.ok && data.success && data.entry) {
         const { entry } = data;
         setWizEntryReason(entry.entryReason);

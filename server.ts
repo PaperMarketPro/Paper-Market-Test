@@ -60,11 +60,12 @@ function isSimulatedToken(token: string | null | undefined): boolean {
 
 // Initialize Firebase Admin securely
 import admin from "firebase-admin";
+import { getApps, getApp } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 
 let db: Firestore | null = null;
 try {
-  const firebaseApp = admin.initializeApp({ projectId: "phonic-transit-7wfkz" });
+  const firebaseApp = getApps().length ? getApp() : admin.initializeApp({ projectId: "phonic-transit-7wfkz" });
   db = getFirestore(firebaseApp, "ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
   console.log("[FIREBASE-ADMIN] Initialized targeting: ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
 } catch (err: any) {
@@ -3749,6 +3750,23 @@ Analyze the backtest mathematically and speak in a highly sophisticated, expert 
       console.error("AI Strategy Generation Error:", err);
       res.status(500).json({ error: "Failed to generate strategy via AI", details: err.message });
     }
+  });
+
+  // Fallback for unmatched API routes to prevent returning HTML index
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.path}` });
+  });
+
+  // Global Express Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("[EXPRESS SERVER ERROR]", err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(err.status || 500).json({
+      success: false,
+      error: err.message || "An internal server error occurred."
+    });
   });
 
 async function startServer() {
