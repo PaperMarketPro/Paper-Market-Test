@@ -85,47 +85,55 @@ const CACHE_PATH = path.join(os.tmpdir(), "upstox_token_cache.json");
 const AUTORENEW_CACHE_PATH = path.join(os.tmpdir(), "upstox_autorenew_cache.json");
 
 function getDynamicRedirectUri(req: any): string {
-  // 1. If explicitly configured in environment variables, we MUST prioritize it!
+  // 1. Environment variable override takes top priority
   const envRedirectUri = process.env.UPSTOX_REDIRECT_URI;
   if (envRedirectUri && envRedirectUri.trim() !== "") {
-    return envRedirectUri;
+    return envRedirectUri.trim();
   }
 
-  // 2. If running in the development sandbox / cloud container and no redirect URI is set,
-  // we default to http://localhost:3000/api/integrations/upstox/callback.
-  // This is because Upstox developer apps require a fixed redirect URI, and developers almost
-  // always configure 'http://localhost:3000/api/integrations/upstox/callback' for testing.
-  let isDevSandbox = false;
-  const host = req ? (req.headers?.['host'] || "") : "";
-  if (host.includes("run.app") || host.includes("aistudio") || host.includes("localhost") || process.env.NODE_ENV !== "production") {
-    isDevSandbox = true;
+  // Extract current request origin host if request is provided
+  let forwardedHost = req ? (req.headers?.['x-forwarded-host'] || req.headers?.['host']) : null;
+  if (Array.isArray(forwardedHost)) forwardedHost = forwardedHost[0];
+  let forwardedProto = req ? (req.headers?.['x-forwarded-proto'] || (forwardedHost && forwardedHost.includes("localhost") ? "http" : "https")) : "https";
+  if (Array.isArray(forwardedProto)) forwardedProto = forwardedProto[0];
+
+  const currentReqUri = forwardedHost ? `${forwardedProto}://${forwardedHost}/api/integrations/upstox/callback` : null;
+
+  console.log("[DEBUG REDIRECT]", {
+    savedRedirect: upstoxAutoRenewConfig?.redirectUri,
+    forwardedHost,
+    forwardedProto,
+    currentReqUri
+  });
+
+  // 2. Saved config redirectUri: use if present, unless it's localhost while request is on cloud host
+  if (upstoxAutoRenewConfig?.redirectUri && upstoxAutoRenewConfig.redirectUri.trim() !== "") {
+    const saved = upstoxAutoRenewConfig.redirectUri.trim();
+    if (saved.includes("localhost") && currentReqUri && !currentReqUri.includes("localhost")) {
+      return currentReqUri;
+    }
+    return saved;
   }
 
-  if (isDevSandbox) {
-    return "http://localhost:3000/api/integrations/upstox/callback";
-  }
-
-  // 3. Fall back to query param origin
-  const originQuery = req?.query?.origin;
+  // 3. Query param or body parameter override
+  const originQuery = req?.query?.origin || req?.body?.redirectUri;
   if (originQuery && typeof originQuery === "string" && originQuery.trim() !== "") {
-    return `${originQuery.replace(/\/$/, "")}/api/integrations/upstox/callback`;
+    if (originQuery.startsWith("http")) {
+      return originQuery.endsWith("/callback") ? originQuery.trim() : `${originQuery.replace(/\/$/, "")}/api/integrations/upstox/callback`;
+    }
   }
 
-  // 4. Fall back to APP_URL
+  // 4. Current request dynamic URI
+  if (currentReqUri) {
+    return currentReqUri;
+  }
+
+  // 5. Fall back to APP_URL or default
   if (process.env.APP_URL) {
     return `${process.env.APP_URL.replace(/\/$/, "")}/api/integrations/upstox/callback`;
   }
 
-  // 5. Fall back to host headers
-  let forwardedHost = req ? (req.headers?.['x-forwarded-host'] || req.headers?.['host'] || "localhost:3000") : "localhost:3000";
-  if (Array.isArray(forwardedHost)) {
-    forwardedHost = forwardedHost[0];
-  }
-  let forwardedProto = req ? (req.headers?.['x-forwarded-proto'] || (forwardedHost.includes("localhost") ? "http" : "https")) : "http";
-  if (Array.isArray(forwardedProto)) {
-    forwardedProto = forwardedProto[0];
-  }
-  return `${forwardedProto}://${forwardedHost}/api/integrations/upstox/callback`;
+  return "http://localhost:3000/api/integrations/upstox/callback";
 }
 
 interface UpstoxAutoRenewConfig {
@@ -303,7 +311,7 @@ async function programmaticUpstoxLogin(config: {
   const cleanTotpInput = config.totpSecret ? config.totpSecret.trim().replace(/\s+/g, "") : "";
   const cleanApiKey = config.apiKey ? config.apiKey.trim() : "";
   const cleanApiSecret = config.apiSecret ? config.apiSecret.trim() : "";
-  const cleanRedirectUri = config.redirectUri ? config.redirectUri.trim() : "http://localhost:3000/api/integrations/upstox/callback";
+  const cleanRedirectUri = config.redirectUri ? config.redirectUri.trim() : getDynamicRedirectUri(null);
 
   const isMock = 
     cleanApiKey.toLowerCase().includes("mock") ||
@@ -1309,8 +1317,9 @@ function startSimulationLoop() {
   if (simulationInterval) return;
 
   simulationInterval = setInterval(() => {
-    // Only simulate if Upstox WS is NOT active and open
-    if (upstoxWs && upstoxWs.readyState === WS.OPEN) return;
+    // Only pause simulation ticks if the Indian Market is currently OPEN and Upstox WS is actively streaming
+    const marketOpen = isIndianMarketOpen();
+    if (marketOpen && upstoxWs && upstoxWs.readyState === WS.OPEN) return;
 
     // Simulate tick updates for multiple symbols every 1000ms to keep the UI smooth and responsive
     const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);
@@ -1924,8 +1933,8 @@ app.get("/api/health", (req, res) => {
           return res.status(400).json({ error: "Upstox API Client ID and Secret are not configured. Please save them in the background auto-renewal settings below first!" });
         }
 
-        // Try the extracted redirect URI, or fallback to localhost, or fallback to dynamic
-        const rUri = redirectUri || "http://localhost:3000/api/integrations/upstox/callback";
+        // Try the extracted redirect URI, or fallback to dynamic request URL or localhost
+        const rUri = redirectUri || getDynamicRedirectUri(req);
         console.log(`[UPSTOX MANUAL] Exchanging code using redirect_uri: ${rUri}`);
 
         const tokenResponse = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
@@ -2062,7 +2071,7 @@ app.get("/api/health", (req, res) => {
       envConfigured: !!(envApiKey && envApiSecret),
       enabled: config?.enabled ?? true,
       apiKey: config?.apiKey || envApiKey || null,
-      redirectUri: config?.redirectUri || envRedirectUri || getDynamicRedirectUri(req),
+      redirectUri: getDynamicRedirectUri(req),
       mobileNo: config?.mobileNo || null,
       hasApiSecret: !!(config?.apiSecret || envApiSecret),
       hasPin: !!config?.pin,

@@ -178,6 +178,20 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
 
             {/* Streak & Level Badges with consistent styling */}
             <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
+              {/* Upstox Live Feed Status Badge */}
+              <div 
+                onClick={() => handleNavClick('profile')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold font-mono border shadow-sm shrink-0 whitespace-nowrap cursor-pointer hover:scale-105 transition ${
+                  upstoxStatus.connected 
+                    ? 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400' 
+                    : 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-gray-400'
+                }`}
+                title={upstoxStatus.connected ? "Upstox Live Market Data Connected" : "Simulated Mode"}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${upstoxStatus.connected ? 'bg-sky-400 animate-pulse' : 'bg-slate-400'}`} />
+                <span>UPSTOX: {upstoxStatus.connected ? 'LIVE FEED' : 'SIMULATED'}</span>
+              </div>
+
               {/* Dynamic NSE/BSE Market hours status indicator */}
               <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold font-mono border shadow-sm shrink-0 whitespace-nowrap ${
                 isMarketOpen 
