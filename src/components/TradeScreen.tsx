@@ -15,7 +15,6 @@ interface TradeScreenProps {
 
 export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }) => {
   const { selectedAsset, addOrder, user, isMarketOpen } = useApp();
-  if (!user) return null;
   
   // Ticket States
   const [direction, setDirection] = useState<'Buy' | 'Sell'>('Buy');
@@ -66,7 +65,8 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
   
   // Position Sizing calculations
   const { plannerRecommendedQty, slPriceForSizing, hasFormSL, formSLVal, marginRequired, taxesAndCharges, plannerRiskCapital, plannerRiskPerShare, plannerRequiredMargin } = React.useMemo(() => {
-    const plannerBalance = customBalanceInput ? (parseFloat(customBalanceInput) || user.virtualBalance) : user.virtualBalance;
+    const userBalance = user?.virtualBalance || 500000;
+    const plannerBalance = customBalanceInput ? (parseFloat(customBalanceInput) || userBalance) : userBalance;
     const riskCap = plannerBalance * (riskPercent / 100);
     
     const slVal = parseFloat(stopLoss);
@@ -94,7 +94,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
       plannerRiskPerShare: riskPerShare,
       plannerRequiredMargin: reqMargin
     };
-  }, [customBalanceInput, user.virtualBalance, riskPercent, stopLoss, direction, activePrice, simSLPercent, qty]);
+  }, [customBalanceInput, user?.virtualBalance, riskPercent, stopLoss, direction, activePrice, simSLPercent, qty]);
 
   const handleApplySizing = React.useCallback(() => {
     setQty(plannerRecommendedQty);
@@ -111,6 +111,8 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
       return next <= 0 ? 1 : next;
     });
   }, []);
+
+  if (!user) return null;
 
   const handleOrderSubmission = React.useCallback((e: React.FormEvent) => {
     e.preventDefault();

@@ -700,7 +700,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchRealUpstoxLtp = useCallback(async () => {
     try {
-      const res = await fetch('/api/integrations/upstox/ltp');
+      const savedToken = localStorage.getItem('upstox_user_access_token');
+      const headers: Record<string, string> = {};
+      if (savedToken && savedToken.trim().length > 15) {
+        headers['X-Upstox-Access-Token'] = savedToken.trim();
+      }
+      const res = await fetch('/api/integrations/upstox/ltp', { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.prices) {
@@ -711,9 +716,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ltp: price,
                 isReal: !data.fallback
               };
-              if (!data.fallback) {
-                lastLiveTicksRef.current[sym] = Date.now();
-              }
+              lastLiveTicksRef.current[sym] = Date.now();
             }
           });
         }
@@ -725,7 +728,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshUpstoxStatus = useCallback(async () => {
     try {
-      const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
+      const savedToken = localStorage.getItem('upstox_user_access_token');
+      const headers: Record<string, string> = {};
+      if (savedToken && savedToken.trim().length > 15) {
+        headers['X-Upstox-Access-Token'] = savedToken.trim();
+      }
+      const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setUpstoxStatus(prev => {
@@ -753,10 +761,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
     }
-  }, []);
+  }, [fetchRealUpstoxLtp]);
 
   const disconnectUpstox = async () => {
     try {
+      localStorage.removeItem('upstox_user_access_token');
       const res = await fetch('/api/integrations/upstox/disconnect', { method: 'POST' });
       if (res.ok) {
         await refreshUpstoxStatus();
@@ -769,6 +778,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const connectUpstoxManually = async (token: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      if (token && token.trim().length > 15) {
+        localStorage.setItem('upstox_user_access_token', token.trim());
+      }
       const res = await fetch('/api/integrations/upstox/connect-manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -790,11 +802,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     refreshUpstoxStatus();
-  }, []);
+  }, [refreshUpstoxStatus]);
 
   useEffect(() => {
     fetchRealUpstoxLtp();
-    const interval = setInterval(fetchRealUpstoxLtp, 3000);
+    const interval = setInterval(fetchRealUpstoxLtp, 1500);
     return () => clearInterval(interval);
   }, [fetchRealUpstoxLtp]);
 
@@ -806,13 +818,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        if (event.data.token && typeof event.data.token === 'string' && event.data.token.length > 15) {
+          localStorage.setItem('upstox_user_access_token', event.data.token.trim());
+        }
         refreshUpstoxStatus();
         pushNotification('Upstox Linked!', `Successfully connected to Upstox Market Data Feed.`, 'badge');
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [refreshUpstoxStatus]);
 
   // Simulating live ticking prices via custom WebSocket server
   useEffect(() => {
@@ -824,7 +839,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let reconnectAttempts = 0;
     let lastMsgTime = Date.now();
 
-    // Process pending ticks every 300ms to keep UI responsive and smooth
+    // Process pending ticks every 1000ms to keep UI snappy, responsive and smooth
     batchInterval = setInterval(() => {
       const pendingMap = pendingTicksRef.current;
       const keys = Object.keys(pendingMap);
@@ -838,6 +853,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Wrap price tick updates in React startTransition so UI button clicks and navigation take immediate priority
       startTransition(() => {
+        let latestInsts = instrumentsRef.current;
+        let latestFuts = futuresRef.current;
+
         // 1. Batch update instruments
         setInstruments(prev => {
           let changed = false;
@@ -879,6 +897,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               sparkline: sparkCopy
             };
           });
+          if (changed) latestInsts = next;
           return changed ? next : prev;
         });
 
@@ -937,6 +956,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               sparkline: sparkCopy,
             };
           });
+          if (changed) latestFuts = next;
           return changed ? next : prev;
         });
 
@@ -984,8 +1004,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? next : prev;
         });
+
+        // 4. Batch update open position prices in the EXACT SAME pass
+        setPositions(prevPositions => {
+          if (prevPositions.length === 0) return prevPositions;
+          let changed = false;
+          const nextPositions = prevPositions.map(pos => {
+            if (pos.status !== 'Open') return pos;
+            let nextPrice = pos.currentPrice;
+
+            const matchingAsset = latestInsts.find(i => i.symbol === pos.symbol);
+            if (matchingAsset) {
+              nextPrice = matchingAsset.ltp;
+            } else {
+              const matchingFuture = latestFuts.find(f => f.symbol === pos.symbol);
+              if (matchingFuture) {
+                nextPrice = matchingFuture.ltp;
+              } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
+                const parts = pos.symbol.split(' ');
+                const strikeStr = parts[parts.length - 2];
+                const typeStr = parts[parts.length - 1];
+                const strike = parseInt(strikeStr);
+                if (!isNaN(strike)) {
+                  const underlierName = parts[0];
+                  const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
+                  const underlier = latestInsts.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
+                  const spot = underlier ? underlier.ltp : 24325.85;
+                  const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
+                  const distance = strike - spot;
+                  
+                  if (typeStr === 'CE') {
+                    const callIntrinsic = Math.max(0, spot - strike);
+                    const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+                    const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+                    nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
+                  } else {
+                    const putIntrinsic = Math.max(0, strike - spot);
+                    const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+                    const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+                    nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
+                  }
+                }
+              }
+            }
+
+            if (typeof nextPrice === 'number' && !isNaN(nextPrice) && Math.abs(nextPrice - pos.currentPrice) > 0.01) {
+              changed = true;
+              return { ...pos, currentPrice: nextPrice };
+            }
+            return pos;
+          });
+          return changed ? nextPositions : prevPositions;
+        });
       });
-    }, 300);
+    }, 1000);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
@@ -1103,62 +1175,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (batchInterval) clearInterval(batchInterval);
     };
   }, []);
-
-  // Sync index and asset updates with position prices (unrealized P&L simulation)
-  useEffect(() => {
-    setPositions(prevPositions => {
-      if (prevPositions.length === 0) return prevPositions;
-
-      let changed = false;
-      const nextPositions = prevPositions.map(pos => {
-        if (pos.status !== 'Open') return pos;
-        let nextPrice = pos.currentPrice;
-
-        const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
-        if (matchingAsset) {
-          nextPrice = matchingAsset.ltp;
-        } else {
-          const matchingFuture = futures.find(f => f.symbol === pos.symbol);
-          if (matchingFuture) {
-            nextPrice = matchingFuture.ltp;
-          } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
-            const parts = pos.symbol.split(' ');
-            const strikeStr = parts[parts.length - 2];
-            const typeStr = parts[parts.length - 1];
-            const strike = parseInt(strikeStr);
-            if (!isNaN(strike)) {
-              const underlierName = parts[0];
-              const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
-              const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
-              const spot = underlier ? underlier.ltp : 24325.85;
-              const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
-              const distance = strike - spot;
-              
-              if (typeStr === 'CE') {
-                const callIntrinsic = Math.max(0, spot - strike);
-                const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-                nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
-              } else {
-                const putIntrinsic = Math.max(0, strike - spot);
-                const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-                nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
-              }
-            }
-          }
-        }
-
-        if (typeof nextPrice === 'number' && !isNaN(nextPrice) && Math.abs(nextPrice - pos.currentPrice) > 0.01) {
-          changed = true;
-          return { ...pos, currentPrice: nextPrice };
-        }
-        return pos;
-      });
-
-      return changed ? nextPositions : prevPositions;
-    });
-  }, [instruments, futures]);
 
   // AI Auto-Trader Real-Time Strategy Execution Engine
   const lastAutoTradeRef = useRef<Record<string, number>>({});

@@ -238,7 +238,9 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
 
   const handleQuickTrade = React.useCallback((symbol: string) => {
     setSelectedAssetBySymbol(symbol);
-    onNavigate('trade');
+    React.startTransition(() => {
+      onNavigate('trade');
+    });
   }, [setSelectedAssetBySymbol, onNavigate]);
 
   return (

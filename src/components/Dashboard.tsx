@@ -19,14 +19,13 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) => {
-  const { user, positions, instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useApp();
-  if (!user) return null;
+  const { user, positions = [], instruments = [], futures = [], optionChain = [], setSelectedAssetBySymbol, upstoxStatus } = useApp();
   const [activeTab, setActiveTab] = useState<'equity' | 'monthly'>('equity');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filter indices list
   const indicesList = React.useMemo(() => {
-    return instruments.filter(inst => 
+    return (instruments || []).filter(inst => 
       ['NIFTY 50', 'BANKNIFTY', 'SENSEX', 'FINNIFTY'].includes(inst.symbol)
     );
   }, [instruments]);
@@ -68,7 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
     if (!isSearchOpen) return [];
     return [
       // 1. Stocks and Indices
-      ...instruments.map(inst => ({
+      ...(instruments || []).map(inst => ({
         symbol: inst.symbol,
         name: inst.name,
         ltp: inst.ltp,
@@ -76,7 +75,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
         type: 'Stock' as const,
       })),
       // 2. Futures Contracts
-      ...futures.map(fut => ({
+      ...(futures || []).map(fut => ({
         symbol: fut.symbol,
         name: fut.name,
         ltp: fut.ltp,
@@ -85,7 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       })),
       // 3 & 4. Option Chain Contracts (Dynamic Multi-Underlier & Multi-Expiry)
       ...['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'SBIN', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS'].flatMap(underlier => {
-        const underlierInst = instruments.find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
+        const underlierInst = (instruments || []).find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
         const spot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
         let strikeStep = 50;
         if (underlier === 'BANKNIFTY') {
@@ -171,11 +170,11 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
   }, [isSearchOpen, tabFiltered, searchQuery]);
 
   // Filter open positions from closed logs in positions store
-  const openPositions = React.useMemo(() => positions.filter(p => p.status === 'Open'), [positions]);
+  const openPositions = React.useMemo(() => (positions || []).filter(p => p.status === 'Open'), [positions]);
 
   // Compute stats dynamically
   const { winRate, profitFactor, openPositionsPnl, dailyPnl, totalPnl } = React.useMemo(() => {
-    const closedPositions = positions.filter(p => p.status === 'Closed');
+    const closedPositions = (positions || []).filter(p => p.status === 'Closed');
     const winsCount = closedPositions.filter(p => (p.realizedPnl || 0) > 0).length;
     const lossesCount = closedPositions.filter(p => (p.realizedPnl || 0) < 0).length;
     const totalClosedCount = closedPositions.length || 1;
@@ -190,8 +189,11 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       return acc + (singlePnl * p.quantity);
     }, 0);
 
+    const virtualBal = user?.virtualBalance || 500000;
+    const initialBal = user?.initialBalance || 500000;
+
     const dailyPnlVal = openPnl + 2254.50; // Dynamic simulated baseline
-    const totalPnlVal = (user.virtualBalance - user.initialBalance) + openPnl;
+    const totalPnlVal = (virtualBal - initialBal) + openPnl;
 
     return {
       winRate: winRateVal,
@@ -200,7 +202,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       dailyPnl: dailyPnlVal,
       totalPnl: totalPnlVal
     };
-  }, [positions, openPositions, user.virtualBalance, user.initialBalance]);
+  }, [positions, openPositions, user?.virtualBalance, user?.initialBalance]);
 
   const handleRefresh = React.useCallback(() => {
     setIsRefreshing(true);
@@ -210,7 +212,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
   }, []);
 
   // Custom Equity Curve Coordinates for responsive SVG
-  const equityData = React.useMemo(() => [480000, 485000, 478000, 492000, 498000, 488000, 501000, user.virtualBalance + openPositionsPnl], [user.virtualBalance, openPositionsPnl]);
+  const equityData = React.useMemo(() => [480000, 485000, 478000, 492000, 498000, 488000, 501000, (user?.virtualBalance || 500000) + openPositionsPnl], [user?.virtualBalance, openPositionsPnl]);
   
   const { points, areaPoints, width, height, minEquity, range } = React.useMemo(() => {
     const maxEquity = Math.max(...equityData);
@@ -228,6 +230,8 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
     const aPts = `${pts} L ${w} ${h} L 0 ${h} Z`;
     return { points: pts, areaPoints: aPts, width: w, height: h, minEquity: minEq, range: rng };
   }, [equityData]);
+
+  if (!user) return null;
 
   return (
     <div className="space-y-5 pb-24 max-w-5xl mx-auto w-full">
@@ -266,7 +270,9 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     key={idxAsset.symbol}
                     onClick={() => {
                       setSelectedAssetBySymbol(idxAsset.symbol);
-                      onNavigate('trade');
+                      React.startTransition(() => {
+                        onNavigate('trade');
+                      });
                     }}
                     className="bg-[#0b0e14]/60 hover:bg-[#0c1018] border border-white/5 hover:border-sky-500/25 rounded-2xl p-3 transition-all duration-200 cursor-pointer flex flex-col justify-between h-[85px] group relative overflow-hidden"
                   >
@@ -733,7 +739,9 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                             onClick={() => {
                               setSelectedAssetBySymbol(asset.symbol);
                               setIsSearchOpen(false);
-                              onNavigate('trade');
+                              React.startTransition(() => {
+                                onNavigate('trade');
+                              });
                             }}
                             className="opacity-90 group-hover:opacity-100 bg-sky-600 hover:bg-sky-500 text-white font-mono font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
                           >

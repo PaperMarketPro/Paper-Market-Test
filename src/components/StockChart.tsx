@@ -2226,7 +2226,12 @@ const StockChartBase: React.FC<StockChartProps> = ({
 
     const loadCandles = async () => {
       try {
-        const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`);
+        const savedToken = localStorage.getItem('upstox_user_access_token');
+        const headers: Record<string, string> = {};
+        if (savedToken && savedToken.trim().length > 15) {
+          headers['X-Upstox-Access-Token'] = savedToken.trim();
+        }
+        const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`, { headers });
         if (!res.ok) throw new Error("Network error loading candles");
         const data = await res.json();
         if (data.success && data.candles && data.candles.length > 0) {

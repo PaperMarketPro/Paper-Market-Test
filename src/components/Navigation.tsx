@@ -21,16 +21,19 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
-  const { user, notifications, theme, toggleTheme, isMarketOpen, enforceMarketHours, upstoxStatus } = useApp();
-  if (!user) return null;
+  const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, upstoxStatus } = useApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const unreadNotifCount = React.useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
+  const unreadNotifCount = React.useMemo(() => (notifications || []).filter(n => !n.isRead).length, [notifications]);
 
   const handleNavClick = React.useCallback((tab: string) => {
-    onNavigate(tab);
+    React.startTransition(() => {
+      onNavigate(tab);
+    });
     setIsDrawerOpen(false);
   }, [onNavigate]);
+
+  if (!user) return null;
 
   const navItems = [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },

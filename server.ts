@@ -14,9 +14,21 @@ import crypto from "crypto";
 import http from "http";
 import { WebSocketServer, WebSocket as WS } from "ws";
 import protobuf from "protobufjs";
+import os from "os";
 
 // Load environment variables
 dotenv.config();
+
+function getUpstoxTokenFromReq(req: any): string | null {
+  if (!req) return null;
+  const headerToken = (req.headers?.['x-upstox-access-token'] as string) || 
+                      (req.headers?.['authorization']?.replace(/^Bearer\s+/i, '') as string) || 
+                      (req.query?.token as string);
+  if (headerToken && !isSimulatedToken(headerToken) && headerToken.trim().length > 15) {
+    return headerToken.trim();
+  }
+  return null;
+}
 
 // Upstox session credentials and mappings
 let upstoxAccessToken: string | null = "upstox_perpetual_session";
@@ -59,8 +71,8 @@ try {
   console.warn("[FIREBASE-ADMIN] Local or mock environment initialization: ", err.message);
 }
 
-const CACHE_PATH = path.join(process.cwd(), "upstox_token_cache.json");
-const AUTORENEW_CACHE_PATH = path.join(process.cwd(), "upstox_autorenew_cache.json");
+const CACHE_PATH = path.join(os.tmpdir(), "upstox_token_cache.json");
+const AUTORENEW_CACHE_PATH = path.join(os.tmpdir(), "upstox_autorenew_cache.json");
 
 function getDynamicRedirectUri(req: any): string {
   // 1. If explicitly configured in environment variables, we MUST prioritize it!
@@ -1550,6 +1562,14 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 let isTokenLoading = false;
 async function ensureUpstoxTokenLoaded() {
   if (isTokenLoading) return;
+
+  const envToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_TOKEN;
+  if (envToken && !isSimulatedToken(envToken)) {
+    upstoxAccessToken = envToken.trim();
+    upstoxLinkedPermanently = true;
+    return;
+  }
+
   if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
     isTokenLoading = true;
     try {
@@ -1745,7 +1765,7 @@ app.get("/api/health", (req, res) => {
             <script>
               try {
                 if (window.opener) {
-                  window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', user: ${JSON.stringify(upstoxConnectedUser)} }, '*');
+                  window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', token: "${upstoxAccessToken}", user: ${JSON.stringify(upstoxConnectedUser)} }, '*');
                 }
               } catch (e) {
                 console.warn("[OAUTH] Cross-origin block for opener postMessage. Polling will handle sync:", e);
@@ -1768,7 +1788,13 @@ app.get("/api/health", (req, res) => {
   });
 
   app.get("/api/integrations/upstox/status", async (req, res) => {
-    await ensureUpstoxTokenLoaded();
+    const clientToken = getUpstoxTokenFromReq(req);
+    if (clientToken) {
+      upstoxAccessToken = clientToken;
+      upstoxLinkedPermanently = true;
+    } else {
+      await ensureUpstoxTokenLoaded();
+    }
     const isReal = !!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken);
     const redirectUri = getDynamicRedirectUri(req);
     const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
@@ -2321,6 +2347,14 @@ app.get("/api/health", (req, res) => {
       return res.status(400).json({ error: "Symbol is required" });
     }
 
+    const clientToken = getUpstoxTokenFromReq(req);
+    if (clientToken) {
+      upstoxAccessToken = clientToken;
+      upstoxLinkedPermanently = true;
+    } else {
+      await ensureUpstoxTokenLoaded();
+    }
+
     if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
       return res.json({ fallback: true, message: "Upstox not connected. Using premium simulation." });
     }
@@ -2378,7 +2412,13 @@ app.get("/api/health", (req, res) => {
   });
 
   app.get("/api/integrations/upstox/ltp", async (req, res) => {
-    await ensureUpstoxTokenLoaded();
+    const clientToken = getUpstoxTokenFromReq(req);
+    if (clientToken) {
+      upstoxAccessToken = clientToken;
+      upstoxLinkedPermanently = true;
+    } else {
+      await ensureUpstoxTokenLoaded();
+    }
 
     const defaultPrices: Record<string, number> = {
       'NIFTY 50': 24325.85,

@@ -24,7 +24,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     theme, toggleTheme, upstoxStatus, disconnectUpstox, refreshUpstoxStatus, 
     connectUpstoxManually, enforceMarketHours, toggleEnforceMarketHours, isMarketOpen 
   } = useApp();
-  if (!user) return null;
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 
   React.useEffect(() => {
@@ -37,6 +36,8 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
   const [upstoxRedirectType, setUpstoxRedirectType] = useState<'localhost' | 'cloud'>('localhost');
+
+  if (!user) return null;
 
   const handleConnectToken = async (e: React.FormEvent) => {
     e.preventDefault();

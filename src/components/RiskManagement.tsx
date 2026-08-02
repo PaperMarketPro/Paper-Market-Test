@@ -14,15 +14,14 @@ import { Instrument } from '../types';
 
 export const RiskManagement: React.FC = React.memo(() => {
   const { user, instruments, futures, setSelectedAssetBySymbol } = useApp();
-  if (!user) return null;
 
   // Available assets
-  const allAssets = React.useMemo(() => [...instruments, ...futures], [instruments, futures]);
+  const allAssets = React.useMemo(() => [...(instruments || []), ...(futures || [])], [instruments, futures]);
   
   // State variables for position size calculator
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   const [entryPrice, setEntryPrice] = useState<number>(100);
-  const [customBalance, setCustomBalance] = useState<number>(user.virtualBalance);
+  const [customBalance, setCustomBalance] = useState<number>(user?.virtualBalance || 500000);
   const [riskPercent, setRiskPercent] = useState<number>(1);
   const [stopLossMode, setStopLossMode] = useState<'price' | 'percent'>('percent');
   const [stopLossValue, setStopLossValue] = useState<number>(2); // 2% or ₹ price
@@ -58,6 +57,8 @@ export const RiskManagement: React.FC = React.memo(() => {
       }
     }
   }, [selectedSymbol, stopLossMode]);
+
+  if (!user) return null;
 
   // Calculations for position size
   const totalBalance = customBalance || user.virtualBalance;
