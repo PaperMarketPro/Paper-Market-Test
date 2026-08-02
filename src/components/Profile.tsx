@@ -116,8 +116,10 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
         } catch (_) {}
         throw new Error(errMsg);
       }
-      const authData = await response.json().catch(() => ({ url: '' }));
-      const url = authData.url;
+      const authText = await response.text();
+      let authData: any = {};
+      try { authData = JSON.parse(authText); } catch (_) {}
+      const url = authData.url || '';
 
       const width = 600;
       const height = 750;

@@ -1554,6 +1554,11 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  
+  // Normalize req.url on Vercel serverless functions if /api prefix was stripped
+  if (req.url && !req.url.startsWith("/api") && req.url.startsWith("/")) {
+    req.url = "/api" + req.url;
+  }
   next();
 });
 
@@ -1599,32 +1604,36 @@ app.get("/api/health", (req, res) => {
 
   // Upstox Integration API Endpoints
   app.get("/api/integrations/upstox/auth-url", async (req, res) => {
-    let apiKey = process.env.UPSTOX_API_KEY;
-    if (!apiKey) {
-      const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
-      if (config && config.apiKey) {
-        apiKey = config.apiKey;
+    try {
+      let apiKey = process.env.UPSTOX_API_KEY;
+      if (!apiKey) {
+        const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+        if (config && config.apiKey) {
+          apiKey = config.apiKey;
+        }
       }
+
+      const reqRedirectUri = req.query?.redirectUri;
+      const redirectUri = (reqRedirectUri && typeof reqRedirectUri === "string" && reqRedirectUri.trim() !== "")
+        ? reqRedirectUri.trim()
+        : getDynamicRedirectUri(req);
+
+      if (!apiKey) {
+        return res.status(400).json({ error: "UPSTOX_API_KEY is not configured in environment variables or profile settings." });
+      }
+
+      const params = new URLSearchParams({
+        client_id: apiKey,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        state: redirectUri // Store redirectUri in state so we can recover it on callback
+      });
+
+      const authUrl = `https://api-v2.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
+      return res.json({ url: authUrl });
+    } catch (err: any) {
+      return res.status(500).json({ error: `Auth URL error: ${err.message}` });
     }
-
-    const reqRedirectUri = req.query?.redirectUri;
-    const redirectUri = (reqRedirectUri && typeof reqRedirectUri === "string" && reqRedirectUri.trim() !== "")
-      ? reqRedirectUri.trim()
-      : getDynamicRedirectUri(req);
-
-    if (!apiKey) {
-      return res.status(400).json({ error: "UPSTOX_API_KEY is not configured in environment variables or profile settings." });
-    }
-
-    const params = new URLSearchParams({
-      client_id: apiKey,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      state: redirectUri // Store redirectUri in state so we can recover it on callback
-    });
-
-    const authUrl = `https://api-v2.upstox.com/v2/login/authorization/dialog?${params.toString()}`;
-    res.json({ url: authUrl });
   });
 
   app.get("/api/integrations/upstox/auth", async (req, res) => {

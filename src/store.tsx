@@ -707,21 +707,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const res = await fetch('/api/integrations/upstox/ltp', { headers });
       if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await res.json().catch(() => ({}));
-          if (data.success && data.prices) {
-            Object.keys(data.prices).forEach(sym => {
-              const price = data.prices[sym];
-              if (price && price > 0) {
-                pendingTicksRef.current[sym] = {
-                  ltp: price,
-                  isReal: !data.fallback
-                };
-                lastLiveTicksRef.current[sym] = Date.now();
-              }
-            });
-          }
+        const text = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch (_) {}
+        if (data.success && data.prices) {
+          Object.keys(data.prices).forEach(sym => {
+            const price = data.prices[sym];
+            if (price && price > 0) {
+              pendingTicksRef.current[sym] = {
+                ltp: price,
+                isReal: !data.fallback
+              };
+              lastLiveTicksRef.current[sym] = Date.now();
+            }
+          });
         }
       }
     } catch (err) {
@@ -737,9 +736,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers['X-Upstox-Access-Token'] = savedToken.trim();
       }
       const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`, { headers });
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const text = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch (_) {}
         if (data && data.connected !== undefined) {
           setUpstoxStatus(prev => {
             if (
@@ -805,14 +805,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({ token: trimmed })
       });
 
-      const contentType = res.headers.get('content-type') || '';
+      const resText = await res.text();
       let data: any = {};
-      if (contentType.includes('application/json')) {
-        data = await res.json().catch(() => ({}));
-      } else {
-        const text = await res.text();
-        console.warn("[CONNECT MANUAL] Non-JSON response received:", text);
-      }
+      try { data = JSON.parse(resText); } catch (_) {}
 
       if (res.ok && data.success) {
         await refreshUpstoxStatus();

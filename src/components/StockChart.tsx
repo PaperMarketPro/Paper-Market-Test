@@ -623,7 +623,9 @@ export const TradingViewChart: React.FC<{
           userQuestion: customQuestion !== undefined ? customQuestion : advisorQuestion,
         })
       });
-      const data = await res.json();
+      const resText = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(resText); } catch (_) {}
       setAnalysisResult(data.analysis || "Analysis failed to load.");
       if (customQuestion === undefined) {
         setAdvisorQuestion('');
@@ -2233,7 +2235,9 @@ const StockChartBase: React.FC<StockChartProps> = ({
         }
         const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`, { headers });
         if (!res.ok) throw new Error("Network error loading candles");
-        const data = await res.json();
+        const candlesText = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(candlesText); } catch (_) {}
         if (data.success && data.candles && data.candles.length > 0) {
           if (isMounted) {
             setCandles(computeIndicators(data.candles));
