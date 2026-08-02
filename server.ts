@@ -1853,14 +1853,21 @@ app.get("/api/health", (req, res) => {
   });
 
   app.post("/api/integrations/upstox/connect-manual", async (req, res) => {
-    const { token } = req.body;
-    if (!token || typeof token !== "string" || token.trim() === "") {
-      return res.status(400).json({ error: "Access token, authorization code, or redirect URL is required" });
-    }
+    try {
+      let body = req.body;
+      if (typeof body === "string") {
+        try { body = JSON.parse(body); } catch (_) { body = {}; }
+      }
+      body = body || {};
+      const token = body.token || req.query?.token;
 
-    const trimmedToken = token.trim();
+      if (!token || typeof token !== "string" || token.trim() === "") {
+        return res.status(400).json({ error: "Access token, authorization code, or redirect URL is required" });
+      }
 
-    let finalToken = trimmedToken;
+      const trimmedToken = token.trim();
+
+      let finalToken = trimmedToken;
 
     // Check if the pasted string is a URL containing an authorization code or just an auth code
     if (trimmedToken.startsWith("http") || trimmedToken.includes("code=") || (!trimmedToken.includes(".") && trimmedToken.length >= 10 && trimmedToken.length <= 80)) {
@@ -2012,6 +2019,9 @@ app.get("/api/health", (req, res) => {
       }
     } catch (err: any) {
       return res.status(500).json({ error: `Token validation error: ${err.message}` });
+    }
+    } catch (topErr: any) {
+      return res.status(500).json({ error: `Connection handler error: ${topErr.message || 'Internal server error'}` });
     }
   });
 

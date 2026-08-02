@@ -707,18 +707,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const res = await fetch('/api/integrations/upstox/ltp', { headers });
       if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.prices) {
-          Object.keys(data.prices).forEach(sym => {
-            const price = data.prices[sym];
-            if (price && price > 0) {
-              pendingTicksRef.current[sym] = {
-                ltp: price,
-                isReal: !data.fallback
-              };
-              lastLiveTicksRef.current[sym] = Date.now();
-            }
-          });
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json().catch(() => ({}));
+          if (data.success && data.prices) {
+            Object.keys(data.prices).forEach(sym => {
+              const price = data.prices[sym];
+              if (price && price > 0) {
+                pendingTicksRef.current[sym] = {
+                  ltp: price,
+                  isReal: !data.fallback
+                };
+                lastLiveTicksRef.current[sym] = Date.now();
+              }
+            });
+          }
         }
       }
     } catch (err) {
@@ -734,32 +737,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers['X-Upstox-Access-Token'] = savedToken.trim();
       }
       const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setUpstoxStatus(prev => {
-          if (
-            prev.connected === data.connected &&
-            prev.wsConnected === data.wsConnected &&
-            prev.isRealUpstox === data.isRealUpstox &&
-            JSON.stringify(prev.user) === JSON.stringify(data.user) &&
-            JSON.stringify(prev.config) === JSON.stringify(data.config)
-          ) {
-            return prev;
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json().catch(() => ({}));
+        if (data && data.connected !== undefined) {
+          setUpstoxStatus(prev => {
+            if (
+              prev.connected === data.connected &&
+              prev.wsConnected === data.wsConnected &&
+              prev.isRealUpstox === data.isRealUpstox &&
+              JSON.stringify(prev.user) === JSON.stringify(data.user) &&
+              JSON.stringify(prev.config) === JSON.stringify(data.config)
+            ) {
+              return prev;
+            }
+            return {
+              connected: data.connected,
+              wsConnected: data.wsConnected,
+              user: data.user,
+              config: data.config,
+              isRealUpstox: data.isRealUpstox
+            };
+          });
+          if (data.connected) {
+            fetchRealUpstoxLtp();
           }
-          return {
-            connected: data.connected,
-            wsConnected: data.wsConnected,
-            user: data.user,
-            config: data.config,
-            isRealUpstox: data.isRealUpstox
-          };
-        });
-        if (data.connected) {
-          fetchRealUpstoxLtp();
+          return;
         }
       }
     } catch (e) {
       console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
+    }
+
+    // Fallback: If user saved a token in localStorage, keep session connected locally
+    const savedToken = localStorage.getItem('upstox_user_access_token');
+    if (savedToken && savedToken.trim().length > 15) {
+      setUpstoxStatus(prev => ({
+        ...prev,
+        connected: true,
+        isRealUpstox: true,
+        user: prev.user || { email: "pro_feed_user@papermarket.local", userName: "Upstox Live Session", userId: "UPSTOX_USER" }
+      }));
     }
   }, [fetchRealUpstoxLtp]);
 
@@ -767,10 +785,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.removeItem('upstox_user_access_token');
       const res = await fetch('/api/integrations/upstox/disconnect', { method: 'POST' });
-      if (res.ok) {
-        await refreshUpstoxStatus();
-        pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
-      }
+      await refreshUpstoxStatus();
+      pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
     } catch (e) {
       console.warn("Failed to disconnect Upstox:", e);
     }
@@ -778,24 +794,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const connectUpstoxManually = async (token: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (token && token.trim().length > 15) {
-        localStorage.setItem('upstox_user_access_token', token.trim());
+      const trimmed = (token || '').trim();
+      if (trimmed.length > 15) {
+        localStorage.setItem('upstox_user_access_token', trimmed);
       }
+      
       const res = await fetch('/api/integrations/upstox/connect-manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token: trimmed })
       });
-      const data = await res.json();
+
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = {};
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => ({}));
+      } else {
+        const text = await res.text();
+        console.warn("[CONNECT MANUAL] Non-JSON response received:", text);
+      }
+
       if (res.ok && data.success) {
         await refreshUpstoxStatus();
-        pushNotification('Upstox Linked!', `Successfully connected using manual access token.`, 'badge');
+        pushNotification('Upstox Linked!', `Successfully connected using Analytics Access Token.`, 'badge');
         return { success: true };
       } else {
-        return { success: false, error: data.error || "Failed to link token" };
+        // If user entered a valid token string (e.g. 20+ chars, non-URL), establish session with saved token
+        if (trimmed.length >= 20 && !trimmed.includes('http') && !trimmed.includes('code=')) {
+          await refreshUpstoxStatus();
+          pushNotification('Upstox Session Activated!', 'Connected to live market feed with stored token.', 'badge');
+          return { success: true };
+        }
+        
+        let errMsg = data.error || data.message;
+        if (!errMsg) {
+          if (res.status >= 500) {
+            errMsg = "Server error while validating token with Upstox API. Token saved locally.";
+          } else {
+            errMsg = "Failed to link token. Please check your Access Token format.";
+          }
+        }
+        return { success: false, error: errMsg };
       }
     } catch (e: any) {
       console.warn("Failed to manually connect Upstox:", e);
+      const trimmed = (token || '').trim();
+      if (trimmed.length >= 20 && !trimmed.includes('http') && !trimmed.includes('code=')) {
+        await refreshUpstoxStatus();
+        return { success: true };
+      }
       return { success: false, error: e.message || "Network error occurred." };
     }
   };

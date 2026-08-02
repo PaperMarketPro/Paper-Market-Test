@@ -108,10 +108,16 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
 
       const response = await fetch(`/api/integrations/upstox/auth-url?origin=${encodeURIComponent(targetOrigin)}&redirectUri=${encodeURIComponent(chosenRedirectUri)}`);
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to generate Upstox auth URL.');
+        const errText = await response.text();
+        let errMsg = 'Failed to generate Upstox auth URL.';
+        try {
+          const errObj = JSON.parse(errText);
+          if (errObj.error) errMsg = errObj.error;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
-      const { url } = await response.json();
+      const authData = await response.json().catch(() => ({ url: '' }));
+      const url = authData.url;
 
       const width = 600;
       const height = 750;
