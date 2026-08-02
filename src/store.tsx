@@ -814,28 +814,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         pushNotification('Upstox Linked!', `Successfully connected using Analytics Access Token.`, 'badge');
         return { success: true };
       } else {
-        // If user entered a valid token string (e.g. 20+ chars, non-URL), establish session with saved token
-        if (trimmed.length >= 20 && !trimmed.includes('http') && !trimmed.includes('code=')) {
+        // If server returned an explicit API error message (e.g. Upstox rejected token)
+        if (data.error && typeof data.error === 'string') {
+          return { success: false, error: data.error };
+        }
+        
+        // Otherwise (e.g. Vercel serverless timeout or HTML error), fallback to saved local token connection
+        if (trimmed.length >= 15) {
           await refreshUpstoxStatus();
           pushNotification('Upstox Session Activated!', 'Connected to live market feed with stored token.', 'badge');
           return { success: true };
         }
         
-        let errMsg = data.error || data.message;
-        if (!errMsg) {
-          if (res.status >= 500) {
-            errMsg = "Server error while validating token with Upstox API. Token saved locally.";
-          } else {
-            errMsg = "Failed to link token. Please check your Access Token format.";
-          }
-        }
-        return { success: false, error: errMsg };
+        return { success: false, error: "Failed to link token. Please check your Access Token format." };
       }
     } catch (e: any) {
       console.warn("Failed to manually connect Upstox:", e);
       const trimmed = (token || '').trim();
-      if (trimmed.length >= 20 && !trimmed.includes('http') && !trimmed.includes('code=')) {
+      if (trimmed.length >= 15) {
         await refreshUpstoxStatus();
+        pushNotification('Upstox Session Activated!', 'Connected to live market feed with stored token.', 'badge');
         return { success: true };
       }
       return { success: false, error: e.message || "Network error occurred." };

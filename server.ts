@@ -72,6 +72,15 @@ try {
   console.warn("[FIREBASE-ADMIN] Local or mock environment initialization: ", err.message);
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number = 1200): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Firestore operation timed out after ${ms}ms`)), ms)
+    )
+  ]);
+}
+
 const CACHE_PATH = path.join(os.tmpdir(), "upstox_token_cache.json");
 const AUTORENEW_CACHE_PATH = path.join(os.tmpdir(), "upstox_autorenew_cache.json");
 
@@ -142,10 +151,10 @@ async function saveUpstoxAutoRenewConfig(config: UpstoxAutoRenewConfig) {
 
   if (!db) return;
   try {
-    await db.collection("config").doc("upstox_autorenew").set({
+    await withTimeout(db.collection("config").doc("upstox_autorenew").set({
       ...config,
       updatedAt: new Date().toISOString()
-    });
+    }), 1200);
     console.log("[FIRESTORE] Saved auto-renew config to Firestore.");
   } catch (err: any) {
     if (err.message?.includes("PERMISSION_DENIED") || err.code === 7) {
@@ -171,7 +180,7 @@ async function loadUpstoxAutoRenewConfig(): Promise<UpstoxAutoRenewConfig | null
 
   if (!db) return null;
   try {
-    const doc = await db.collection("config").doc("upstox_autorenew").get();
+    const doc = await withTimeout(db.collection("config").doc("upstox_autorenew").get(), 1200);
     if (doc.exists) {
       const data = doc.data() as UpstoxAutoRenewConfig;
       if (data && data.apiKey) {
@@ -682,12 +691,12 @@ async function saveUpstoxTokenToFirestore(token: string, user: any) {
   if (!db) return;
   try {
     const configDocRef = db.collection("config").doc("upstox");
-    await configDocRef.set({
+    await withTimeout(configDocRef.set({
       accessToken: token,
       user,
       upstoxLinkedPermanently: true,
       updatedAt: new Date().toISOString()
-    });
+    }), 1200);
     console.log("[FIRESTORE] Saved Upstox credentials to database successfully.");
   } catch (error: any) {
     if (error.message?.includes("PERMISSION_DENIED") || error.code === 7) {
@@ -718,7 +727,7 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
   if (!db) return null;
   try {
     const configDocRef = db.collection("config").doc("upstox");
-    const docSnap = await configDocRef.get();
+    const docSnap = await withTimeout(configDocRef.get(), 1200);
     if (docSnap.exists) {
       const data = docSnap.data();
       if (data && (data.accessToken || data.upstoxLinkedPermanently)) {
@@ -754,12 +763,12 @@ async function clearUpstoxTokenInFirestore() {
   if (!db) return;
   try {
     const configDocRef = db.collection("config").doc("upstox");
-    await configDocRef.set({
+    await withTimeout(configDocRef.set({
       accessToken: null,
       user: null,
       upstoxLinkedPermanently: false,
       updatedAt: new Date().toISOString()
-    });
+    }), 1200);
     console.log("[FIRESTORE] Cleared Upstox credentials in database.");
   } catch (error: any) {
     if (error.message?.includes("PERMISSION_DENIED") || error.code === 7) {
@@ -1921,6 +1930,7 @@ app.get("/api/health", (req, res) => {
 
         const tokenResponse = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
           method: "POST",
+          signal: AbortSignal.timeout(6000),
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json"
@@ -1946,6 +1956,7 @@ app.get("/api/health", (req, res) => {
           console.log(`[UPSTOX MANUAL] Retrying code exchange with fallback redirect_uri: ${fallbackUri}`);
           const retryResponse = await fetch("https://api-v2.upstox.com/v2/login/authorization/token", {
             method: "POST",
+            signal: AbortSignal.timeout(6000),
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",
               "Accept": "application/json"
@@ -1978,6 +1989,7 @@ app.get("/api/health", (req, res) => {
     try {
       let isVerified = false;
       const feedCheck = await fetch("https://api.upstox.com/v3/feed/market-data-feed/authorize", {
+        signal: AbortSignal.timeout(6000),
         headers: {
           "Authorization": `Bearer ${finalToken}`,
           "Accept": "application/json"
@@ -1987,6 +1999,7 @@ app.get("/api/health", (req, res) => {
         isVerified = true;
       } else {
         const verifyRes = await fetch("https://api.upstox.com/v2/user/profile", {
+          signal: AbortSignal.timeout(6000),
           headers: {
             "Authorization": `Bearer ${finalToken}`,
             "Accept": "application/json"
