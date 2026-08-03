@@ -317,12 +317,23 @@ export const AICoach: React.FC = React.memo(() => {
     } catch (err: any) {
       console.error("Coach Chat Error:", err);
       setTimeout(() => {
+        const lower = textToSend.toLowerCase();
+        let fallbackMsg = "I hear you, and I'm really glad you reached out. Trading is intensely emotional, and every trader goes through moments of doubt, loss, or hesitation. Take a deep breath, step away from the screen for a moment, and let's talk through what you're feeling step-by-step. What specifically is on your mind right now?";
+        
+        if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("ghata")) {
+          fallbackMsg = "I hear the pain in your message. Taking a loss hurts deeply, but please remember that a loss is just tuition paid to the market—it does not define your worth as a trader. Close your charts right now, step away, and do not revenge trade. Let's make an agreement: IF you feel angry or hurt, THEN you will walk away for the rest of the day to protect your capital. How are you holding up?";
+        } else if (lower.includes("fomo") || lower.includes("miss") || lower.includes("chase") || lower.includes("rally")) {
+          fallbackMsg = "FOMO is the hardest emotion to resist when candles are flying high. But chasing a move that already happened is how retail accounts get caught at the top. The market will always offer fresh setups. Let's set a rule together: IF you missed the initial entry, THEN you will close the chart and wait patiently for the next clean setup. Can you do that with me?";
+        } else if (lower.includes("fear") || lower.includes("anxious") || lower.includes("darr") || lower.includes("scared")) {
+          fallbackMsg = "That anxiety in your chest is a clear signal from your body that your position size might be too large for your comfort. Sizing down by 50% instantly clears your head and removes the fear. Let's try cutting your quantity on the next trade so you can execute with absolute calm. How does your current risk feel?";
+        }
+
         setChatHistory(prev => [...prev, {
           role: 'assistant',
-          text: "I received your message. Sticking to pre-planned horizontal setups and counting to ten when volatile tickers move prevents cognitive over-reaction. Focus on your If-Then rules.",
+          text: fallbackMsg,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
-      }, 800);
+      }, 400);
     } finally {
       setIsChatLoading(false);
     }

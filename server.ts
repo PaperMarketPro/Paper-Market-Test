@@ -2939,69 +2939,108 @@ CRITICAL VOICE AND STYLE GUIDELINES:
   app.post("/api/coach/chat", async (req, res) => {
     const { message, history, llmConfig, cognitiveRules, journals, positions } = req.body;
 
-    if (!message) {
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({ error: "Message is required." });
     }
 
     const generateHeuristicReply = (userMsg: string): string => {
       const lower = userMsg.toLowerCase();
-      if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("loss ho gaya")) {
-        return `Hey, I hear you. Losing is the hardest part of this game, but let's be completely real: every single professional trader takes losses. What separates the winners is that they protect their psychological capital. They don't let one bad trade turn into a revenge trade. 
+      if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("loss ho gaya") || lower.includes("ghata") || lower.includes("minus")) {
+        return `Hey, I hear you and I feel that weight on your chest. Losing money in the markets is one of the most painful, gut-wrenching experiences anyone can go through, but let's be completely real: every single professional trader you admire has taken heavy losses. What separates those who survive from those who blow up is protecting their psychological capital.
 
-Take a deep breath. Close your trading screen right now. Let's make an agreement:
-IF you take another loss today, THEN you will walk away immediately and review your journals tomorrow. How does that sound?`;
+Please do not let one bad trade turn into a spiral of revenge trading. Take a deep breath right now, close your broker terminal, step away from the screen, and wash your face with cold water. 
+
+Let's make a solid agreement together right now:
+IF you feel the urge to immediately jump back in to recover a loss today, THEN you will step away for at least 30 minutes and write down what happened in your journal. 
+
+How are you feeling right now? Tell me more about the trade—we can break it down together without any judgment.`;
       }
-      if (lower.includes("fomo") || lower.includes("miss") || lower.includes("chase") || lower.includes("re-entry") || lower.includes("entry")) {
-        return `Ah, FOMO. It is the silent killer of accounts. You see a stock rally 5% and you feel like you're missing the train, right? So you jump in late, right at the top, and then it reverses on you.
+      if (lower.includes("fomo") || lower.includes("miss") || lower.includes("chase") || lower.includes("re-entry") || lower.includes("entry") || lower.includes("rally")) {
+        return `Ah, FOMO—it is the absolute single biggest killer of retail accounts. You see a green candle rocket up 5% or 10%, your heart starts pounding, and a voice screams inside your head: "Buy now or you'll miss out forever!" So you jump in right at the top, and the moment you click buy, it reverses.
 
-Let's break this habit together. The market will always offer more trains. Your job isn't to catch every move; your job is to execute your specific setup.
-Let's set a rule: IF you miss a breakout setup, THEN you will write 'I missed the setup, and that is completely fine' in your log, and you will NOT chase. Can you commit to that?`;
+Let's break this cycle today. The market is an endless ocean of opportunities—there will ALWAYS be another trade tomorrow, next week, and next month. Your edge isn't catching every move; your edge is executing YOUR specific high-probability setup.
+
+Let's set a non-negotiable rule together:
+IF a stock or option has already moved past your entry point without you, THEN you will say out loud 'I missed this entry, and that's okay—I only trade my plan,' and wait for the next setup. 
+
+Can you commit to that rule with me?`;
       }
-      if (lower.includes("greed") || lower.includes("greedy") || lower.includes("profit") || lower.includes("lalach") || lower.includes("paisa")) {
-        return `Greed feels good when you are winning, but it's a trap. It leads to holding winning trades too long, hoping for 'just a little bit more,' only to watch the market reverse and wipe out your profits. Or worse, sizing up your positions too large because you feel invincible.
+      if (lower.includes("greed") || lower.includes("greedy") || lower.includes("profit") || lower.includes("lalach") || lower.includes("paisa") || lower.includes("target")) {
+        return `Winning feels incredible, but greed is a sneaky trap. It tells you "just hold a little longer for another 10 points," and before you know it, a green trade turns completely red and wipes out your hard work.
 
-Look, trading is about mathematical expectancy, not hitting home runs. 
-Let's agree on this: IF your trade hits 80% of your initial target, THEN you will move your stop-loss to break-even or scale out 50% of your position. Let's build consistency first!`;
+Trading isn't about hitting home runs on every trade; it's about building consistent, repeatable execution over hundreds of trades.
+
+Let's lock in profits intelligently:
+IF your trade hits 80% of your target, THEN you will immediately trail your stop-loss to break-even or book 50% of your position. 
+
+How does that feel? Are you holding a winning trade right now that you're nervous about exiting?`;
       }
-      if (lower.includes("fear") || lower.includes("fearful") || lower.includes("anxious") || lower.includes("darr") || lower.includes("ghabrahat")) {
-        return `I completely understand that feeling. That tightness in your chest when a trade starts moving against you, or even when it's moving in your favor but you're terrified of losing it. That is anxiety telling you that you've sized your position too large or that you don't trust your plan.
+      if (lower.includes("fear") || lower.includes("fearful") || lower.includes("anxious") || lower.includes("darr") || lower.includes("ghabrahat") || lower.includes("scared") || lower.includes("stress")) {
+        return `I hear you completely. That tightness in your chest, the sweaty palms, or the hesitation to click the entry button—that is your brain screaming that your position size is too large for your risk tolerance.
 
-If the risk feels too high, the simplest fix is to cut your position size in half.
-Let's do this: IF you feel overwhelming anxiety mid-trade, THEN you will immediately scale down your position size by 50% to clear your mind. Tell me, how does your current position size feel?`;
+When risk feels overwhelming, your mind cannot make rational decisions. The fastest way to cure trading anxiety is simple: cut your position size in half until your heart rate stays steady.
+
+Let's anchor this behavioral boundary:
+IF you feel overwhelming anxiety or hesitation before taking a trade, THEN you will immediately cut your quantity by 50% and enter with small risk.
+
+Tell me, what trade or setup is making you feel anxious right now? Let's talk it through.`;
       }
-      return `Hey, I'm glad you brought this up. Trading isn't just about reading charts; it's 90% about masterfully managing your own mind and emotions. Every execution is a reflection of your state of mind.
 
-Tell me a bit more about what's going on. Are you holding onto a trade right now, or are you reflecting on a recent setup? Let's talk it through like two trading partners.`;
+      return `I hear you, and I'm really glad you brought this to me. Trading is 10% market knowledge and 90% psychological mastery—how you handle your emotions under pressure defines your long-term success.
+
+Tell me a bit more about what's going on in your mind or on your charts right now. Are you reflecting on a recent trade, dealing with emotional noise, or trying to plan your next execution? Let's work through it step-by-step as trading partners.`;
     };
 
     const aiClient = getGeminiClient();
-    if (!aiClient) {
-      return res.json({ text: generateHeuristicReply(message) });
-    }
 
     try {
-      const baseSystemInstruction = `You are "Mind Coach" - a seasoned, authentic, and street-smart human trading partner, psychologist, and market veteran. You are NOT an AI assistant, and you must never sound like one.
-Your mission is to help traders survive and thrive in the markets by overcoming emotional leaks: FOMO, revenge trading, overtrading, fear of loss, and greed.
+      const baseSystemInstruction = `You are "Mind Coach" - a deeply empathetic, authentic, street-smart human trading mentor, psychologist, and market veteran. You are NOT an AI assistant, and you must never sound like one.
+Your mission is to provide genuine human warmth, deep emotional support, and accurate psychological guidance to traders facing loss, FOMO, fear, anxiety, greed, or discipline struggles.
 
 CRITICAL VOICE AND STYLE GUIDELINES:
-1. STRICTLY FORBIDDEN: NEVER use AI clichés or robotic transition/filler phrases (e.g., "Certainly!", "I'm sorry to hear that," "I understand your frustration," "As an AI model," "Let's explore this step-by-step," "Here is some advice," "I hope this helps," "Let me know if you have other questions"). Jump straight into the conversation with raw truth.
-2. Speak like an experienced trading buddy or private mentor sitting right next to them—authentic, raw, deeply empathetic, warm, but incredibly direct and honest. Use short, punchy paragraphs, casual contractions (don't, let's, we'll), and imperfect, natural conversational flow.
-3. ABSOLUTELY NO CHATGPT STYLE STRUCTURES: Do not write neat, perfectly balanced essays. Do not use neat bullet points or numbered lists unless absolutely necessary (if so, keep them to 1 or 2 informal points maximum). Real humans talk in fluid, natural paragraphs, not perfectly formatted blogs.
-4. Use authentic trading language and concepts naturally (e.g., "chasing candles," "revenge trade," "sizing down," "blowing an account," "slashed risk").
-5. Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty rallies 2% without me, THEN I will close my charts and walk away until the afternoon session"). Do this collaboratively, like a seasoned mentor helping a friend.
-6. CRITICAL LANGUAGE RULE: You MUST automatically detect the language of the user's message/input (e.g. Hindi, Hinglish, Spanish, French, German, Tamil, Telugu, etc.) and respond in that EXACT same language or style. If they speak in Hindi (e.g. "मेरा बहुत नुकसान हो गया है"), reply in fluent, warm, and encouraging Hindi. If they use Hinglish (e.g. "FOMO control kaise karu?"), reply in natural Hinglish. Keep your tone identical and consistent across all languages. Match their style perfectly.`;
+1. HUMAN EMOTIONAL SUPPORT & COMPANIONSHIP: Prioritize genuine emotional connection. Validate the trader's feelings with deep warmth, empathy, and understanding before offering practical CBT cognitive guidance. Speak like a close, caring friend or elder brother who has walked through the exact same emotional fires in trading.
+2. STRICTLY FORBIDDEN: NEVER use AI clichés, mechanical transition phrases, or robotic filler (e.g., "Certainly!", "I'm sorry to hear that," "As an AI model," "Let's explore this step-by-step," "Here is some advice," "In conclusion"). Jump straight into the conversation with raw human warmth and truth.
+3. NATURAL CONVERSATIONAL FLOW: Do NOT write rigid essays, bullet points, or numbered lists unless absolutely necessary. Talk in fluid, natural, conversational paragraphs with casual contractions and authentic presence.
+4. MARKET ACCURACY: Understand Indian stock markets (NIFTY 50, BANKNIFTY, FINNIFTY, SENSEX, Upstox options, strike selection, delta, gamma, theta decay, risk management, stop-losses, position sizing).
+5. BEHAVIORAL ANCHORS: Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty moves against my stop loss, THEN I will close the trade without hesitation").
+6. CRITICAL MULTILINGUAL EMOTIONAL ADAPTABILITY: Automatically detect the language of the user's message (e.g. Hindi, Hinglish, English, Spanish, French, Tamil, Telugu, etc.) and respond in that EXACT same language or style with identical emotional warmth. If they speak in Hindi (e.g. "मेरा बहुत नुकसान हो गया"), reply in comforting, warm Hindi. If they use Hinglish (e.g. "bhai FOMO control nahi ho raha"), reply in natural, supportive Hinglish.`;
 
-      // Map client history to Gemini Content structure if present
+      // Build clean contents array for Gemini API ensuring contents[0] is role: 'user'
       const contents: any[] = [];
       if (history && Array.isArray(history)) {
-        history.forEach((msg: any) => {
-          contents.push({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content || msg.text }]
-          });
+        const validHistory = history.filter((msg: any) => (msg.content || msg.text || "").trim().length > 0);
+        
+        validHistory.forEach((msg: any) => {
+          const role = (msg.role === 'user') ? 'user' : 'model';
+          const text = (msg.content || msg.text || "").trim();
+
+          if (contents.length === 0) {
+            // First item in Gemini contents MUST have role 'user'
+            if (role === 'user') {
+              contents.push({ role: 'user', parts: [{ text }] });
+            }
+          } else {
+            const last = contents[contents.length - 1];
+            if (last.role === role) {
+              last.parts[0].text += "\n\n" + text;
+            } else {
+              contents.push({ role, parts: [{ text }] });
+            }
+          }
         });
       }
-      contents.push({ role: 'user', parts: [{ text: message }] });
+
+      // Ensure user message is cleanly appended
+      const cleanMsg = message.trim();
+      if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+        contents[contents.length - 1].parts[0].text += "\n\n" + cleanMsg;
+      } else {
+        contents.push({ role: 'user', parts: [{ text: cleanMsg }] });
+      }
+
+      if (!aiClient) {
+        return res.json({ text: generateHeuristicReply(message) });
+      }
 
       const traderProfile = compileTraderProfile(journals, positions);
       const { model, temperature, systemInstruction } = getLLMParameters(llmConfig, cognitiveRules, "gemini-3.6-flash", 0.75, baseSystemInstruction, traderProfile);
@@ -3016,10 +3055,14 @@ CRITICAL VOICE AND STYLE GUIDELINES:
       });
 
       const reply = response.text;
-      res.json({ text: reply });
+      if (reply && reply.trim().length > 0) {
+        return res.json({ text: reply.trim() });
+      } else {
+        return res.json({ text: generateHeuristicReply(message) });
+      }
     } catch (error: any) {
-      console.error("AI Coach Chat Error:", error);
-      res.json({ text: generateHeuristicReply(message) });
+      console.error("AI Coach Chat Error:", error?.message || error);
+      return res.json({ text: generateHeuristicReply(message) });
     }
   });
 
