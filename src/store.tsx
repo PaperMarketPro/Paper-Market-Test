@@ -789,7 +789,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const disconnectUpstox = async () => {
     try {
       localStorage.removeItem('upstox_user_access_token');
-      const res = await fetch('/api/integrations/upstox/disconnect', { method: 'POST' });
+      setUpstoxStatus({
+        connected: false,
+        wsConnected: false,
+        user: null,
+        config: null,
+        isRealUpstox: false
+      });
+      await fetch('/api/integrations/upstox/disconnect', { method: 'POST' });
       await refreshUpstoxStatus();
       pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
     } catch (e) {

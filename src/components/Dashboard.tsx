@@ -234,7 +234,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
   if (!user) return null;
 
   return (
-    <div className="space-y-5 pb-24 max-w-5xl mx-auto w-full">
+    <div className="space-y-5 w-full">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT COLUMN: MAIN ANALYTICS & WATCHLISTS */}
         <div className="lg:col-span-2 space-y-6">

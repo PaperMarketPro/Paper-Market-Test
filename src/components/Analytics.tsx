@@ -216,7 +216,7 @@ export const Analytics: React.FC = React.memo(() => {
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-5xl mx-auto w-full" id="analytics-page">
+    <div className="space-y-6 w-full" id="analytics-page">
       {/* Title block */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

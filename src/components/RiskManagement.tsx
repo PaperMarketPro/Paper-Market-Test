@@ -118,7 +118,7 @@ export const RiskManagement: React.FC = React.memo(() => {
   const totalDrawdownPercent = (((simBalance - simSeries[9].remaining) / simBalance) * 100).toFixed(1);
 
   return (
-    <div className="space-y-8 pb-24 max-w-5xl mx-auto w-full">
+    <div className="space-y-8 w-full">
       {/* Title Header Banner */}
       <div className="bg-gradient-to-r from-[#0d1527] to-[#0c1020] border border-white/5 rounded-2xl p-6 relative overflow-hidden shadow-xl">
         <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">

@@ -67,7 +67,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     setTokenSuccess(null);
     try {
       await disconnectUpstox();
-      setTokenSuccess("Disconnected from live market feed.");
+      setTokenSuccess("Disconnected from live market feed. You can paste a new Access Token below to connect again.");
     } catch (err: any) {
       setTokenError("Failed to disconnect from live feed.");
     }

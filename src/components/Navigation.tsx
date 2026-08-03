@@ -178,30 +178,6 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
 
             {/* Streak & Level Badges with consistent styling */}
             <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
-              {/* Upstox Live Feed Status Badge */}
-              <div 
-                onClick={() => handleNavClick('profile')}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold font-mono border shadow-sm shrink-0 whitespace-nowrap cursor-pointer hover:scale-105 transition ${
-                  upstoxStatus.connected 
-                    ? 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400' 
-                    : 'bg-slate-500/10 border-slate-500/20 text-slate-600 dark:text-gray-400'
-                }`}
-                title={upstoxStatus.connected ? "Upstox Live Market Data Connected" : "Simulated Mode"}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${upstoxStatus.connected ? 'bg-sky-400 animate-pulse' : 'bg-slate-400'}`} />
-                <span>UPSTOX: {upstoxStatus.connected ? 'LIVE FEED' : 'SIMULATED'}</span>
-              </div>
-
-              {/* Dynamic NSE/BSE Market hours status indicator */}
-              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold font-mono border shadow-sm shrink-0 whitespace-nowrap ${
-                isMarketOpen 
-                  ? 'bg-emerald-500/10 border-emerald-500/15 text-emerald-700 dark:text-emerald-400' 
-                  : 'bg-amber-500/10 border-amber-500/15 text-amber-700 dark:text-amber-500'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                <span>NSE: {isMarketOpen ? 'OPEN' : 'CLOSED'}</span>
-              </div>
-
               <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/15 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
                 🔥 {user.streak} Days
               </div>
@@ -260,12 +236,12 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
         </header>
 
         {/* Main interactive window viewport frame */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-5xl mx-auto w-full">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full">
           {children}
         </main>
 
         {/* 3. Bottom Navigation bar on Mobile Viewports */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl px-1 py-1.5 flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl px-1 py-2 pb-safe flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
           {navItems.map(item => {
             const isActive = currentTab === item.key;
 
@@ -273,15 +249,15 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
               <button
                 key={item.key}
                 onClick={() => handleNavClick(item.key)}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition ${
-                  isActive ? 'text-blue-600 dark:text-sky-400' : 'text-slate-500 dark:text-gray-500 hover:text-slate-800 dark:hover:text-gray-300'
+                className={`flex-1 flex flex-col items-center gap-1 py-1.5 rounded-xl transition ${
+                  isActive ? 'text-blue-600 dark:text-sky-400 font-bold' : 'text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
                 }`}
                 style={{ touchAction: 'manipulation' }}
               >
-                <div className={`${isActive ? 'scale-105' : ''} transition-transform`}>
+                <div className={`${isActive ? 'scale-110 text-blue-600 dark:text-sky-400' : ''} transition-transform`}>
                   {item.icon}
                 </div>
-                <span className="text-[9px] font-bold tracking-wide font-sans">{item.label}</span>
+                <span className="text-[10px] font-bold tracking-wide font-sans">{item.label}</span>
               </button>
             );
           })}
@@ -307,41 +283,41 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-72 max-w-sm bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/10 h-full p-6 flex flex-col justify-between shadow-2xl"
+              className="relative w-80 max-w-[85vw] bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/10 h-full p-5 flex flex-col justify-between shadow-2xl overflow-y-auto"
             >
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center">
                     <BrandLogo size="sm" />
                   </div>
                   <button
                     onClick={() => setIsDrawerOpen(false)}
-                    className="p-1.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
+                    className="p-2 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="bg-slate-50 dark:bg-[#12182d] border border-slate-200 dark:border-white/5 rounded-xl p-3 flex items-center justify-between shadow-sm">
                   <div className="space-y-0.5">
-                    <span className="block text-xs font-bold text-slate-900 dark:text-white max-w-[120px] truncate">{user.name}</span>
-                    <span className="block text-[8px] text-slate-500 dark:text-gray-500 font-mono">Level {user.level} simulated account</span>
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white max-w-[140px] truncate">{user.name}</span>
+                    <span className="block text-[9px] text-slate-500 dark:text-gray-500 font-mono">Level {user.level} • ₹{user.virtualBalance.toLocaleString('en-IN')}</span>
                   </div>
-                  <span className="bg-blue-600/10 dark:bg-sky-500/10 text-blue-600 dark:text-sky-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full">PRO</span>
+                  <span className="bg-blue-600/10 dark:bg-sky-500/10 text-blue-600 dark:text-sky-400 text-[9px] font-bold px-2 py-0.5 rounded-full">PRO</span>
                 </div>
 
                 {/* Drawer list */}
-                <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-240px)]">
-                  {sidebarItems.map(item => {
+                <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-230px)]">
+                  {drawerItems.map(item => {
                     const isActive = currentTab === item.key;
                     return (
                       <button
                         key={item.key}
                         onClick={() => handleNavClick(item.key)}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                           isActive 
-                            ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 border-l-2 border-blue-600 dark:border-sky-500' 
-                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/2'
+                            ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500' 
+                            : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
                         }`}
                       >
                         {item.icon}

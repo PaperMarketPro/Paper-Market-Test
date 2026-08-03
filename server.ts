@@ -38,6 +38,7 @@ let upstoxConnectedUser: any = {
   userId: "UPSTOX_USER"
 };
 let upstoxLinkedPermanently = true;
+let upstoxUserDisconnected = false;
 let upstoxWs: WS | null = null;
 const clientWsSockets = new Set<any>();
 let simulationInterval: NodeJS.Timeout | null = null;
@@ -684,6 +685,7 @@ async function autoRenewUpstoxToken(): Promise<boolean> {
 }
 
 async function saveUpstoxTokenToFirestore(token: string, user: any) {
+  upstoxUserDisconnected = false;
   if (isSimulatedToken(token)) {
     console.log("[CACHE] Skipping Firestore/cache overwrite for simulated token to preserve real user credentials.");
     return;
@@ -757,7 +759,10 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
 }
 
 async function clearUpstoxTokenInFirestore() {
+  upstoxUserDisconnected = true;
   upstoxLinkedPermanently = false;
+  upstoxAccessToken = null;
+  upstoxConnectedUser = null;
   // Clear locally
   try {
     if (fs.existsSync(CACHE_PATH)) {
@@ -1613,7 +1618,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 let isTokenLoading = false;
 async function ensureUpstoxTokenLoaded() {
-  if (isTokenLoading) return;
+  if (isTokenLoading || upstoxUserDisconnected) return;
 
   const envToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_TOKEN;
   if (envToken && !isSimulatedToken(envToken)) {
@@ -1844,6 +1849,24 @@ app.get("/api/health", (req, res) => {
   });
 
   app.get("/api/integrations/upstox/status", async (req, res) => {
+    const redirectUri = getDynamicRedirectUri(req);
+    const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
+    const effectiveApiKey = process.env.UPSTOX_API_KEY || config?.apiKey;
+
+    if (upstoxUserDisconnected) {
+      return res.json({
+        connected: false,
+        wsConnected: false,
+        wsReadyState: null,
+        user: null,
+        config: {
+          apiKey: effectiveApiKey ? `${effectiveApiKey.slice(0, 6)}...` : null,
+          redirectUri: redirectUri
+        },
+        isRealUpstox: false
+      });
+    }
+
     const clientToken = getUpstoxTokenFromReq(req);
     if (clientToken) {
       upstoxAccessToken = clientToken;
@@ -1851,10 +1874,22 @@ app.get("/api/health", (req, res) => {
     } else {
       await ensureUpstoxTokenLoaded();
     }
+
+    if (upstoxUserDisconnected) {
+      return res.json({
+        connected: false,
+        wsConnected: false,
+        wsReadyState: null,
+        user: null,
+        config: {
+          apiKey: effectiveApiKey ? `${effectiveApiKey.slice(0, 6)}...` : null,
+          redirectUri: redirectUri
+        },
+        isRealUpstox: false
+      });
+    }
+
     const isReal = !!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken);
-    const redirectUri = getDynamicRedirectUri(req);
-    const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
-    const effectiveApiKey = process.env.UPSTOX_API_KEY || config?.apiKey;
 
     res.json({
       connected: !!upstoxAccessToken || upstoxLinkedPermanently,
@@ -1874,8 +1909,10 @@ app.get("/api/health", (req, res) => {
   });
 
   app.post("/api/integrations/upstox/disconnect", async (req, res) => {
+    upstoxUserDisconnected = true;
     upstoxAccessToken = null;
     upstoxConnectedUser = null;
+    upstoxLinkedPermanently = false;
     disconnectUpstoxWebSocket();
     await clearUpstoxTokenInFirestore();
     res.json({ success: true, message: "Disconnected successfully." });
@@ -2060,6 +2097,7 @@ app.get("/api/health", (req, res) => {
       }
 
       if (isVerified) {
+        upstoxUserDisconnected = false;
         upstoxAccessToken = finalToken;
         upstoxConnectedUser = {
           email: "pro_feed_user@papermarket.local",

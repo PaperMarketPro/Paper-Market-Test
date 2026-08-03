@@ -56,7 +56,7 @@ export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJourn
   }, [modifySLTarget, editSL, editTgt]);
 
   return (
-    <div className="space-y-6 pb-24 max-w-4xl mx-auto w-full">
+    <div className="space-y-6 w-full">
       {/* Tab Switcher */}
       <div className="flex border-b border-white/5 gap-4">
         {[
