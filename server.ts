@@ -1317,6 +1317,9 @@ function startSimulationLoop() {
   if (simulationInterval) return;
 
   simulationInterval = setInterval(() => {
+    // Completely disable simulation ticks if a real Upstox token is active
+    if (upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) return;
+
     // Only pause simulation ticks if the Indian Market is currently OPEN and Upstox WS is actively streaming
     const marketOpen = isIndianMarketOpen();
     if (marketOpen && upstoxWs && upstoxWs.readyState === WS.OPEN) return;

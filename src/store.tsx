@@ -695,6 +695,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isRealUpstox: false
   });
 
+  const upstoxStatusRef = useRef(upstoxStatus);
+  useEffect(() => {
+    upstoxStatusRef.current = upstoxStatus;
+  }, [upstoxStatus]);
+
   const pendingTicksRef = useRef<Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }>>({});
   const lastLiveTicksRef = useRef<Record<string, number>>({});
 
@@ -1102,6 +1107,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
       fallbackInterval = setInterval(() => {
+        if (upstoxStatusRef.current.connected) return;
         instrumentsRef.current.forEach(inst => {
           if (lastLiveTicksRef.current[inst.symbol] && Date.now() - lastLiveTicksRef.current[inst.symbol] < 4000) {
             return;

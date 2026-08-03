@@ -613,42 +613,27 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
           {/* Live Market Data Feed Analytics Access Token Panel */}
           <div className="bg-white dark:bg-[#11141c] border border-slate-200/50 dark:border-white/5 rounded-2xl p-6 space-y-6 shadow-xl">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100 dark:border-white/5">
-              <div className="space-y-1">
-                <span className="text-xs font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
-                  LIVE MARKET DATA FEED INTEGRATION
-                </span>
+              <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
                   <Key className="w-4 h-4 text-sky-400" />
-                  Analytics Access Token Connection
+                  Live Market Data Feed
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-sans">
-                  Enter your Analytics Access Token below to connect directly to the live feed for real-time market ticks.
-                </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div>
                 {upstoxStatus.connected ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3.5 py-1.5 rounded-full border border-emerald-500/20 shadow-sm">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-wide">
-                        LIVE FEED CONNECTED
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleDisconnectFeed}
-                      className="bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 font-bold px-3 py-1.5 rounded-full text-[10px] transition border border-red-500/20 flex items-center gap-1 cursor-pointer font-mono"
-                    >
-                      Disconnect
-                    </button>
+                  <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3.5 py-1.5 rounded-full border border-emerald-500/20 shadow-sm">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-wide">
+                      LIVE FEED CONNECTED
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 bg-red-500/10 px-3.5 py-1.5 rounded-full border border-red-500/20 shadow-sm">
                     <span className="h-2 w-2 rounded-full bg-red-500"></span>
-                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 font-mono tracking-wide">
+                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400 font-mono tracking-wide">
                       DISCONNECTED
                     </span>
                   </div>
@@ -670,45 +655,19 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
               </div>
             )}
 
-            {/* Upstox Live Feed Market Status Info */}
-            {upstoxStatus.connected ? (
-              <div className="p-4 bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-sans space-y-1">
-                <div className="flex items-center gap-2 font-bold text-sky-600 dark:text-sky-400">
-                  <Activity className="w-4 h-4 shrink-0 animate-pulse" />
-                  <span>Upstox Live Market Feed Connected</span>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-gray-300 leading-relaxed">
-                  Your token is verified and actively supplying Upstox market LTPs. Indian Stock Exchanges (NSE/BSE) operate Monday–Friday 9:15 AM to 3:30 PM IST. Outside market hours, official closing prices are loaded from Upstox with active off-hours micro-ticks enabled so your charts, watchlists, and paper orders stay active.
-                </p>
-              </div>
-            ) : (
-              <div className="p-4 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-sans space-y-1">
-                <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-gray-300">
-                  <ShieldAlert className="w-4 h-4 shrink-0 text-amber-500" />
-                  <span>Live Market Feed Disconnected</span>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed">
-                  Paste your active Analytics Access Token below to establish live market tick streaming immediately across all market assets.
-                </p>
-              </div>
-            )}
-
-            <form onSubmit={handleConnectToken} className="space-y-4">
+            <form onSubmit={handleConnectToken} className="space-y-5">
               <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-gray-300 flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-sky-400" /> Analytics Access Token
+                    <Key className="w-3.5 h-3.5 text-sky-400" /> Paste Analytics Access Token
                   </span>
-                  {upstoxStatus.connected && (
-                    <span className="text-[10px] text-emerald-500 font-mono font-bold">● Active Session</span>
-                  )}
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     value={manualToken}
                     onChange={(e) => setManualToken(e.target.value)}
-                    placeholder="Paste your Analytics Access Token here (e.g. eyJhbGciOi...)"
+                    placeholder="Paste your token here..."
                     className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono pr-20"
                   />
                   <button
@@ -724,9 +683,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                     Paste
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-sans">
-                  Paste your active Analytics Access Token here to establish live market tick streaming immediately.
-                </p>
               </div>
 
               {/* Action Buttons */}
@@ -743,7 +699,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                     </>
                   ) : (
                     <>
-                      <Zap className="w-4 h-4" /> Save Access Token & Connect
+                      <Zap className="w-4 h-4" /> Connect with Live Feed
                     </>
                   )}
                 </button>
