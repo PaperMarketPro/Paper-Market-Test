@@ -1525,19 +1525,28 @@ function getLLMParameters(llmConfig: any, cognitiveRules: any, defaultModel: str
   
   let systemInstruction = defaultSystemInstruction;
 
-  const fineTuningPreamble = `PERMANENT FINE-TUNED DIRECTIVE FOR HUMAN-LIKE ELITE ACCURACY, TECHNICAL ANALYSIS MASTERY, EMOTIONAL SUPPORT & MULTILINGUAL ADAPTABILITY:
-- HINGLISH & MULTILINGUAL EXCELLENCE:
-  1. HINGLISH (Hindi spoken words spelled in English/Latin script): If the user writes in Hinglish (e.g., "bhai aaj loss ho gaya", "Nifty aur Reliance ka technical analysis karke batao", "kya CE buy karu?", "aaj kitna profit hua?", "bhai darr lag raha hai"), YOU MUST RESPOND IN NATURAL, AUTHENTIC HINGLISH! Use conversational Indian trading slang (bhai, tension mat le, setups, stop-loss, loss recover, market level, break-even, trailing).
-  2. HINDI (Devanagari script): If the user writes in Hindi (e.g., "मेरा बहुत नुकसान हो गया"), reply in comforting, fluent Hindi.
-  3. ENGLISH: If the user writes in English, reply in natural, authentic English.
-- TECHNICAL ANALYSIS & INSTRUMENT COACHING MASTERY:
-  When asked to analyze ANY instrument X, Y, or Z (e.g., Nifty 50, BankNifty, FinNifty, Sensex, Reliance, Tata Motors, HDFC Bank, Infosys, Crude Oil, Gold, Call/Put Option strikes, or any custom stocks/tickers):
-  1. Technical Trend & Price Action: Analyze support/resistance levels, higher-highs/higher-lows, order blocks, fair value gaps (FVG), liquidity sweeps, VWAP, 20 EMA, and 200 SMA.
-  2. Option Chain & Volatility Mechanics: Analyze Delta, Theta decay, Gamma squeezes, IV Rank, Max Pain, and Put-Call Ratio (PCR).
-  3. Actionable Setup & Invalidation: Provide clear entry triggers, exact stop-loss invalidation levels, and target levels with a minimum Risk-to-Reward ratio of 1:2.
-  4. Behavioral IF-THEN Anchors: Combine the technical setup with an "IF... THEN..." behavioral rule so the trader executes with discipline without emotional tilt.
-- HUMAN-LIKE EMOTIONAL SUPPORT & COMPANIONSHIP: Speak like a close, caring friend or prop-desk elder brother sitting right next to the trader. Validate feelings with warmth before giving technical or psychological advice.
-- ABSOLUTELY NO ROBOTIC FILLERS: Avoid AI clichés, sterile disclaimers, or mechanical intro phrases. Jump straight into the response with human warmth and technical precision.`;
+  const fineTuningPreamble = `PERMANENT FINE-TUNED DIRECTIVE FOR LANGUAGE MATCHING, TECHNICAL ANALYSIS MASTERY & PSYCHOLOGICAL SUPPORT:
+
+1. STRICT LANGUAGE MATCHING RULE (HIGHEST PRIORITY):
+   - HINGLISH INPUT (Hindi words written using English/Roman alphabet e.g., "bhai aaj loss ho gaya", "Nifty aur Reliance ka technical analysis karke batao", "kya CE buy karu?", "darr lag raha hai", "aaj kitna profit hua?"):
+     YOU MUST RESPOND IN AUTHENTIC, NATURAL HINGLISH! Speak using English letters with conversational Hindi words and Indian trading terminology (e.g. "Bhai, sabse pehle shant ho jao...", "Nifty ka 24,500 level ek strong support zone hai...", "IF market stop-loss hit kare, THEN instantly exit kar jao..."). NEVER respond in pure English or Devanagari Hindi if the user wrote in Hinglish!
+   - DEVANAGARI HINDI INPUT (e.g., "मेरा बहुत बड़ा नुकसान हो गया"):
+     YOU MUST RESPOND IN FLUENT DEVANAGARI HINDI!
+   - ENGLISH INPUT (e.g., "I took a loss on Nifty options today"):
+     YOU MUST RESPOND IN NATURAL, AUTHENTIC ENGLISH!
+
+2. DEEP RESEARCH & TECHNICAL ANALYSIS MASTERY:
+   When asked to analyze ANY instrument X, Y, or Z (e.g. Nifty 50, BankNifty, FinNifty, Sensex, Reliance, Tata Motors, HDFC Bank, Infosys, Crude Oil, Gold, Call/Put Option strikes, or any custom stocks/tickers):
+   - Trend & Price Action: Analyze support/resistance levels, higher-highs/higher-lows, order blocks, fair value gaps (FVG), liquidity sweeps, VWAP, 20 EMA, and 200 SMA.
+   - Option Chain & Volatility Mechanics: Analyze Delta, Theta decay, Gamma squeezes, IV Rank, Max Pain, and Put-Call Ratio (PCR).
+   - Actionable Setup & Invalidation: Provide clear entry triggers, exact stop-loss invalidation levels, and target levels with a minimum Risk-to-Reward ratio of 1:2.
+   - Behavioral IF-THEN Anchors: Combine the technical setup with an "IF... THEN..." behavioral rule so the trader executes with discipline without emotional tilt.
+
+3. HUMAN EMOTIONAL SUPPORT & COMPANIONSHIP:
+   Speak like a close, caring friend or elder brother sitting right next to the trader. Validate feelings with deep warmth before giving technical or psychological advice.
+
+4. ABSOLUTELY NO ROBOTIC FILLERS:
+   Avoid AI clichés, sterile disclaimers, or mechanical intro phrases. Jump straight into the response with human warmth and technical precision.`;
 
   let personaPreamble = "";
   if (llmConfig?.systemPersona === "Market Veteran" || !llmConfig?.systemPersona) {
@@ -2944,43 +2953,68 @@ CRITICAL VOICE AND STYLE GUIDELINES:
       return res.status(400).json({ error: "Message is required." });
     }
 
+    const detectUserLanguage = (text: string): "hinglish" | "hindi" | "english" => {
+      const isDevanagari = /[\u0900-\u097F]/.test(text);
+      if (isDevanagari) return "hindi";
+
+      const lower = text.toLowerCase();
+      const hinglishKeywords = [
+        "bhai", "bhaiya", "nuksan", "kya", "aaj", "ho", "gaya", "gayi", "karu", "karoon", "karein", "samajh", 
+        "darr", "paisa", "lalach", "ghata", "bohot", "bohut", "matlab", "kaise", "hai", "batao", "karo", 
+        "bata", "btao", "nifty", "banknifty", "ce", "pe", "mujhe", "mera", "meri", "suno", "dekho", 
+        "kaisa", "kaha", "kahan", "par", "pe", "se", "ko", "koi", "kuch", "chahiye", "bol", "bolo", 
+        "loss", "profit", "trade", "trading", "chart", "setup", "options", "call", "put", "strike", 
+        "raha", "rahi", "rahe", "huye", "karte", "sabse", "pehle", "achha", "sahi", "galat", "shant", "ha"
+      ];
+
+      const words = lower.split(/\W+/);
+      const isHinglishWord = words.some(w => hinglishKeywords.includes(w));
+      const hasHinglishPattern = /\b(bhai|kya|gaya|karu|batao|nuksan|karo|bata|darr|pe|ce|aaj|ha|kaise|kaisa|karun|bataiye|samjhao|mujhe|mera)\b/i.test(lower);
+
+      if (isHinglishWord || hasHinglishPattern) {
+        return "hinglish";
+      }
+
+      return "english";
+    };
+
+    const userLanguage = detectUserLanguage(message);
+
     const generateHeuristicReply = (userMsg: string): string => {
       const lower = userMsg.toLowerCase();
-      const isDevanagari = /[\u0900-\u097F]/.test(userMsg);
-      const isHinglish = /\b(bhai|nuksan|kya|aaj|ho|gaya|karu|samajh|darr|paisa|lalach|ghata|messed|bohot|bohut|matlab|kaise|hai|batao|karo|bata|btao|analys|nifty|banknifty|ce|pe)\b/.test(lower);
 
-      if (isDevanagari) {
+      if (userLanguage === "hindi") {
         if (lower.includes("विश्लेषण") || lower.includes("एनालिसिस") || lower.includes("निफ्टी") || lower.includes("बैंकनिफ्टी") || lower.includes("शेयर") || lower.includes("स्टॉक")) {
-          return `भाई, तुम्हारे मांगे गए इंस्ट्रूमेंट का टेक्निकल और प्राइस एक्शन ब्रेकडाउन:
+          return `भाई, तुम्हारे मांगे गए इंस्ट्रूमेंट का विस्तृत टेक्निकल और प्राइस एक्शन ब्रेकडाउन:
 
-1. ट्रेंड और सपोर्ट/रेजिस्टेंस: मार्केट अभी मुख्य सपोर्ट जोन के पास समेकित (consolidate) हो रहा है। 20 EMA और VWAP के ऊपर प्राइस एक्शन बुलिश बायस दिखा रहा है, लेकिन ऊपर 24,650 के स्तर पर स्ट्रांग कॉल राइटिंग का दबाव है।
+1. ट्रेंड और सपोर्ट/रेजिस्टेंस: मार्केट अभी मुख्य सपोर्ट जोन के पास कंसोलिडेट कर रहा है। 20 EMA और VWAP के ऊपर प्राइस एक्शन बुलिश बायस दिखा रहा है, लेकिन ऊपर 24,650 पर स्ट्रांग कॉल राइटिंग का दबाव है।
 
-2. ऑप्शन ग्रीक्स और वोलैटिलिटी: एक्सपायरी पास होने के कारण थीटा डिके (Theta Decay) बहुत तेज़ होगा। आउट-ऑफ-द-मनी (OTM) कॉल्स लेने से बचो और ATM या ITM स्ट्राइक्स में ही काम करो।
+2. ऑप्शन ग्रीक्स और वोलैटिलिटी: एक्सपायरी पास होने के कारण थीटा डिके (Theta Decay) बहुत तेज़ होगा। OTM कॉल्स लेने से बचो और ATM या ITM स्ट्राइक्स में ही काम करो।
 
-3. कार्ययोजना (Actionable Plan):
+3. कार्ययोजना (Actionable Execution):
 - एंट्री ट्रिगर: अगर 15-मिनट की कैंडल 24,620 के ऊपर स्पष्ट क्लोजिंग देती है, तभी लॉन्ग एंट्री प्लान करो।
 - स्टॉप-लॉस: 24,580 के नीचे सख्त स्टॉप-लॉस रखो (R:R कम से कम 1:2)।
-- नियम: अगर भाव तुम्हारे स्टॉप-लॉस को छूता है, तो बिना किसी बहस के तुरंत बाहर निकल जाओ।
+- नियम (Rule): IF भाव तुम्हारे स्टॉप-लॉस को छूता है, THEN बिना किसी बहस के तुरंत बाहर निकल जाओ!
 
 क्या तुम किसी खास स्ट्राइक प्राइस या शेयर पर नजर रख रहे हो? मुझे बताओ!`;
         }
         if (lower.includes("नुकसान") || lower.includes("घाटा") || lower.includes("लॉस") || lower.includes("डर") || lower.includes("परेशान")) {
-          return `भाई, सबसे पहले एक गहरी सांस लो और ट्रेडिंग स्क्रीन को 5 मिनट के लिए बंद कर दो। नुकसान होना बहुत दर्दनाक होता है, लेकिन एक बात याद रखो: दुनिया का हर सफल ट्रेडर इस दौर से गुजरा है। नुकसान ट्रेडिंग का हिस्सा है, पर तुम्हारी मानसिक शांति सबसे ऊपर है।
+          return `भाई, सबसे पहले एक गहरी सांस लो और ट्रेडिंग स्क्रीन को 5 मिनट के लिए बंद कर दो। नुकसान होना बहुत दर्दनाक होता है, लेकिन एक बात याद रखो: दुनिया का हर सफल ट्रेडर इस दौर से गुजरा है।
 
-अभी गुस्से या डर में कोई नया ट्रेड मत लो। आक्रामक होकर मार्केट से बदला लेने की कोशिश करोगे तो नुकसान और बड़ा हो जाएगा।
+नुकसान ट्रेडिंग का हिस्सा है, पर तुम्हारी मानसिक शांति सबसे ऊपर है। अभी गुस्से या डर में कोई नया रिवेंज ट्रेड मत लो।
 
 आओ मिलकर एक नियम बनाते हैं:
-अगर आज नुकसान के बाद दोबारा तुरंत ट्रेड करने का मन करे, तो तुम 30 मिनट के लिए स्क्रीन से दूर चले जाओगे और ठंडा पानी पीकर अपने विचार लिखोगे।
+IF आज नुकसान के बाद दोबारा तुरंत ट्रेड करने का मन करे, THEN तुम 30 मिनट के लिए स्क्रीन से दूर चले जाओगे और ठंडा पानी पीकर अपने विचार लिखोगे।
 
-तुम अभी कैसा महसूस कर रहे हो? मुझे बताओ, हम बिना किसी जजमेंट के बात करते हैं।`;
+तुम अभी कैसा महसूस कर रहे हो? मुझे बताओ, हम मिलकर बात करते हैं।`;
         }
         return `नमस्कार भाई। मैं तुम्हारा ट्रेडिंग माइंड कोच हूँ। ट्रेडिंग सिर्फ चार्ट्स देखना नहीं है, 90% खेल अपने मन और भावनाओं को संभालने का है।
 
 मुझे बताओ अभी तुम्हारे मन में क्या चल रहा है? क्या कोई पुराना नुकसान परेशान कर रहा है, या किसी ट्रेड में डर लग रहा है? आओ दोस्त की तरह मिलकर बात करते हैं।`;
       }
 
-      if (isHinglish) {
-        if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("stock") || lower.includes("batao") || lower.includes("kaisa") || lower.includes("ce") || lower.includes("pe")) {
+      if (userLanguage === "hinglish") {
+        if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("stock") || lower.includes("batao") || lower.includes("kaisa") || lower.includes("ce") || lower.includes("pe") || lower.includes("karo")) {
           return `Bhai, aapke requested instrument (X/Y) ka complete Technical & Option Breakdown dekho:
 
 1. Trend & Price Action: Market abhi key Support / Order Block area ke paas consolidate kar raha hai. 20 EMA aur VWAP ke upar price hold ho raha hai jo bullish strength dikha raha hai, lekin overhead resistance level strong hai.
@@ -3044,26 +3078,6 @@ IF a stock or option has already moved past your entry point without you, THEN y
 
 Can you commit to that rule with me?`;
       }
-      if (lower.includes("greed") || lower.includes("greedy") || lower.includes("profit") || lower.includes("lalach") || lower.includes("paisa") || lower.includes("target")) {
-        return `Winning feels incredible, but greed is a sneaky trap. It tells you "just hold a little longer for another 10 points," and before you know it, a green trade turns completely red and wipes out your hard work.
-
-Trading isn't about hitting home runs on every trade; it's about building consistent, repeatable execution over hundreds of trades.
-
-Let's lock in profits intelligently:
-IF your trade hits 80% of your target, THEN you will immediately trail your stop-loss to break-even or book 50% of your position. 
-
-How does that feel? Are you holding a winning trade right now that you're nervous about exiting?`;
-      }
-      if (lower.includes("fear") || lower.includes("fearful") || lower.includes("anxious") || lower.includes("darr") || lower.includes("ghabrahat") || lower.includes("scared") || lower.includes("stress")) {
-        return `I hear you completely. That tightness in your chest, the sweaty palms, or the hesitation to click the entry button—that is your brain screaming that your position size is too large for your risk tolerance.
-
-When risk feels overwhelming, your mind cannot make rational decisions. The fastest way to cure trading anxiety is simple: cut your position size in half until your heart rate stays steady.
-
-Let's anchor this behavioral boundary:
-IF you feel overwhelming anxiety or hesitation before taking a trade, THEN you will immediately cut your quantity by 50% and enter with small risk.
-
-Tell me, what trade or setup is making you feel anxious right now? Let's talk it through.`;
-      }
 
       return `I hear you, and I'm really glad you brought this to me. Trading is 10% market knowledge and 90% psychological mastery—how you handle your emotions under pressure defines your long-term success.
 
@@ -3117,12 +3131,23 @@ CRITICAL VOICE, LANGUAGE, AND ANALYSIS GUIDELINES:
         });
       }
 
-      // Ensure user message is cleanly appended
+      // Prepare explicit language requirement prompt tag for Gemini
       const cleanMsg = message.trim();
-      if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-        contents[contents.length - 1].parts[0].text += "\n\n" + cleanMsg;
+      let langInstruction = "";
+      if (userLanguage === "hinglish") {
+        langInstruction = "\n\n[MANDATORY SYSTEM INSTRUCTION: The user asked in HINGLISH (Hindi spoken words spelled in Roman/English alphabet, e.g. 'bhai Nifty ka analysis karke batao', 'aaj loss ho gaya'). YOU MUST RESPOND EXCLUSIVELY IN AUTHENTIC HINGLISH using Roman/English alphabet (e.g. 'Bhai, pehle shant ho jao...', 'Nifty me 24500 par strong support level hai...'). DO NOT USE DEVANAGARI SCRIPT AND DO NOT WRITE IN PURE ENGLISH!]";
+      } else if (userLanguage === "hindi") {
+        langInstruction = "\n\n[MANDATORY SYSTEM INSTRUCTION: The user asked in DEVANAGARI HINDI. You MUST respond in fluent Devanagari Hindi script!]";
       } else {
-        contents.push({ role: 'user', parts: [{ text: cleanMsg }] });
+        langInstruction = "\n\n[MANDATORY SYSTEM INSTRUCTION: The user asked in ENGLISH. Respond in natural, clean English!]";
+      }
+
+      const userMessageWithLang = cleanMsg + langInstruction;
+
+      if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+        contents[contents.length - 1].parts[0].text += "\n\n" + userMessageWithLang;
+      } else {
+        contents.push({ role: 'user', parts: [{ text: userMessageWithLang }] });
       }
 
       if (!aiClient) {
