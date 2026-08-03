@@ -35,9 +35,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
   const [isConnectingToken, setIsConnectingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenSuccess, setTokenSuccess] = useState<string | null>(null);
-  const [upstoxRedirectType, setUpstoxRedirectType] = useState<'localhost' | 'cloud'>(
-    typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'localhost' : 'cloud'
-  );
 
   if (!user) return null;
 
@@ -104,9 +101,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
       setTokenError(null);
       setTokenSuccess(null);
       const targetOrigin = window.location.origin;
-      const chosenRedirectUri = upstoxRedirectType === 'localhost'
-        ? 'http://localhost:3000/api/integrations/upstox/callback'
-        : `${targetOrigin}/api/integrations/upstox/callback`;
+      const chosenRedirectUri = `${targetOrigin}/api/integrations/upstox/callback`;
 
       const response = await fetch(`/api/integrations/upstox/auth-url?origin=${encodeURIComponent(targetOrigin)}&redirectUri=${encodeURIComponent(chosenRedirectUri)}`);
       if (!response.ok) {
@@ -620,7 +615,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100 dark:border-white/5">
               <div className="space-y-1">
                 <span className="text-xs font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
-                  Live Market Data Feed Integration
+                  LIVE MARKET DATA FEED INTEGRATION
                 </span>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
                   <Key className="w-4 h-4 text-sky-400" />
@@ -633,12 +628,12 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
               <div className="flex items-center gap-2">
                 {upstoxStatus.connected ? (
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 shadow-sm">
+                    <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3.5 py-1.5 rounded-full border border-emerald-500/20 shadow-sm">
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                       </span>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-wide">
                         LIVE FEED CONNECTED
                       </span>
                     </div>
@@ -651,10 +646,10 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20 shadow-sm">
-                    <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 font-mono">
-                      SIMULATED / DISCONNECTED
+                  <div className="flex items-center gap-1.5 bg-red-500/10 px-3.5 py-1.5 rounded-full border border-red-500/20 shadow-sm">
+                    <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 font-mono tracking-wide">
+                      DISCONNECTED
                     </span>
                   </div>
                 )}
@@ -676,14 +671,24 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
             )}
 
             {/* Upstox Live Feed Market Status Info */}
-            {upstoxStatus.connected && (
-              <div className="p-3.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-sans space-y-1">
+            {upstoxStatus.connected ? (
+              <div className="p-4 bg-sky-500/10 border border-sky-500/20 rounded-xl text-xs font-sans space-y-1">
                 <div className="flex items-center gap-2 font-bold text-sky-600 dark:text-sky-400">
                   <Activity className="w-4 h-4 shrink-0 animate-pulse" />
                   <span>Upstox Live Market Feed Connected</span>
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-gray-300 leading-relaxed">
                   Your token is verified and actively supplying Upstox market LTPs. Indian Stock Exchanges (NSE/BSE) operate Monday–Friday 9:15 AM to 3:30 PM IST. Outside market hours, official closing prices are loaded from Upstox with active off-hours micro-ticks enabled so your charts, watchlists, and paper orders stay active.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-sans space-y-1">
+                <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-gray-300">
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-amber-500" />
+                  <span>Live Market Feed Disconnected</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed">
+                  Paste your active Analytics Access Token below to establish live market tick streaming immediately across all market assets.
                 </p>
               </div>
             )}
@@ -714,7 +719,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                         if (text) setManualToken(text);
                       } catch (e) {}
                     }}
-                    className="absolute right-2 top-2 bottom-2 px-2.5 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 text-[10px] font-semibold rounded-lg transition"
+                    className="absolute right-2 top-2 bottom-2 px-3 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 text-[10px] font-semibold rounded-lg transition cursor-pointer"
                   >
                     Paste
                   </button>
@@ -722,69 +727,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                 <p className="text-[10px] text-slate-500 dark:text-gray-400 font-sans">
                   Paste your active Analytics Access Token here to establish live market tick streaming immediately.
                 </p>
-              </div>
-
-              {/* Redirect URI Configuration Selector */}
-              <div className="p-3.5 bg-slate-50 dark:bg-white/2 border border-slate-200 dark:border-white/5 rounded-xl space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-800 dark:text-gray-200 flex items-center gap-1.5">
-                    <ExternalLink className="w-3.5 h-3.5 text-sky-400" /> Upstox Console Redirect URI
-                  </label>
-                  <span className="text-[10px] text-sky-500 font-mono font-bold uppercase tracking-wider">Matches your Upstox App</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUpstoxRedirectType('cloud')}
-                    className={`p-2.5 rounded-lg text-[11px] font-sans text-left transition border cursor-pointer ${
-                      upstoxRedirectType === 'cloud'
-                        ? 'bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400 font-semibold shadow-sm'
-                        : 'bg-white/5 border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <div className="font-bold font-mono text-[10px] uppercase">Cloud App URL (Default)</div>
-                    <div className="text-[9.5px] opacity-80 truncate font-mono mt-0.5">
-                      {typeof window !== 'undefined' ? `${window.location.origin}/api/integrations/upstox/callback` : '/api/integrations/upstox/callback'}
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setUpstoxRedirectType('localhost')}
-                    className={`p-2.5 rounded-lg text-[11px] font-sans text-left transition border cursor-pointer ${
-                      upstoxRedirectType === 'localhost'
-                        ? 'bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400 font-semibold shadow-sm'
-                        : 'bg-white/5 border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <div className="font-bold font-mono text-[10px] uppercase">Localhost 3000</div>
-                    <div className="text-[9.5px] opacity-80 truncate font-mono mt-0.5">
-                      http://localhost:3000/api/integrations/upstox/callback
-                    </div>
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono truncate">
-                    Active: <strong className="text-sky-500 dark:text-sky-400">{upstoxRedirectType === 'cloud' ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/integrations/upstox/callback` : 'http://localhost:3000/api/integrations/upstox/callback'}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const activeUri = upstoxRedirectType === 'cloud' 
-                        ? `${window.location.origin}/api/integrations/upstox/callback`
-                        : 'http://localhost:3000/api/integrations/upstox/callback';
-                      try {
-                        await navigator.clipboard.writeText(activeUri);
-                        setTokenSuccess("Copied Redirect URI to clipboard! Paste this into your Upstox Developer App setup.");
-                      } catch (e) {}
-                    }}
-                    className="px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-bold rounded-lg border border-sky-500/20 transition shrink-0 cursor-pointer"
-                  >
-                    Copy Redirect URI
-                  </button>
-                </div>
               </div>
 
               {/* Action Buttons */}
@@ -804,15 +746,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                       <Zap className="w-4 h-4" /> Save Access Token & Connect
                     </>
                   )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleConnectOAuth}
-                  className="bg-white/5 hover:bg-white/10 text-slate-900 dark:text-white font-bold py-3 px-4 rounded-xl text-xs transition border border-slate-200 dark:border-white/10 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <ExternalLink className="w-4 h-4 text-sky-400" />
-                  1-Click Upstox Login
                 </button>
 
                 {upstoxStatus.connected && (
