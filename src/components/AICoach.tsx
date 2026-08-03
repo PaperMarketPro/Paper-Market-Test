@@ -373,14 +373,39 @@ export const AICoach: React.FC = React.memo(() => {
       if (!trimmed) return null;
 
       // Only render a rule badge box if explicitly prefixed as a rule
-      const isExplicitRuleBox = trimmed.startsWith('[RULE]') || trimmed.startsWith('[BEHAVIORAL RULE]') || trimmed.startsWith('BEHAVIORAL ANCHOR RULE:');
+      const isExplicitRuleBox = 
+        trimmed.startsWith('[RULE]') || 
+        trimmed.startsWith('[BEHAVIORAL RULE]') || 
+        trimmed.startsWith('BEHAVIORAL ANCHOR RULE:') ||
+        trimmed.toLowerCase().startsWith('behavioral rule / niyam:') ||
+        trimmed.toLowerCase().startsWith('behavioral rule:') ||
+        trimmed.toLowerCase().startsWith('rule / niyam:') ||
+        trimmed.startsWith('व्यवहारिक नियम:') ||
+        trimmed.startsWith('القاعدة السلوكية:');
 
       if (isExplicitRuleBox) {
-        const cleanRuleText = trimmed.replace(/^\[(RULE|BEHAVIORAL RULE)\]\s*/, '').replace(/^BEHAVIORAL ANCHOR RULE:\s*/, '');
+        let ruleBadgeLabel = "Behavioral Anchor Rule";
+        if (trimmed.includes('व्यवहारिक नियम')) {
+          ruleBadgeLabel = "व्यवहारिक नियम (Behavioral Rule)";
+        } else if (trimmed.includes('القاعدة السلوكية')) {
+          ruleBadgeLabel = "القاعدة السلوكية (Behavioral Rule)";
+        } else if (trimmed.toLowerCase().includes('niyam')) {
+          ruleBadgeLabel = "Behavioral Rule / Niyam";
+        }
+
+        const cleanRuleText = trimmed
+          .replace(/^\[(RULE|BEHAVIORAL RULE)\]\s*/i, '')
+          .replace(/^BEHAVIORAL ANCHOR RULE:\s*/i, '')
+          .replace(/^Behavioral Rule \/ Niyam:\s*/i, '')
+          .replace(/^Behavioral Rule:\s*/i, '')
+          .replace(/^Rule \/ Niyam:\s*/i, '')
+          .replace(/^व्यवहारिक नियम:\s*/, '')
+          .replace(/^القاعدة السلوكية:\s*/, '');
+
         return (
           <div key={pIdx} className="my-2 p-3 bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/20 rounded-xl text-sky-300 dark:text-sky-200 text-xs font-semibold leading-relaxed shadow-sm">
             <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono tracking-wider font-extrabold text-sky-400 mb-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" /> Behavioral Rule
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" /> {ruleBadgeLabel}
             </div>
             <p className="font-sans whitespace-pre-line">{cleanRuleText.replace(/\*\*/g, '')}</p>
           </div>
