@@ -655,66 +655,76 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
               </div>
             )}
 
-            <form onSubmit={handleConnectToken} className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-sky-400" /> Paste Analytics Access Token
-                  </span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    value={manualToken}
-                    onChange={(e) => setManualToken(e.target.value)}
-                    placeholder="Paste your token here..."
-                    className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono pr-20"
-                  />
+            {upstoxStatus.connected ? (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-sans flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" /> Live Feed Active
+                  </p>
+                  <p className="text-[11px] text-slate-600 dark:text-gray-400 font-sans">
+                    Your Analytics Access Token is verified. Live market ticks are actively streaming across your charts, order book, and watchlists.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnectFeed}
+                  className="shrink-0 bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 font-bold py-2.5 px-5 rounded-xl text-xs transition border border-red-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleConnectToken} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-gray-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-sky-400" /> Paste Analytics Access Token
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      value={manualToken}
+                      onChange={(e) => setManualToken(e.target.value)}
+                      placeholder="Paste your token here..."
+                      className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-sky-500 font-mono pr-20"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const text = await navigator.clipboard.readText();
+                          if (text) setManualToken(text);
+                        } catch (e) {}
+                      }}
+                      className="absolute right-2 top-2 bottom-2 px-3 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 text-[10px] font-semibold rounded-lg transition cursor-pointer"
+                    >
+                      Paste
+                    </button>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const text = await navigator.clipboard.readText();
-                        if (text) setManualToken(text);
-                      } catch (e) {}
-                    }}
-                    className="absolute right-2 top-2 bottom-2 px-3 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 text-[10px] font-semibold rounded-lg transition cursor-pointer"
+                    type="submit"
+                    disabled={isConnectingToken || !manualToken.trim()}
+                    className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-sky-600/20 disabled:opacity-50"
                   >
-                    Paste
+                    {isConnectingToken ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        Connecting Live Feed...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" /> Connect with Live Feed
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={isConnectingToken || !manualToken.trim()}
-                  className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-sky-600/20 disabled:opacity-50"
-                >
-                  {isConnectingToken ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                      Connecting Live Feed...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" /> Connect with Live Feed
-                    </>
-                  )}
-                </button>
-
-                {upstoxStatus.connected && (
-                  <button
-                    type="button"
-                    onClick={handleDisconnectFeed}
-                    className="bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 font-bold py-3 px-4 rounded-xl text-xs transition border border-red-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    Disconnect
-                  </button>
-                )}
-              </div>
-            </form>
+              </form>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -2945,6 +2945,41 @@ CRITICAL VOICE AND STYLE GUIDELINES:
 
     const generateHeuristicReply = (userMsg: string): string => {
       const lower = userMsg.toLowerCase();
+      const isDevanagari = /[\u0900-\u097F]/.test(userMsg);
+      const isHinglish = /\b(bhai|nuksan|kya|aaj|ho|gaya|karu|samajh|darr|paisa|lalach|ghata|messed|bohot|bohut|matlab)\b/.test(lower);
+
+      if (isDevanagari) {
+        if (lower.includes("नुकसान") || lower.includes("घाटा") || lower.includes("लॉस") || lower.includes("डर") || lower.includes("परेशान")) {
+          return `भाई, सबसे पहले एक गहरी सांस लो और ट्रेडिंग स्क्रीन को 5 मिनट के लिए बंद कर दो। नुकसान होना बहुत दर्दनाक होता है, लेकिन एक बात याद रखो: दुनिया का हर सफल ट्रेडर इस दौर से गुजरा है। नुकसान ट्रेडिंग का हिस्सा है, पर तुम्हारी मानसिक शांति सबसे ऊपर है।
+
+अभी गुस्से या डर में कोई नया ट्रेड मत लो। आक्रामक होकर मार्केट से बदला लेने की कोशिश करोगे तो नुकसान और बड़ा हो जाएगा।
+
+आओ मिलकर एक नियम बनाते हैं:
+अगर आज नुकसान के बाद दोबारा तुरंत ट्रेड करने का मन करे, तो तुम 30 मिनट के लिए स्क्रीन से दूर चले जाओगे और ठंडा पानी पीकर अपने विचार लिखोगे।
+
+तुम अभी कैसा महसूस कर रहे हो? मुझे बताओ, हम बिना किसी जजमेंट के बात करते हैं।`;
+        }
+        return `नमस्कार भाई। मैं तुम्हारा ट्रेडिंग माइंड कोच हूँ। ट्रेडिंग सिर्फ चार्ट्स देखना नहीं है, 90% खेल अपने मन और भावनाओं को संभालने का है।
+
+मुझे बताओ अभी तुम्हारे मन में क्या चल रहा है? क्या कोई पुराना नुकसान परेशान कर रहा है, या किसी ट्रेड में डर लग रहा है? आओ दोस्त की तरह मिलकर बात करते हैं।`;
+      }
+
+      if (isHinglish) {
+        if (lower.includes("loss") || lower.includes("nuksan") || lower.includes("ghata") || lower.includes("lose")) {
+          return `Bhai, sabse pehle ek gehra breath lo aur trading screen ko band kar do. Capital lose hone par jo tight feel hota hai, mai ache se samajhta hu. Par ek baat hamesha yaad rakhna: ek loss tumhari trading ability define nahi karta.
+
+Revenge trading bilkul mat karna. Loss ko recover karne ki jaldbazi me log apna poora account blow kar dete hain. 
+
+Chalo ek strict rule banate hain:
+IF aaj tumko heavy loss feel ho raha hai, THEN tum screen close karke walk par jaoge aur aaj koi doosra trade nahi loge.
+
+Abhi kaisa lag raha hai bhai? Trade ke baare me batao, milkar analyze karte hain.`;
+        }
+        return `Bhai, mai tumhara Trading Mind Coach hu. Trading me 10% strategy hoti hai aur 90% emotional control. 
+
+Batao abhi kya chal raha hai mind me? Kisi setup ko miss karne ka regret hai, ya market me darr lag raha hai? Bilkul chill ho kar batao, hum saath me handle karenge.`;
+      }
+
       if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("loss ho gaya") || lower.includes("ghata") || lower.includes("minus")) {
         return `Hey, I hear you and I feel that weight on your chest. Losing money in the markets is one of the most painful, gut-wrenching experiences anyone can go through, but let's be completely real: every single professional trader you admire has taken heavy losses. What separates those who survive from those who blow up is protecting their psychological capital.
 
