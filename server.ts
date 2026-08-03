@@ -1011,8 +1011,14 @@ async function connectUpstoxFeed() {
       upstoxPingInterval = null;
     }
 
-    // 3. Establish WS connection
-    upstoxWs = new WS(redirectUrl);
+    // 3. Establish WS connection with headers
+    upstoxWs = new WS(redirectUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Api-Version": "3.0",
+        "Accept": "*/*"
+      }
+    });
 
     let lastMessageTime = Date.now();
 
@@ -1075,7 +1081,7 @@ async function connectUpstoxFeed() {
         console.log("[HEARTBEAT SENT] Sending WebSocket ping frame to Upstox...");
         upstoxWs.ping();
       } catch (err: any) {
-        console.error("[PROCESS ERROR] Failed to send ping frame:", err.message);
+        console.warn("[UPSTOX WS HEARTBEAT] Failed to send ping frame:", err.message);
       }
     }, 25000); // Check every 25 seconds
 
@@ -1140,7 +1146,7 @@ async function connectUpstoxFeed() {
           });
         }
       } catch (err: any) {
-        console.error("[PROCESS ERROR] Protobuf WS Decode Error:", err.message);
+        console.warn("[UPSTOX WS DECODE] Protobuf WS Decode Notice:", err.message);
       }
     });
 
@@ -1157,7 +1163,7 @@ async function connectUpstoxFeed() {
     });
 
     upstoxWs.on("error", (error) => {
-      console.error("[PROCESS ERROR] Upstox Live WebSocket Error:", error.message);
+      console.warn("[UPSTOX WS FEED] Upstox Live WebSocket Notice:", error.message);
       if (upstoxPingInterval) {
         clearInterval(upstoxPingInterval);
         upstoxPingInterval = null;
@@ -1165,6 +1171,8 @@ async function connectUpstoxFeed() {
       try {
         upstoxWs?.close();
       } catch (_) {}
+      // Fallback: Ensure REST LTP polling is active
+      startLiveLtpPollingLoop();
     });
 
   } catch (error: any) {
