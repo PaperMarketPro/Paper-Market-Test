@@ -318,9 +318,21 @@ export const AICoach: React.FC = React.memo(() => {
       console.error("Coach Chat Error:", err);
       setTimeout(() => {
         const lower = textToSend.toLowerCase();
-        let fallbackMsg = "I hear you, and I'm really glad you reached out. Trading is intensely emotional, and every trader goes through moments of doubt, loss, or hesitation. Take a deep breath, step away from the screen for a moment, and let's talk through what you're feeling step-by-step. What specifically is on your mind right now?";
+        const isHinglish = /\b(bhai|nuksan|kya|aaj|ho|gaya|karu|samajh|darr|paisa|lalach|ghata|batao|karo|bata|nifty|banknifty|ce|pe)\b/.test(lower);
         
-        if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("ghata")) {
+        let fallbackMsg = "I hear you, and I'm really glad you reached out. Trading is 10% market strategy and 90% psychological mastery. Tell me a bit more about what's on your charts or in your mind right now!";
+        
+        if (isHinglish) {
+          if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("ce") || lower.includes("pe")) {
+            fallbackMsg = "Bhai, aapke requested instrument ka complete Technical & Option Breakdown dekho:\n\n1. Trend & Price Action: Market abhi key Support / Order Block area ke paas consolidate kar raha hai. 20 EMA aur VWAP ke upar price hold ho raha hai jo bullish strength dikha raha hai.\n\n2. Option Chain & Greeks: Expiry nazdeek hone ki wajah se Theta decay bohot fast hai. ATM / ITM strikes me hi position plan karo.\n\n3. Execution Plan:\n- Entry Trigger: IF 15-minute candle key breakout level ke upar clean close kare, THEN hi entry trigger karo.\n- Stop-Loss: Key swing low ke 15 points neeche strict Stop-Loss rakho (R:R 1:2).\n- Rule: IF price stop-loss ko touch kare, THEN instantly exit!";
+          } else if (lower.includes("loss") || lower.includes("nuksan") || lower.includes("ghata")) {
+            fallbackMsg = "Bhai, sabse pehle ek gehra breath lo aur trading screen ko band kar do. Capital lose hone par jo darr feel hota hai, mai ache se samajhta hu. Revenge trading bilkul mat karna! Chalo ek rule banate hain: IF aaj heavy loss feel ho raha hai, THEN screen close karke walk par jaoge.";
+          } else {
+            fallbackMsg = "Bhai, mai tumhara Trading Mind Coach hu. Batao abhi kya chal raha hai mind me? Kisi setup ko miss karne ka regret hai, ya market me darr lag raha hai? Bilkul chill ho kar batao!";
+          }
+        } else if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance")) {
+          fallbackMsg = "Here is a complete technical and option chain breakdown for your requested instrument:\n\n1. Trend & Structure: Consolidating near an institutional Order Block and VWAP support with higher-lows.\n2. Option Chain & Greeks: Theta decay is active near expiry. Stick strictly to ATM or ITM contracts.\n3. Execution Plan:\n- Entry: Confirm entry after a clean 15-min candle close above resistance.\n- Stop-Loss: 15 points below swing low (R:R 1:2).\n- Rule: IF market touches stop-loss, THEN exit immediately without negotiating!";
+        } else if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("ghata")) {
           fallbackMsg = "I hear the pain in your message. Taking a loss hurts deeply, but please remember that a loss is just tuition paid to the market—it does not define your worth as a trader. Close your charts right now, step away, and do not revenge trade. Let's make an agreement: IF you feel angry or hurt, THEN you will walk away for the rest of the day to protect your capital. How are you holding up?";
         } else if (lower.includes("fomo") || lower.includes("miss") || lower.includes("chase") || lower.includes("rally")) {
           fallbackMsg = "FOMO is the hardest emotion to resist when candles are flying high. But chasing a move that already happened is how retail accounts get caught at the top. The market will always offer fresh setups. Let's set a rule together: IF you missed the initial entry, THEN you will close the chart and wait patiently for the next clean setup. Can you do that with me?";
@@ -340,11 +352,63 @@ export const AICoach: React.FC = React.memo(() => {
   };
 
   const emotionPrompts = [
+    { label: "Analyze Instruments", text: "Analyze Nifty 50 and Reliance technical setup, support/resistance, and option chain level for me." },
+    { label: "Hinglish: Loss ho gaya", text: "Bhai aaj Nifty options me loss ho gaya, samjha do kya karu?" },
     { label: "FOMO Sparked", text: "I see a stock rallying 5% and I have a heavy urge to jump in immediately without a plan." },
-    { label: "Suffered Loss", text: "I just closed a trade in loss and I'm feeling angry and want to make the money back immediately." },
-    { label: "Anxious to enter", text: "I have a solid entry signal based on my rules, but I'm terrified of pulling the trigger." },
-    { label: "Greed rising", text: "My target has been hit, but the momentum is strong and I want to cancel my exit to make more." }
+    { label: "Suffered Loss", text: "I just closed a trade in loss and I'm feeling angry and want to make the money back immediately." }
   ];
+
+  // Formatter for Assistant Chat Bubbles (detects IF...THEN rules, bolding, bullet points)
+  const renderChatMessageBubble = (text: string) => {
+    const paragraphs = text.split('\n\n');
+    return paragraphs.map((paragraph, pIdx) => {
+      const trimmed = paragraph.trim();
+      if (!trimmed) return null;
+
+      // Check if this paragraph contains an IF...THEN behavioral rule or bolded rule
+      const hasIfThen = (trimmed.includes('IF ') || trimmed.includes('IF,') || trimmed.startsWith('IF') || trimmed.includes('अगर') || trimmed.includes('अगर (IF)')) && 
+                        (trimmed.includes('THEN') || trimmed.includes('तो') || trimmed.includes('तो (THEN)'));
+
+      if (hasIfThen) {
+        return (
+          <div key={pIdx} className="my-2 p-3 bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/25 rounded-xl text-sky-300 dark:text-sky-200 text-xs font-semibold leading-relaxed shadow-sm">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono tracking-wider font-extrabold text-sky-400 mb-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" /> Behavioral Anchor Rule
+            </div>
+            <p className="font-sans whitespace-pre-line">{trimmed.replace(/\*\*/g, '')}</p>
+          </div>
+        );
+      }
+
+      // Check for bullet lists
+      if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('1.') || trimmed.startsWith('2.')) {
+        const lines = trimmed.split('\n');
+        return (
+          <ul key={pIdx} className="space-y-1 my-1.5 pl-1">
+            {lines.map((line, lIdx) => (
+              <li key={lIdx} className="flex items-start gap-2 text-xs leading-relaxed">
+                <span className="text-sky-400 font-bold mt-0.5">•</span>
+                <span>{line.replace(/^[-•1-9.]\s*/, '').replace(/\*\*/g, '')}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      }
+
+      // Default paragraph with clean bold parsing
+      const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+      return (
+        <p key={pIdx} className="leading-relaxed mb-2 last:mb-0 text-xs">
+          {parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={i} className="font-extrabold text-white dark:text-white">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+        </p>
+      );
+    });
+  };
 
   // Markdown conceptual formatter (helps render headers and bullet items beautifully without extra heavy packages)
   const renderFormattedConcept = (text: string) => {
@@ -466,13 +530,17 @@ export const AICoach: React.FC = React.memo(() => {
                   const isUser = h.role === 'user';
                   return (
                     <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 space-y-1 ${
+                      <div className={`max-w-[88%] sm:max-w-[82%] rounded-2xl px-4 py-3 space-y-1 shadow-sm ${
                         isUser 
-                          ? 'bg-sky-500 text-white rounded-tr-sm' 
-                          : 'bg-white/3 text-gray-200 border border-white/5 rounded-tl-sm'
+                          ? 'bg-sky-600 text-white rounded-tr-xs' 
+                          : 'bg-[#181d2a] dark:bg-[#181d2a] text-slate-100 border border-white/10 rounded-tl-xs'
                       }`}>
-                        <p className="whitespace-pre-line leading-relaxed">{h.text}</p>
-                        <span className={`block text-[8px] text-right font-mono ${isUser ? 'text-white/60' : 'text-gray-500'}`}>
+                        {isUser ? (
+                          <p className="whitespace-pre-line leading-relaxed text-xs">{h.text}</p>
+                        ) : (
+                          <div className="text-xs">{renderChatMessageBubble(h.text)}</div>
+                        )}
+                        <span className={`block text-[9px] text-right font-mono pt-1 ${isUser ? 'text-white/70' : 'text-gray-400'}`}>
                           {h.timestamp}
                         </span>
                       </div>

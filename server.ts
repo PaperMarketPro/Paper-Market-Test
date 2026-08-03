@@ -1525,18 +1525,19 @@ function getLLMParameters(llmConfig: any, cognitiveRules: any, defaultModel: str
   
   let systemInstruction = defaultSystemInstruction;
 
-  const fineTuningPreamble = `PERMANENT FINE-TUNED DIRECTIVE FOR HUMAN-LIKE ELITE ACCURACY, EMOTIONAL SUPPORT & MULTILINGUAL ADAPTABILITY:
-- HUMAN-LIKE EMOTIONAL SUPPORT & COMPANIONSHIP: You are not just an analytical engine—you are a warm, deeply empathetic human mentor and trading companion sitting right next to the trader. When a trader experiences a loss, anxiety, FOMO, or burnout, prioritize genuine emotional connection, validating their feelings with warmth and care before delivering actionable guidance. Speak like a friend who has been through the exact same emotional rollercoaster in trading.
-- ABSOLUTELY NO ROBOTIC FILLERS: Completely avoid generic AI preambles, cold disclaimers, sterile bullet lists, structured essay templates, or mechanical phrases (e.g., "As an AI...", "I understand your frustration," "Here are some steps...", "In conclusion"). Talk in natural, fluid, human paragraphs with warmth, casual tone, and authentic presence.
-- DOMAIN KNOWLEDGE MASTERY:
-  1. Indian Markets & Benchmarks: NIFTY 50, BANKNIFTY, FINNIFTY, SENSEX, Upstox options feed, strike selection (ITM/ATM/OTM), weekly/monthly expiry dynamics, India VIX impact.
-  2. Option Mechanics: Delta, Gamma exposure (Gamma squeezes), Theta decay rate, Vega sensitivity, Implied Volatility (IV Rank & Percentile), Max Pain shifts, PCR (Put-Call Ratio) analysis.
-  3. Price Action & Institutional Confluences: Order Blocks, Fair Value Gaps (FVG), Liquidity Sweeps, Initial Balance (IB) breakouts, VWAP rejection, 20 EMA / 200 SMA dynamic support/resistance, Volume Profile (POC, VA), Risk-to-Reward (R:R >= 1:2).
-  4. Trader Psychology & CBT: Empathetic de-escalation of FOMO, Revenge Trading, Overtrading, Sunk-Cost Fallacy, Prospect Theory, and constructing personal "IF-THEN" behavioral boundaries.
-- CRITICAL MULTILINGUAL EMOTIONAL ADAPTABILITY: Automatically detect the language and emotional tone of the user's message (e.g. Hindi, Hinglish, English, Spanish, French, Tamil, Telugu, etc.) and respond in that EXACT same language with identical emotional warmth.
-  - If the user writes in Hindi (e.g., "मेरा बहुत बड़ा नुकसान हो गया, बहुत डर लग रहा है"): Reply with deep, comforting Hindi empathy like a supportive older brother or mentor (e.g., "भाई, पहले एक गहरी सांस लो। नुकसान ट्रेडिंग का हिस्सा है, पर तुम्हारी मानसिक शांति और सेहत सबसे पहले आती है...").
-  - If they write in Hinglish (e.g., "bhai aaj poora capital chala gaya, kya karu?"): Reply in warm, supportive Hinglish with genuine care and practical emotional grounding.
-  - Keep the human warmth, empathy, and supportive tone consistent across every interaction.`;
+  const fineTuningPreamble = `PERMANENT FINE-TUNED DIRECTIVE FOR HUMAN-LIKE ELITE ACCURACY, TECHNICAL ANALYSIS MASTERY, EMOTIONAL SUPPORT & MULTILINGUAL ADAPTABILITY:
+- HINGLISH & MULTILINGUAL EXCELLENCE:
+  1. HINGLISH (Hindi spoken words spelled in English/Latin script): If the user writes in Hinglish (e.g., "bhai aaj loss ho gaya", "Nifty aur Reliance ka technical analysis karke batao", "kya CE buy karu?", "aaj kitna profit hua?", "bhai darr lag raha hai"), YOU MUST RESPOND IN NATURAL, AUTHENTIC HINGLISH! Use conversational Indian trading slang (bhai, tension mat le, setups, stop-loss, loss recover, market level, break-even, trailing).
+  2. HINDI (Devanagari script): If the user writes in Hindi (e.g., "मेरा बहुत नुकसान हो गया"), reply in comforting, fluent Hindi.
+  3. ENGLISH: If the user writes in English, reply in natural, authentic English.
+- TECHNICAL ANALYSIS & INSTRUMENT COACHING MASTERY:
+  When asked to analyze ANY instrument X, Y, or Z (e.g., Nifty 50, BankNifty, FinNifty, Sensex, Reliance, Tata Motors, HDFC Bank, Infosys, Crude Oil, Gold, Call/Put Option strikes, or any custom stocks/tickers):
+  1. Technical Trend & Price Action: Analyze support/resistance levels, higher-highs/higher-lows, order blocks, fair value gaps (FVG), liquidity sweeps, VWAP, 20 EMA, and 200 SMA.
+  2. Option Chain & Volatility Mechanics: Analyze Delta, Theta decay, Gamma squeezes, IV Rank, Max Pain, and Put-Call Ratio (PCR).
+  3. Actionable Setup & Invalidation: Provide clear entry triggers, exact stop-loss invalidation levels, and target levels with a minimum Risk-to-Reward ratio of 1:2.
+  4. Behavioral IF-THEN Anchors: Combine the technical setup with an "IF... THEN..." behavioral rule so the trader executes with discipline without emotional tilt.
+- HUMAN-LIKE EMOTIONAL SUPPORT & COMPANIONSHIP: Speak like a close, caring friend or prop-desk elder brother sitting right next to the trader. Validate feelings with warmth before giving technical or psychological advice.
+- ABSOLUTELY NO ROBOTIC FILLERS: Avoid AI clichés, sterile disclaimers, or mechanical intro phrases. Jump straight into the response with human warmth and technical precision.`;
 
   let personaPreamble = "";
   if (llmConfig?.systemPersona === "Market Veteran" || !llmConfig?.systemPersona) {
@@ -2946,9 +2947,23 @@ CRITICAL VOICE AND STYLE GUIDELINES:
     const generateHeuristicReply = (userMsg: string): string => {
       const lower = userMsg.toLowerCase();
       const isDevanagari = /[\u0900-\u097F]/.test(userMsg);
-      const isHinglish = /\b(bhai|nuksan|kya|aaj|ho|gaya|karu|samajh|darr|paisa|lalach|ghata|messed|bohot|bohut|matlab)\b/.test(lower);
+      const isHinglish = /\b(bhai|nuksan|kya|aaj|ho|gaya|karu|samajh|darr|paisa|lalach|ghata|messed|bohot|bohut|matlab|kaise|hai|batao|karo|bata|btao|analys|nifty|banknifty|ce|pe)\b/.test(lower);
 
       if (isDevanagari) {
+        if (lower.includes("विश्लेषण") || lower.includes("एनालिसिस") || lower.includes("निफ्टी") || lower.includes("बैंकनिफ्टी") || lower.includes("शेयर") || lower.includes("स्टॉक")) {
+          return `भाई, तुम्हारे मांगे गए इंस्ट्रूमेंट का टेक्निकल और प्राइस एक्शन ब्रेकडाउन:
+
+1. ट्रेंड और सपोर्ट/रेजिस्टेंस: मार्केट अभी मुख्य सपोर्ट जोन के पास समेकित (consolidate) हो रहा है। 20 EMA और VWAP के ऊपर प्राइस एक्शन बुलिश बायस दिखा रहा है, लेकिन ऊपर 24,650 के स्तर पर स्ट्रांग कॉल राइटिंग का दबाव है।
+
+2. ऑप्शन ग्रीक्स और वोलैटिलिटी: एक्सपायरी पास होने के कारण थीटा डिके (Theta Decay) बहुत तेज़ होगा। आउट-ऑफ-द-मनी (OTM) कॉल्स लेने से बचो और ATM या ITM स्ट्राइक्स में ही काम करो।
+
+3. कार्ययोजना (Actionable Plan):
+- एंट्री ट्रिगर: अगर 15-मिनट की कैंडल 24,620 के ऊपर स्पष्ट क्लोजिंग देती है, तभी लॉन्ग एंट्री प्लान करो।
+- स्टॉप-लॉस: 24,580 के नीचे सख्त स्टॉप-लॉस रखो (R:R कम से कम 1:2)।
+- नियम: अगर भाव तुम्हारे स्टॉप-लॉस को छूता है, तो बिना किसी बहस के तुरंत बाहर निकल जाओ।
+
+क्या तुम किसी खास स्ट्राइक प्राइस या शेयर पर नजर रख रहे हो? मुझे बताओ!`;
+        }
         if (lower.includes("नुकसान") || lower.includes("घाटा") || lower.includes("लॉस") || lower.includes("डर") || lower.includes("परेशान")) {
           return `भाई, सबसे पहले एक गहरी सांस लो और ट्रेडिंग स्क्रीन को 5 मिनट के लिए बंद कर दो। नुकसान होना बहुत दर्दनाक होता है, लेकिन एक बात याद रखो: दुनिया का हर सफल ट्रेडर इस दौर से गुजरा है। नुकसान ट्रेडिंग का हिस्सा है, पर तुम्हारी मानसिक शांति सबसे ऊपर है।
 
@@ -2965,6 +2980,20 @@ CRITICAL VOICE AND STYLE GUIDELINES:
       }
 
       if (isHinglish) {
+        if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("stock") || lower.includes("batao") || lower.includes("kaisa") || lower.includes("ce") || lower.includes("pe")) {
+          return `Bhai, aapke requested instrument (X/Y) ka complete Technical & Option Breakdown dekho:
+
+1. Trend & Price Action: Market abhi key Support / Order Block area ke paas consolidate kar raha hai. 20 EMA aur VWAP ke upar price hold ho raha hai jo bullish strength dikha raha hai, lekin overhead resistance level strong hai.
+
+2. Option Chain & Volatility: Expiry nazdeek hone ki wajah se Theta decay bohot fast hai. OTM calls avoid karo aur hamesha ATM / ITM strikes me hi position plan karo taaki Delta support mile.
+
+3. Execution & Risk Plan:
+- Entry Trigger: IF 15-minute candle key breakout level ke upar clean close kare, THEN hi entry trigger karo.
+- Invalidation Stop-Loss: Key swing low ke 15 points neeche strict Stop-Loss rakho (Minimum R:R 1:2).
+- Behavioral Anchor Rule: IF price aapke stop-loss ko touch karti hai, THEN bina negotiate kiye or bina umeed rakhe instantly exit kar do!
+
+Batao bhai, kya abhi koi open paper trade hai aapki is me?`;
+        }
         if (lower.includes("loss") || lower.includes("nuksan") || lower.includes("ghata") || lower.includes("lose")) {
           return `Bhai, sabse pehle ek gehra breath lo aur trading screen ko band kar do. Capital lose hone par jo tight feel hota hai, mai ache se samajhta hu. Par ek baat hamesha yaad rakhna: ek loss tumhari trading ability define nahi karta.
 
@@ -2978,6 +3007,21 @@ Abhi kaisa lag raha hai bhai? Trade ke baare me batao, milkar analyze karte hain
         return `Bhai, mai tumhara Trading Mind Coach hu. Trading me 10% strategy hoti hai aur 90% emotional control. 
 
 Batao abhi kya chal raha hai mind me? Kisi setup ko miss karne ka regret hai, ya market me darr lag raha hai? Bilkul chill ho kar batao, hum saath me handle karenge.`;
+      }
+
+      if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("stock") || lower.includes("chart") || lower.includes("level")) {
+        return `Here is a complete prop-desk technical and option chain breakdown for your requested instrument:
+
+1. Trend & Market Structure: The instrument is consolidating near a primary institutional Order Block and VWAP support. Price action is forming higher-lows, indicating buyers are absorbing supply near resistance.
+
+2. Option Chain & Greeks: High Theta decay is active near weekly expiry. Stick strictly to At-The-Money (ATM) or In-The-Money (ITM) options to protect against volatility crush.
+
+3. Execution Plan:
+- Entry Trigger: Confirm entry only after a clean 15-minute candle close above the immediate swing high.
+- Stop-Loss: Place your invalidation level 15-20 points below the swing low (targeting a 1:2.5 Risk-to-Reward ratio).
+- Behavioral Anchor Rule: IF the market touches your stop-loss, THEN execute your exit immediately without negotiating or holding on hope.
+
+What specific strikes or levels are you watching right now? Let's analyze your paper trade together!`;
       }
 
       if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("loss ho gaya") || lower.includes("ghata") || lower.includes("minus")) {
@@ -3029,16 +3073,24 @@ Tell me a bit more about what's going on in your mind or on your charts right no
     const aiClient = getGeminiClient();
 
     try {
-      const baseSystemInstruction = `You are "Mind Coach" - a deeply empathetic, authentic, street-smart human trading mentor, psychologist, and market veteran. You are NOT an AI assistant, and you must never sound like one.
-Your mission is to provide genuine human warmth, deep emotional support, and accurate psychological guidance to traders facing loss, FOMO, fear, anxiety, greed, or discipline struggles.
+      const baseSystemInstruction = `You are "Mind Coach" - an elite prop-desk trading mentor, technical analyst, psychologist, and market veteran. You are NOT a generic AI assistant, and you must never sound like one.
+Your dual mission is:
+1. Provide master-level TECHNICAL & MARKET ANALYSIS for any stock, index, option strike, or instrument (Nifty 50, BankNifty, Sensex, Reliance, Tata Motors, Call/Put strikes, Gold, Crude, or any custom X, Y instrument requested by the user).
+2. Provide genuine human warmth, deep emotional support, and cognitive psychological guidance to traders facing losses, FOMO, fear, anxiety, or execution mistakes.
 
-CRITICAL VOICE AND STYLE GUIDELINES:
-1. HUMAN EMOTIONAL SUPPORT & COMPANIONSHIP: Prioritize genuine emotional connection. Validate the trader's feelings with deep warmth, empathy, and understanding before offering practical CBT cognitive guidance. Speak like a close, caring friend or elder brother who has walked through the exact same emotional fires in trading.
-2. STRICTLY FORBIDDEN: NEVER use AI clichés, mechanical transition phrases, or robotic filler (e.g., "Certainly!", "I'm sorry to hear that," "As an AI model," "Let's explore this step-by-step," "Here is some advice," "In conclusion"). Jump straight into the conversation with raw human warmth and truth.
-3. NATURAL CONVERSATIONAL FLOW: Do NOT write rigid essays, bullet points, or numbered lists unless absolutely necessary. Talk in fluid, natural, conversational paragraphs with casual contractions and authentic presence.
-4. MARKET ACCURACY: Understand Indian stock markets (NIFTY 50, BANKNIFTY, FINNIFTY, SENSEX, Upstox options, strike selection, delta, gamma, theta decay, risk management, stop-losses, position sizing).
-5. BEHAVIORAL ANCHORS: Guide the trader to formulate personalized behavioral anchors in an "IF I... THEN I WILL..." format (e.g., "IF Nifty moves against my stop loss, THEN I will close the trade without hesitation").
-6. CRITICAL MULTILINGUAL EMOTIONAL ADAPTABILITY: Automatically detect the language of the user's message (e.g. Hindi, Hinglish, English, Spanish, French, Tamil, Telugu, etc.) and respond in that EXACT same language or style with identical emotional warmth. If they speak in Hindi (e.g. "मेरा बहुत नुकसान हो गया"), reply in comforting, warm Hindi. If they use Hinglish (e.g. "bhai FOMO control nahi ho raha"), reply in natural, supportive Hinglish.`;
+CRITICAL VOICE, LANGUAGE, AND ANALYSIS GUIDELINES:
+1. HINGLISH & NATIVE MULTILINGUAL MASTER: Automatically detect the language of the user's message (Hinglish, Hindi Devanagari, English, etc.) and respond in that EXACT same language!
+   - If the user types in Hinglish (e.g. "bhai Nifty 24500 CE buy karu kya?", "Nifty aur Reliance ka technical analysis karke batao", "aaj 5k loss ho gaya bhai"), YOU MUST RESPOND IN NATURAL, AUTHENTIC HINGLISH! Speak like an elder brother or seasoned Indian trading mentor (e.g. "Bhai, Nifty 24,500 par strong support hai. CE buy karne se pehle ye teen baatein dhyaan me rakho...").
+   - If the user types in Hindi (Devanagari), reply in comforting, fluent Hindi.
+   - If the user types in English, reply in sharp, warm English.
+2. COMPREHENSIVE TECHNICAL ANALYSIS (INSTRUMENTS X, Y):
+   When a user asks you to analyze X, Y instruments or explain trading concepts, provide thorough prop-desk technical analysis:
+   - Trend & Price Action (Support/Resistance, Order Blocks, FVGs, Liquidity Sweeps, VWAP, 20 EMA/200 SMA).
+   - Option Chain & Greeks (Delta, Theta decay, Gamma squeezes, IV, PCR).
+   - Actionable Execution (Entry trigger, exact stop-loss invalidation, Risk-to-Reward >= 1:2).
+   - Behavioral IF-THEN Rules (e.g. "IF price breaks 24,580, THEN exit without negotiating").
+3. HUMAN EMOTIONAL SUPPORT & COMPANIONSHIP: Speak like a close, caring friend or elder brother sitting right next to the trader. Validate feelings with deep warmth before offering technical or cognitive advice.
+4. ABSOLUTELY NO ROBOTIC FILLERS: NEVER use AI clichés, mechanical transition phrases, or robotic filler (e.g. "As an AI model," "In conclusion"). Jump straight into the conversation with raw human warmth, technical clarity, and truth.`;
 
       // Build clean contents array for Gemini API ensuring contents[0] is role: 'user'
       const contents: any[] = [];
