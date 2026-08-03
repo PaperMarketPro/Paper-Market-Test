@@ -318,26 +318,33 @@ export const AICoach: React.FC = React.memo(() => {
       console.error("Coach Chat Error:", err);
       setTimeout(() => {
         const lower = textToSend.toLowerCase();
-        const isHinglish = /\b(bhai|nuksan|kya|aaj|ho|gaya|karu|samajh|darr|paisa|lalach|ghata|batao|karo|bata|nifty|banknifty|ce|pe)\b/.test(lower);
-        
-        let fallbackMsg = "I hear you, and I'm really glad you reached out. Trading is 10% market strategy and 90% psychological mastery. Tell me a bit more about what's on your charts or in your mind right now!";
-        
-        if (isHinglish) {
-          if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("ce") || lower.includes("pe")) {
+        const isDevanagari = /[\u0900-\u097F]/.test(textToSend);
+        const isHinglish = !isDevanagari && /\b(mera|meri|mere|mujhe|bhai|bhaiya|kya|aaj|ho|gaya|gayi|gaye|hogya|hogaya|hogayi|hogyi|karu|karoon|karo|karna|karke|batao|bata|bataiye|kaise|kaisa|kaisi|kahan|kab|kyu|kyun|darr|nuksan|ghata|samajh|raha|rahi|rahe|chahiye|nahi|nhi|nhn|toh|pe|se|ko|ne|ki|ka|ke|hu|hoon|hai|hain|tha|thi|the|bohot|bohut|bahut|shant|thoda|thodi|bol|bolo|chala|chale|sakta|sakti|sakte|kuch|koi|chahiye)\b/i.test(lower);
+
+        let fallbackMsg = "";
+
+        if (isDevanagari) {
+          if (lower.includes("विश्लेषण") || lower.includes("एनालिसिस") || lower.includes("निफ्टी") || lower.includes("बैंकनिफ्टी") || lower.includes("शेयर")) {
+            fallbackMsg = "भाई, तुम्हारे मांगे गए इंस्ट्रूमेंट का विस्तृत टेक्निकल और प्राइस एक्शन ब्रेकडाउन:\n\n1. ट्रेंड और सपोर्ट/रेजिस्टेंस: मार्केट अभी मुख्य सपोर्ट जोन के पास कंसोलिडेट कर रहा है। 20 EMA और VWAP के ऊपर प्राइस एक्शन बुलिश बायस दिखा रहा है।\n\n2. ऑप्शन ग्रीक्स: एक्सपायरी पास होने के कारण थीटा डिके बहुत तेज़ होगा। OTM कॉल्स लेने से बचो और ATM/ITM में काम करो।\n\n3. कार्ययोजना:\n- एंट्री: IF 15-मिनट की कैंडल 24,620 के ऊपर क्लोजिंग दे, THEN ही एंट्री लो।\n- स्टॉप-लॉस: 24,580 के नीचे सख्त स्टॉप-लॉस (R:R 1:2)।\n- नियम: IF भाव स्टॉप-लॉस छूता है, THEN तुरंत exit करो!";
+          } else {
+            fallbackMsg = "भाई, सबसे पहले एक गहरी सांस लो और ट्रेडिंग स्क्रीन को 5 मिनट के लिए बंद कर दो। नुकसान होना बहुत दर्दनाक होता है, पर तुम्हारी मानसिक शांति सबसे ऊपर है। अभी गुस्से में कोई नया रिवेंज ट्रेड मत लो।\n\nआओ नियम बनाते हैं: IF आज नुकसान के बाद दोबारा तुरंत ट्रेड करने का मन करे, THEN तुम 30 मिनट के लिए स्क्रीन से दूर चले जाओगे।";
+          }
+        } else if (isHinglish) {
+          if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance") || lower.includes("ce") || lower.includes("pe") || lower.includes("batao") || lower.includes("karo") || lower.includes("stock")) {
             fallbackMsg = "Bhai, aapke requested instrument ka complete Technical & Option Breakdown dekho:\n\n1. Trend & Price Action: Market abhi key Support / Order Block area ke paas consolidate kar raha hai. 20 EMA aur VWAP ke upar price hold ho raha hai jo bullish strength dikha raha hai.\n\n2. Option Chain & Greeks: Expiry nazdeek hone ki wajah se Theta decay bohot fast hai. ATM / ITM strikes me hi position plan karo.\n\n3. Execution Plan:\n- Entry Trigger: IF 15-minute candle key breakout level ke upar clean close kare, THEN hi entry trigger karo.\n- Stop-Loss: Key swing low ke 15 points neeche strict Stop-Loss rakho (R:R 1:2).\n- Rule: IF price stop-loss ko touch kare, THEN instantly exit!";
-          } else if (lower.includes("loss") || lower.includes("nuksan") || lower.includes("ghata")) {
-            fallbackMsg = "Bhai, sabse pehle ek gehra breath lo aur trading screen ko band kar do. Capital lose hone par jo darr feel hota hai, mai ache se samajhta hu. Revenge trading bilkul mat karna! Chalo ek rule banate hain: IF aaj heavy loss feel ho raha hai, THEN screen close karke walk par jaoge.";
+          } else if (lower.includes("loss") || lower.includes("nuksan") || lower.includes("ghata") || lower.includes("hogya") || lower.includes("gaya") || lower.includes("minus")) {
+            fallbackMsg = "Bhai, sabse pehle ek gehra breath lo aur trading screen ko band kar do. Loss hone par jo darr aur tension feel hota hai, mai ache se samajhta hu. Revenge trading bilkul mat karna!\n\nChalo ek rule banate hain: IF aaj heavy loss feel ho raha hai, THEN screen close karke walk par jaoge aur mind ko calm karoge. Batao abhi mind me kya chal raha hai?";
           } else {
             fallbackMsg = "Bhai, mai tumhara Trading Mind Coach hu. Batao abhi kya chal raha hai mind me? Kisi setup ko miss karne ka regret hai, ya market me darr lag raha hai? Bilkul chill ho kar batao!";
           }
-        } else if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance")) {
-          fallbackMsg = "Here is a complete technical and option chain breakdown for your requested instrument:\n\n1. Trend & Structure: Consolidating near an institutional Order Block and VWAP support with higher-lows.\n2. Option Chain & Greeks: Theta decay is active near expiry. Stick strictly to ATM or ITM contracts.\n3. Execution Plan:\n- Entry: Confirm entry after a clean 15-min candle close above resistance.\n- Stop-Loss: 15 points below swing low (R:R 1:2).\n- Rule: IF market touches stop-loss, THEN exit immediately without negotiating!";
-        } else if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("ghata")) {
-          fallbackMsg = "I hear the pain in your message. Taking a loss hurts deeply, but please remember that a loss is just tuition paid to the market—it does not define your worth as a trader. Close your charts right now, step away, and do not revenge trade. Let's make an agreement: IF you feel angry or hurt, THEN you will walk away for the rest of the day to protect your capital. How are you holding up?";
-        } else if (lower.includes("fomo") || lower.includes("miss") || lower.includes("chase") || lower.includes("rally")) {
-          fallbackMsg = "FOMO is the hardest emotion to resist when candles are flying high. But chasing a move that already happened is how retail accounts get caught at the top. The market will always offer fresh setups. Let's set a rule together: IF you missed the initial entry, THEN you will close the chart and wait patiently for the next clean setup. Can you do that with me?";
-        } else if (lower.includes("fear") || lower.includes("anxious") || lower.includes("darr") || lower.includes("scared")) {
-          fallbackMsg = "That anxiety in your chest is a clear signal from your body that your position size might be too large for your comfort. Sizing down by 50% instantly clears your head and removes the fear. Let's try cutting your quantity on the next trade so you can execute with absolute calm. How does your current risk feel?";
+        } else {
+          if (lower.includes("analyze") || lower.includes("analysis") || lower.includes("nifty") || lower.includes("banknifty") || lower.includes("reliance")) {
+            fallbackMsg = "Here is a complete technical and option chain breakdown for your requested instrument:\n\n1. Trend & Structure: Consolidating near an institutional Order Block and VWAP support with higher-lows.\n2. Option Chain & Greeks: Theta decay is active near expiry. Stick strictly to ATM or ITM contracts.\n3. Execution Plan:\n- Entry: Confirm entry after a clean 15-min candle close above resistance.\n- Stop-Loss: 15 points below swing low (R:R 1:2).\n- Rule: IF market touches stop-loss, THEN exit immediately without negotiating!";
+          } else if (lower.includes("loss") || lower.includes("lose") || lower.includes("nuksan") || lower.includes("ghata")) {
+            fallbackMsg = "I hear the pain in your message. Taking a loss hurts deeply, but please remember that a loss is just tuition paid to the market—it does not define your worth as a trader. Close your charts right now, step away, and do not revenge trade. Let's make an agreement: IF you feel angry or hurt, THEN you will walk away for the rest of the day to protect your capital. How are you holding up?";
+          } else {
+            fallbackMsg = "I hear you, and I'm really glad you reached out. Trading is 10% market strategy and 90% psychological mastery. Tell me a bit more about what's on your charts or in your mind right now!";
+          }
         }
 
         setChatHistory(prev => [...prev, {
@@ -358,24 +365,24 @@ export const AICoach: React.FC = React.memo(() => {
     { label: "Suffered Loss", text: "I just closed a trade in loss and I'm feeling angry and want to make the money back immediately." }
   ];
 
-  // Formatter for Assistant Chat Bubbles (detects IF...THEN rules, bolding, bullet points)
+  // Formatter for Assistant Chat Bubbles (clean, natural human conversation rendering)
   const renderChatMessageBubble = (text: string) => {
     const paragraphs = text.split('\n\n');
     return paragraphs.map((paragraph, pIdx) => {
       const trimmed = paragraph.trim();
       if (!trimmed) return null;
 
-      // Check if this paragraph contains an IF...THEN behavioral rule or bolded rule
-      const hasIfThen = (trimmed.includes('IF ') || trimmed.includes('IF,') || trimmed.startsWith('IF') || trimmed.includes('अगर') || trimmed.includes('अगर (IF)')) && 
-                        (trimmed.includes('THEN') || trimmed.includes('तो') || trimmed.includes('तो (THEN)'));
+      // Only render a rule badge box if explicitly prefixed as a rule
+      const isExplicitRuleBox = trimmed.startsWith('[RULE]') || trimmed.startsWith('[BEHAVIORAL RULE]') || trimmed.startsWith('BEHAVIORAL ANCHOR RULE:');
 
-      if (hasIfThen) {
+      if (isExplicitRuleBox) {
+        const cleanRuleText = trimmed.replace(/^\[(RULE|BEHAVIORAL RULE)\]\s*/, '').replace(/^BEHAVIORAL ANCHOR RULE:\s*/, '');
         return (
-          <div key={pIdx} className="my-2 p-3 bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/25 rounded-xl text-sky-300 dark:text-sky-200 text-xs font-semibold leading-relaxed shadow-sm">
+          <div key={pIdx} className="my-2 p-3 bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/20 rounded-xl text-sky-300 dark:text-sky-200 text-xs font-semibold leading-relaxed shadow-sm">
             <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono tracking-wider font-extrabold text-sky-400 mb-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" /> Behavioral Anchor Rule
+              <ShieldCheck className="w-3.5 h-3.5 text-sky-400 shrink-0" /> Behavioral Rule
             </div>
-            <p className="font-sans whitespace-pre-line">{trimmed.replace(/\*\*/g, '')}</p>
+            <p className="font-sans whitespace-pre-line">{cleanRuleText.replace(/\*\*/g, '')}</p>
           </div>
         );
       }
@@ -384,7 +391,7 @@ export const AICoach: React.FC = React.memo(() => {
       if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('1.') || trimmed.startsWith('2.')) {
         const lines = trimmed.split('\n');
         return (
-          <ul key={pIdx} className="space-y-1 my-1.5 pl-1">
+          <ul key={pIdx} className="space-y-1.5 my-2 pl-1">
             {lines.map((line, lIdx) => (
               <li key={lIdx} className="flex items-start gap-2 text-xs leading-relaxed">
                 <span className="text-sky-400 font-bold mt-0.5">•</span>
@@ -395,10 +402,10 @@ export const AICoach: React.FC = React.memo(() => {
         );
       }
 
-      // Default paragraph with clean bold parsing
+      // Default natural human paragraph with clean bolding support
       const parts = trimmed.split(/(\*\*.*?\*\*)/g);
       return (
-        <p key={pIdx} className="leading-relaxed mb-2 last:mb-0 text-xs">
+        <p key={pIdx} className="leading-relaxed mb-2.5 last:mb-0 text-xs text-slate-100 dark:text-slate-100 whitespace-pre-line">
           {parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
               return <strong key={i} className="font-extrabold text-white dark:text-white">{part.slice(2, -2)}</strong>;
