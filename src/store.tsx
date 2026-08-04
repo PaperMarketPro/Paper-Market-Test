@@ -923,12 +923,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         delete pendingMap[key];
       }
 
-      // Wrap price tick updates in React startTransition so UI button clicks and navigation take immediate priority
-      startTransition(() => {
-        let latestInsts = instrumentsRef.current;
-        let latestFuts = futuresRef.current;
+      // Process batch updates directly
+      let latestInsts = instrumentsRef.current;
+      let latestFuts = futuresRef.current;
 
-        // 1. Batch update instruments
+      // 1. Batch update instruments
         setInstruments(prev => {
           let changed = false;
           const next = prev.map(inst => {
@@ -1130,7 +1129,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? nextPositions : prevPositions;
         });
-      });
     }, 1000);
 
     const startFallbackSimulation = () => {

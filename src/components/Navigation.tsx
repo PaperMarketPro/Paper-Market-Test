@@ -36,9 +36,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
       setIsDrawerOpen(false);
       return;
     }
-    React.startTransition(() => {
-      onNavigate(tab);
-    });
+    onNavigate(tab);
     setIsDrawerOpen(false);
   }, [onNavigate, sebiFnoAccepted]);
 
@@ -47,9 +45,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
     setShowSebiModal(false);
     const target = pendingTab || 'fno';
     setPendingTab(null);
-    React.startTransition(() => {
-      onNavigate(target);
-    });
+    onNavigate(target);
   }, [confirmSebiRiskDisclosure, pendingTab, onNavigate]);
 
   if (!user) return null;

@@ -1867,7 +1867,58 @@ app.get("/api/health", (req, res) => {
       `);
     } catch (error: any) {
       console.error("Upstox OAuth Error:", error);
-      res.status(500).send(`Upstox authentication failed: ${error.message}`);
+      res.status(500).send(`
+        <html>
+          <head>
+            <style>
+              body {
+                background-color: #060913;
+                color: #f3f4f6;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+              }
+              .card {
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(239, 68, 68, 0.2);
+                padding: 2.5rem;
+                border-radius: 1.5rem;
+                text-align: center;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+                max-width: 420px;
+              }
+              .error-icon {
+                color: #ef4444;
+                font-size: 3rem;
+                margin-bottom: 1rem;
+              }
+              h1 {
+                font-size: 1.4rem;
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+                color: #f87171;
+              }
+              p {
+                color: #9ca3af;
+                font-size: 0.85rem;
+                line-height: 1.5;
+                word-break: break-word;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="error-icon">⚠</div>
+              <h1>Authentication Failed</h1>
+              <p>${error.message || "Upstox authentication failed. Please try logging in again."}</p>
+            </div>
+          </body>
+        </html>
+      `);
     }
   });
 

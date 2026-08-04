@@ -240,9 +240,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
 
   const handleQuickTrade = React.useCallback((symbol: string) => {
     setSelectedAssetBySymbol(symbol);
-    React.startTransition(() => {
-      onNavigate('trade');
-    });
+    onNavigate('trade');
   }, [setSelectedAssetBySymbol, onNavigate]);
 
   return (
@@ -1152,7 +1150,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
       </AnimatePresence>
 
       <SebiRiskModal
-        isOpen={showSebiModal || (!sebiFnoAccepted && (mode === 'fno' || activeTab === 'options'))}
+        isOpen={showSebiModal || (!sebiFnoAccepted && mode !== 'fno' && activeTab === 'options')}
         onConfirm={() => {
           confirmSebiRiskDisclosure();
           setShowSebiModal(false);

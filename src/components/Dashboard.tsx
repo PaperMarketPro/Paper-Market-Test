@@ -270,9 +270,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     key={idxAsset.symbol}
                     onClick={() => {
                       setSelectedAssetBySymbol(idxAsset.symbol);
-                      React.startTransition(() => {
-                        onNavigate('trade');
-                      });
+                      onNavigate('trade');
                     }}
                     className="bg-[#0b0e14]/60 hover:bg-[#0c1018] border border-white/5 hover:border-sky-500/25 rounded-2xl p-3 transition-all duration-200 cursor-pointer flex flex-col justify-between h-[85px] group relative overflow-hidden"
                   >
@@ -739,9 +737,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                             onClick={() => {
                               setSelectedAssetBySymbol(asset.symbol);
                               setIsSearchOpen(false);
-                              React.startTransition(() => {
-                                onNavigate('trade');
-                              });
+                              onNavigate('trade');
                             }}
                             className="opacity-90 group-hover:opacity-100 bg-sky-600 hover:bg-sky-500 text-white font-mono font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
                           >
