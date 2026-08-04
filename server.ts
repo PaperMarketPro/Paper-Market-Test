@@ -912,6 +912,7 @@ function isIndianMarketOpen(): boolean {
 }
 
 let upstoxReconnectAttempts = 0;
+let lastUpstoxRealTickTime = 0;
 const upstoxActiveSubscriptions = new Set<string>(Object.values(UPSTOX_INSTRUMENT_MAP));
 
 function broadcastUpstoxStatusToClients() {
@@ -1135,6 +1136,7 @@ async function connectUpstoxFeed() {
             // Find reverse symbol from map using our robust matcher
             const symbol = matchUpstoxKeyToSymbol(key);
             if (symbol && ltp > 0) {
+              lastUpstoxRealTickTime = Date.now();
               const change = close > 0 ? ((ltp - close) / close) * 100 : 0;
               const payload = {
                 type: "TICK",
@@ -1330,14 +1332,11 @@ function startSimulationLoop() {
   if (simulationInterval) return;
 
   simulationInterval = setInterval(() => {
-    // Completely disable simulation ticks if a real Upstox token is active
-    if (upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) return;
+    // If real Upstox market ticks were received in the last 3500ms, suppress simulation ticks
+    if (Date.now() - lastUpstoxRealTickTime < 3500) return;
 
-    // Only pause simulation ticks if the Indian Market is currently OPEN and Upstox WS is actively streaming
-    const marketOpen = isIndianMarketOpen();
-    if (marketOpen && upstoxWs && upstoxWs.readyState === WS.OPEN) return;
-
-    // Simulate tick updates for multiple symbols every 1000ms to keep the UI smooth and responsive
+    // Otherwise (e.g. outside Indian market hours, weekends, or when Upstox socket is quiet),
+    // broadcast fallback ticks so live feed & paper trading NEVER freeze or stop updating!
     const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);
     for (let i = 0; i < 6; i++) {
       const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
@@ -1407,6 +1406,7 @@ function startLiveLtpPollingLoop() {
               const item = json.data[upstoxKey];
               const ltp = item ? Number(item.last_price) : 0;
               if (symbol && ltp > 0) {
+                lastUpstoxRealTickTime = Date.now();
                 const payload = {
                   type: "TICK",
                   symbol,

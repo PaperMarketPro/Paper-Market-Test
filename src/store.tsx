@@ -1114,12 +1114,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
       fallbackInterval = setInterval(() => {
-        if (upstoxStatusRef.current.connected) return;
+        const now = Date.now();
         instrumentsRef.current.forEach(inst => {
-          if (lastLiveTicksRef.current[inst.symbol] && Date.now() - lastLiveTicksRef.current[inst.symbol] < 4000) {
-            return;
+          const lastLiveTime = lastLiveTicksRef.current[inst.symbol] || 0;
+          if (now - lastLiveTime > 3500) {
+            pendingTicksRef.current[inst.symbol] = { isSim: true };
           }
-          pendingTicksRef.current[inst.symbol] = { isSim: true };
         });
       }, 1200);
     };
