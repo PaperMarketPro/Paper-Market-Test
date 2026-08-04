@@ -723,12 +723,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const pendingTicksRef = useRef<Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }>>({});
   const lastLiveTicksRef = useRef<Record<string, number>>({});
 
+  const getStoredUpstoxToken = useCallback((): string | null => {
+    try {
+      const local = localStorage.getItem('upstox_user_access_token');
+      if (local && local.trim().length > 15) return local.trim();
+      const match = document.cookie.match(/(?:^|;\s*)upstox_token=([^;]+)/);
+      if (match && match[1]) {
+        const token = decodeURIComponent(match[1]).trim();
+        if (token.length > 15) {
+          localStorage.setItem('upstox_user_access_token', token);
+          return token;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }, []);
+
   const fetchRealUpstoxLtp = useCallback(async () => {
     try {
-      const savedToken = localStorage.getItem('upstox_user_access_token');
+      const savedToken = getStoredUpstoxToken();
       const headers: Record<string, string> = {};
-      if (savedToken && savedToken.trim().length > 15) {
-        headers['X-Upstox-Access-Token'] = savedToken.trim();
+      if (savedToken) {
+        headers['X-Upstox-Access-Token'] = savedToken;
       }
       const res = await fetch('/api/integrations/upstox/ltp', { headers });
       if (res.ok) {
@@ -752,14 +768,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.warn("[Upstox LTP Synchronizer] Error fetching LTP:", err);
     }
-  }, []);
+  }, [getStoredUpstoxToken]);
 
   const refreshUpstoxStatus = useCallback(async () => {
     try {
-      const savedToken = localStorage.getItem('upstox_user_access_token');
+      const savedToken = getStoredUpstoxToken();
       const headers: Record<string, string> = {};
-      if (savedToken && savedToken.trim().length > 15) {
-        headers['X-Upstox-Access-Token'] = savedToken.trim();
+      if (savedToken) {
+        headers['X-Upstox-Access-Token'] = savedToken;
       }
       const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`, { headers });
       if (res.ok) {
@@ -795,9 +811,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
     }
 
-    // Fallback: If user saved a token in localStorage, keep session connected locally
-    const savedToken = localStorage.getItem('upstox_user_access_token');
-    if (savedToken && savedToken.trim().length > 15) {
+    // Fallback: If user saved a token in localStorage or cookie, keep session connected locally
+    const savedToken = getStoredUpstoxToken();
+    if (savedToken) {
       setUpstoxStatus(prev => ({
         ...prev,
         connected: true,
@@ -805,11 +821,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user: prev.user || { email: "pro_feed_user@papermarket.local", userName: "Upstox Live Session", userId: "UPSTOX_USER" }
       }));
     }
-  }, [fetchRealUpstoxLtp]);
+  }, [fetchRealUpstoxLtp, getStoredUpstoxToken]);
 
   const disconnectUpstox = async () => {
     try {
       localStorage.removeItem('upstox_user_access_token');
+      document.cookie = "upstox_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       setUpstoxStatus({
         connected: false,
         wsConnected: false,
@@ -830,6 +847,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const trimmed = (token || '').trim();
       if (trimmed.length > 15) {
         localStorage.setItem('upstox_user_access_token', trimmed);
+        document.cookie = `upstox_token=${encodeURIComponent(trimmed)}; path=/; max-age=2592000; SameSite=Lax; Secure`;
       }
       
       const res = await fetch('/api/integrations/upstox/connect-manual', {
@@ -843,6 +861,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try { data = JSON.parse(resText); } catch (_) {}
 
       if (res.ok && data.success) {
+        if (data.token) {
+          localStorage.setItem('upstox_user_access_token', data.token);
+          document.cookie = `upstox_token=${encodeURIComponent(data.token)}; path=/; max-age=2592000; SameSite=Lax; Secure`;
+        }
         await refreshUpstoxStatus();
         pushNotification('Upstox Linked!', `Successfully connected using Analytics Access Token.`, 'badge');
         return { success: true };
@@ -872,6 +894,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: e.message || "Network error occurred." };
     }
   };
+
+  // Check URL params for token redirect from Vercel / OAuth callback
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token') || params.get('upstox_token') || params.get('access_token');
+      if (urlToken && urlToken.trim().length > 15) {
+        const cleanToken = urlToken.trim();
+        localStorage.setItem('upstox_user_access_token', cleanToken);
+        document.cookie = `upstox_token=${encodeURIComponent(cleanToken)}; path=/; max-age=2592000; SameSite=Lax; Secure`;
+        const url = new URL(window.location.href);
+        url.searchParams.delete('token');
+        url.searchParams.delete('upstox_token');
+        url.searchParams.delete('access_token');
+        url.searchParams.delete('upstox_connected');
+        window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
+        refreshUpstoxStatus();
+        pushNotification('Upstox Feed Connected!', 'Live Upstox session token saved successfully.', 'badge');
+      }
+    } catch (_) {}
+  }, [refreshUpstoxStatus]);
 
   useEffect(() => {
     refreshUpstoxStatus();
@@ -916,7 +959,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     batchInterval = setInterval(() => {
       const pendingMap = pendingTicksRef.current;
       const keys = Object.keys(pendingMap);
-      if (keys.length === 0) return;
 
       // Make a local snapshot and clear the pending map
       const ticksToProcess = { ...pendingMap };
@@ -929,54 +971,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let latestFuts = futuresRef.current;
 
       // 1. Batch update instruments
-        setInstruments(prev => {
-          let changed = false;
-          const next = prev.map(inst => {
-            const tick = ticksToProcess[inst.symbol];
-            if (!tick) return inst;
+      setInstruments(prev => {
+        let changed = false;
+        const next = prev.map(inst => {
+          const tick = ticksToProcess[inst.symbol];
 
-            let nextLtp = inst.ltp;
-            let nextChange = inst.change;
-            let nextHigh = inst.high;
-            let nextLow = inst.low;
+          let nextLtp = inst.ltp;
+          let nextChange = inst.change;
+          let nextHigh = inst.high;
+          let nextLow = inst.low;
 
-            if (tick.isSim) {
-              nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02);
-              const baseVal = inst.sparkline[0] || nextLtp;
-              nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
-              nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
-              nextLow = nextLtp < inst.low ? nextLtp : inst.low;
-            } else {
-              let targetLtp = tick.ltp ?? inst.ltp;
-              if (Math.abs(targetLtp - inst.ltp) < 0.01) {
-                targetLtp = randomWalk(targetLtp, targetLtp * 0.998, targetLtp * 1.002, 0.0005);
-              }
-              nextLtp = targetLtp;
-              const baseVal = inst.sparkline[0] || nextLtp;
-              nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
-              nextHigh = tick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
-              nextLow = tick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
-            }
+          if (tick && tick.isReal && tick.ltp !== undefined && Math.abs(tick.ltp - inst.ltp) >= 0.01) {
+            nextLtp = tick.ltp;
+            const baseVal = inst.sparkline[0] || nextLtp;
+            nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
+            nextHigh = tick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
+            nextLow = tick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
+          } else {
+            nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0004);
+            const baseVal = inst.sparkline[0] || nextLtp;
+            nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
+            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+          }
 
-            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
-              return inst;
-            }
+          if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
+            return inst;
+          }
 
-            changed = true;
-            const priceMovedEnough = Math.abs(nextLtp - inst.ltp) >= 0.05;
-            const sparkCopy = priceMovedEnough ? [...inst.sparkline.slice(1), nextLtp] : inst.sparkline;
-            return {
-              ...inst,
-              ltp: nextLtp,
-              change: nextChange,
-              high: nextHigh,
-              low: nextLow,
-              sparkline: sparkCopy
-            };
-          });
-          if (changed) latestInsts = next;
-          return changed ? next : prev;
+          changed = true;
+          const priceMovedEnough = Math.abs(nextLtp - inst.ltp) >= 0.05;
+          const sparkCopy = priceMovedEnough ? [...inst.sparkline.slice(1), nextLtp] : inst.sparkline;
+          return {
+            ...inst,
+            ltp: nextLtp,
+            change: nextChange,
+            high: nextHigh,
+            low: nextLow,
+            sparkline: sparkCopy
+          };
         });
+        if (changed) latestInsts = next;
+        return changed ? next : prev;
+      });
 
         // 2. Batch update futures
         setFutures(prev => {

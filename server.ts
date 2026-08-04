@@ -21,9 +21,19 @@ dotenv.config();
 
 function getUpstoxTokenFromReq(req: any): string | null {
   if (!req) return null;
+  let cookieToken: string | null = null;
+  if (req.headers?.cookie) {
+    const match = req.headers.cookie.match(/(?:^|;\s*)upstox_token=([^;]+)/);
+    if (match && match[1]) {
+      try { cookieToken = decodeURIComponent(match[1]); } catch (_) { cookieToken = match[1]; }
+    }
+  }
   const headerToken = (req.headers?.['x-upstox-access-token'] as string) || 
                       (req.headers?.['authorization']?.replace(/^Bearer\s+/i, '') as string) || 
-                      (req.query?.token as string);
+                      (req.query?.token as string) ||
+                      cookieToken ||
+                      process.env.UPSTOX_ACCESS_TOKEN ||
+                      process.env.UPSTOX_TOKEN;
   if (headerToken && !isSimulatedToken(headerToken) && headerToken.trim().length > 15) {
     return headerToken.trim();
   }
@@ -1799,6 +1809,8 @@ app.get("/api/health", (req, res) => {
       // Reconnect Upstox Live WebSocket
       reconnectUpstoxWebSocket();
 
+      res.setHeader("Set-Cookie", `upstox_token=${upstoxAccessToken}; Path=/; Max-Age=2592000; SameSite=Lax; Secure`);
+
       res.send(`
         <html>
           <head>
@@ -1838,29 +1850,52 @@ app.get("/api/health", (req, res) => {
                 font-size: 0.875rem;
                 line-height: 1.5;
               }
+              .btn {
+                display: inline-block;
+                margin-top: 1rem;
+                padding: 0.6rem 1.2rem;
+                background: #10b981;
+                color: #ffffff;
+                text-decoration: none;
+                border-radius: 0.5rem;
+                font-weight: 500;
+              }
             </style>
           </head>
           <body>
             <div class="card">
               <div class="success-icon">✓</div>
               <h1>Authentication Successful</h1>
-              <p>Upstox Developer API has been linked successfully to your Paper Market Pro account. This window will now self-close.</p>
+              <p>Upstox Developer API has been linked successfully. Live market feed is active!</p>
+              <a href="/?upstox_connected=true&token=${encodeURIComponent(upstoxAccessToken)}" class="btn">Return to Paper Market</a>
             </div>
             <script>
               try {
+                localStorage.setItem('upstox_user_access_token', "${upstoxAccessToken}");
+                document.cookie = "upstox_token=${upstoxAccessToken}; Path=/; Max-Age=2592000; SameSite=Lax; Secure";
+              } catch (e) {
+                console.warn("Storage warning:", e);
+              }
+
+              let notified = false;
+              try {
                 if (window.opener) {
                   window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS', token: "${upstoxAccessToken}", user: ${JSON.stringify(upstoxConnectedUser)} }, '*');
+                  notified = true;
                 }
               } catch (e) {
-                console.warn("[OAUTH] Cross-origin block for opener postMessage. Polling will handle sync:", e);
+                console.warn("[OAUTH] Cross-origin block for opener postMessage:", e);
               }
-              setTimeout(() => {
-                try {
-                  window.close();
-                } catch (e) {
-                  console.warn("Could not close popup window automatically:", e);
-                }
-              }, 2500);
+
+              if (window.opener && notified) {
+                setTimeout(() => {
+                  try { window.close(); } catch (e) { window.location.href = "/?upstox_connected=true&token=${encodeURIComponent(upstoxAccessToken)}"; }
+                }, 1500);
+              } else {
+                setTimeout(() => {
+                  window.location.href = "/?upstox_connected=true&token=${encodeURIComponent(upstoxAccessToken)}";
+                }, 1000);
+              }
             </script>
           </body>
         </html>
