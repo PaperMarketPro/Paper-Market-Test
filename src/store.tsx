@@ -184,14 +184,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved === null ? true : saved === 'true';
   });
 
-  // SEBI Mandatory F&O Risk Disclosure State
+  // SEBI Mandatory F&O Risk Disclosure State (per-session regulatory check)
   const [sebiFnoAccepted, setSebiFnoAccepted] = useState<boolean>(() => {
-    return localStorage.getItem('sebi_fno_risk_accepted') === 'true';
+    try {
+      // Clear legacy permanent localStorage flag to ensure mandatory compliance
+      localStorage.removeItem('sebi_fno_risk_accepted');
+      return sessionStorage.getItem('sebi_fno_risk_accepted') === 'true';
+    } catch (_) {
+      return false;
+    }
   });
 
   const confirmSebiRiskDisclosure = useCallback(() => {
     setSebiFnoAccepted(true);
-    localStorage.setItem('sebi_fno_risk_accepted', 'true');
+    try {
+      sessionStorage.setItem('sebi_fno_risk_accepted', 'true');
+    } catch (_) {}
   }, []);
 
   const toggleEnforceMarketHours = () => {

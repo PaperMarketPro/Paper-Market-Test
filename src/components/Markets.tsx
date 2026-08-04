@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
-import { Search, Plus, Trash2, TrendingUp, TrendingDown, Eye, ChevronRight, X, Layers, Percent, Activity } from 'lucide-react';
+import { Search, Plus, Trash2, TrendingUp, TrendingDown, Eye, ChevronRight, X, Layers, Percent, Activity, ShieldCheck } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import { StockChart } from './StockChart';
 import { getWeeklyExpiriesForUnderlier } from '../derivativesUtils';
@@ -121,6 +121,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
   // Search & add state
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showSebiModal, setShowSebiModal] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
 
   // Segment-specific inline searches
@@ -255,7 +256,13 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => {
+                if (tab.key === 'options' && !sebiFnoAccepted) {
+                  setShowSebiModal(true);
+                } else {
+                  setActiveTab(tab.key as any);
+                }
+              }}
               className={`pb-3 text-sm font-semibold transition relative ${
                 activeTab === tab.key ? 'text-white' : 'text-gray-500 hover:text-gray-300'
               }`}
@@ -280,12 +287,24 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               {mode === 'equity' ? 'Live Stock Watchlist' : 'F&O Derivatives Segment'}
             </h2>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-mono px-3 py-1.5 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold self-start sm:self-center shadow-sm">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-            </span>
-            <span>{upstoxStatus?.connected ? 'UPSTOX REAL-TIME FEED' : 'REAL-TIME LIVE STREAM'}</span>
+          <div className="flex items-center gap-2">
+            {(mode === 'fno' || activeTab === 'options') && (
+              <button
+                type="button"
+                onClick={() => setShowSebiModal(true)}
+                className="flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 transition cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>SEBI Risk Disclosure</span>
+              </button>
+            )}
+            <div className="flex items-center gap-2 text-[10px] font-mono px-3 py-1.5 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold self-start sm:self-center shadow-sm">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span>{upstoxStatus?.connected ? 'UPSTOX REAL-TIME FEED' : 'REAL-TIME LIVE STREAM'}</span>
+            </div>
           </div>
         </div>
       )}
@@ -1131,6 +1150,15 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
           </div>
         )}
       </AnimatePresence>
+
+      <SebiRiskModal
+        isOpen={showSebiModal || (!sebiFnoAccepted && (mode === 'fno' || activeTab === 'options'))}
+        onConfirm={() => {
+          confirmSebiRiskDisclosure();
+          setShowSebiModal(false);
+          setActiveTab('options');
+        }}
+      />
     </div>
   );
 });
