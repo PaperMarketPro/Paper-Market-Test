@@ -741,7 +741,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (price && price > 0) {
               pendingTicksRef.current[sym] = {
                 ltp: price,
-                isReal: !data.fallback
+                isReal: !data.fallback,
+                isSim: !!data.fallback
               };
               lastLiveTicksRef.current[sym] = Date.now();
             }
@@ -946,7 +947,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
               nextLow = nextLtp < inst.low ? nextLtp : inst.low;
             } else {
-              nextLtp = tick.ltp ?? inst.ltp;
+              let targetLtp = tick.ltp ?? inst.ltp;
+              if (Math.abs(targetLtp - inst.ltp) < 0.01) {
+                targetLtp = randomWalk(targetLtp, targetLtp * 0.998, targetLtp * 1.002, 0.0005);
+              }
+              nextLtp = targetLtp;
               const baseVal = inst.sparkline[0] || nextLtp;
               nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
               nextHigh = tick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
@@ -1137,11 +1142,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const now = Date.now();
         instrumentsRef.current.forEach(inst => {
           const lastLiveTime = lastLiveTicksRef.current[inst.symbol] || 0;
-          if (now - lastLiveTime > 3500) {
+          if (now - lastLiveTime > 1000) {
             pendingTicksRef.current[inst.symbol] = { isSim: true };
           }
         });
-      }, 1200);
+      }, 1000);
     };
 
     const MAX_WS_RECONNECT_ATTEMPTS = 5;
