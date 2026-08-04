@@ -1142,7 +1142,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const connectWS = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+      const token = localStorage.getItem('upstox_user_access_token');
+      const wsUrl = token 
+        ? `${protocol}//${window.location.host}/api/ws?token=${encodeURIComponent(token)}`
+        : `${protocol}//${window.location.host}/api/ws`;
       
       try {
         ws = new WebSocket(wsUrl);
@@ -1154,6 +1157,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ws.onopen = () => {
         reconnectAttempts = 0;
         lastMsgTime = Date.now();
+        if (token) {
+          try {
+            ws?.send(JSON.stringify({ type: 'INIT_TOKEN', token }));
+          } catch (_) {}
+        }
       };
 
       ws.onmessage = (event) => {

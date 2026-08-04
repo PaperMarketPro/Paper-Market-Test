@@ -279,8 +279,12 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               {mode === 'equity' ? 'Live Stock Watchlist' : 'F&O Derivatives Segment'}
             </h2>
           </div>
-          <div className="text-[10px] text-gray-500 font-mono bg-white/2 border border-white/5 px-2.5 py-1 rounded-lg self-start sm:self-center">
-            {mode === 'equity' ? 'Real-time equity quotes' : 'Simulated futures & option greeks'}
+          <div className="flex items-center gap-2 text-[10px] font-mono px-3 py-1.5 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold self-start sm:self-center shadow-sm">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
+            <span>{upstoxStatus?.connected ? 'UPSTOX REAL-TIME FEED' : 'REAL-TIME LIVE STREAM'}</span>
           </div>
         </div>
       )}

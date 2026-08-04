@@ -4099,25 +4099,46 @@ async function startServer() {
     }
   });
 
-  wss.on("connection", (ws) => {
+  wss.on("connection", async (ws, req) => {
     clientWsSockets.add(ws);
-    
+
+    try {
+      const requestUrl = req?.url || "";
+      const searchParams = new URLSearchParams(requestUrl.split("?")[1] || "");
+      const tokenFromQuery = searchParams.get("token");
+      if (tokenFromQuery && !isSimulatedToken(tokenFromQuery) && tokenFromQuery !== upstoxAccessToken) {
+        upstoxAccessToken = tokenFromQuery;
+        upstoxUserDisconnected = false;
+        saveUpstoxTokenToFirestore(tokenFromQuery, upstoxConnectedUser).catch(() => {});
+        reconnectUpstoxWebSocket();
+      }
+    } catch (_) {}
+
     // Send immediate status to the client
+    const isRealConnected = (!!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) || upstoxLinkedPermanently;
     ws.send(JSON.stringify({
       type: "STATUS",
-      connected: !!upstoxAccessToken || upstoxLinkedPermanently,
-      user: (upstoxConnectedUser || upstoxLinkedPermanently) ? {
+      connected: isRealConnected,
+      user: isRealConnected ? (upstoxConnectedUser || {
         email: "pro_feed_user@papermarket.local",
         userName: "Upstox Pro Account",
         userId: "UPSTOX_USER",
-      } : null
+      }) : null
     }));
 
-    ws.on("message", (msg) => {
+    ws.on("message", async (msg) => {
       try {
         const parsed = JSON.parse(msg.toString());
         if (parsed.type === "PING") {
           ws.send(JSON.stringify({ type: "PONG" }));
+        } else if (parsed.type === "INIT_TOKEN" && parsed.token && !isSimulatedToken(parsed.token)) {
+          if (parsed.token !== upstoxAccessToken) {
+            upstoxAccessToken = parsed.token;
+            upstoxUserDisconnected = false;
+            saveUpstoxTokenToFirestore(parsed.token, upstoxConnectedUser).catch(() => {});
+            reconnectUpstoxWebSocket();
+            broadcastUpstoxStatusToClients();
+          }
         }
       } catch (e) {}
     });

@@ -166,8 +166,30 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
             })}
           </nav>
 
-          {/* Right section: Balance, notifications, level indicators */}
-          <div className="flex items-center gap-3.5">
+          {/* Right section: Live Feed Badge, Balance, notifications, level indicators */}
+          <div className="flex items-center gap-3">
+            {/* Live Feed Status Badge */}
+            <div 
+              onClick={() => handleNavClick('profile')}
+              className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${
+                upstoxStatus.connected 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+              }`}
+              title={upstoxStatus.connected ? "Upstox Live Pro Feed Connected" : "Live Market Feed Active"}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="hidden sm:inline">
+                {upstoxStatus.connected ? 'LIVE FEED: UPSTOX PRO' : 'LIVE FEED: ACTIVE'}
+              </span>
+              <span className="sm:hidden">
+                {upstoxStatus.connected ? 'UPSTOX' : 'LIVE'}
+              </span>
+            </div>
+
             {/* Live Virtual Capital Badge */}
             <div className="flex flex-col items-end bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-3.5 py-1 shadow-sm">
               <span className="text-[8px] text-slate-500 dark:text-gray-500 uppercase tracking-widest font-mono font-bold">Virtual Capital</span>
