@@ -13,6 +13,7 @@ import {
 import { useApp } from '../store';
 import { BrandLogo } from './BrandLogo';
 import { NativeTickerTape } from './StockChart';
+import { SebiRiskModal } from './SebiRiskModal';
 
 interface NavigationProps {
   currentTab: string;
@@ -21,17 +22,35 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
-  const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, upstoxStatus } = useApp();
+  const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, upstoxStatus, sebiFnoAccepted, confirmSebiRiskDisclosure } = useApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [showSebiModal, setShowSebiModal] = useState(false);
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
 
   const unreadNotifCount = React.useMemo(() => (notifications || []).filter(n => !n.isRead).length, [notifications]);
 
   const handleNavClick = React.useCallback((tab: string) => {
+    if (tab === 'fno' && !sebiFnoAccepted) {
+      setPendingTab('fno');
+      setShowSebiModal(true);
+      setIsDrawerOpen(false);
+      return;
+    }
     React.startTransition(() => {
       onNavigate(tab);
     });
     setIsDrawerOpen(false);
-  }, [onNavigate]);
+  }, [onNavigate, sebiFnoAccepted]);
+
+  const handleConfirmSebi = React.useCallback(() => {
+    confirmSebiRiskDisclosure();
+    setShowSebiModal(false);
+    const target = pendingTab || 'fno';
+    setPendingTab(null);
+    React.startTransition(() => {
+      onNavigate(target);
+    });
+  }, [confirmSebiRiskDisclosure, pendingTab, onNavigate]);
 
   if (!user) return null;
 
@@ -367,6 +386,11 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
           </div>
         )}
       </AnimatePresence>
+
+      <SebiRiskModal
+        isOpen={showSebiModal || (currentTab === 'fno' && !sebiFnoAccepted)}
+        onConfirm={handleConfirmSebi}
+      />
     </div>
   );
 });

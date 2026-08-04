@@ -11,6 +11,7 @@ import { Search, Plus, Trash2, TrendingUp, TrendingDown, Eye, ChevronRight, X, L
 import { AreaChart, Area, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 import { StockChart } from './StockChart';
 import { getWeeklyExpiriesForUnderlier } from '../derivativesUtils';
+import { SebiRiskModal } from './SebiRiskModal';
 
 const getDynamicOptionChain = (indexSymbol: string, spot: number) => {
   let strikeStep = 50;
@@ -92,7 +93,7 @@ interface MarketsProps {
 }
 
 export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode }) => {
-  const { instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useApp();
+  const { instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus, sebiFnoAccepted, confirmSebiRiskDisclosure } = useApp();
   const [activeTab, setActiveTab] = useState<'watchlist' | 'options' | 'indices'>(
     mode === 'fno' ? 'options' : 'watchlist'
   );
@@ -1130,6 +1131,11 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
           </div>
         )}
       </AnimatePresence>
+
+      <SebiRiskModal
+        isOpen={!sebiFnoAccepted && (mode === 'fno' || activeTab === 'options')}
+        onConfirm={confirmSebiRiskDisclosure}
+      />
     </div>
   );
 });

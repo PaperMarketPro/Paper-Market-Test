@@ -72,6 +72,8 @@ interface AppContextType {
   enforceMarketHours: boolean;
   toggleEnforceMarketHours: () => void;
   isMarketOpen: boolean;
+  sebiFnoAccepted: boolean;
+  confirmSebiRiskDisclosure: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -181,6 +183,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('enforceMarketHours');
     return saved === null ? true : saved === 'true';
   });
+
+  // SEBI Mandatory F&O Risk Disclosure State
+  const [sebiFnoAccepted, setSebiFnoAccepted] = useState<boolean>(() => {
+    return localStorage.getItem('sebi_fno_risk_accepted') === 'true';
+  });
+
+  const confirmSebiRiskDisclosure = useCallback(() => {
+    setSebiFnoAccepted(true);
+    localStorage.setItem('sebi_fno_risk_accepted', 'true');
+  }, []);
 
   const toggleEnforceMarketHours = () => {
     setEnforceMarketHours(prev => {
@@ -2218,6 +2230,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     enforceMarketHours,
     toggleEnforceMarketHours,
     isMarketOpen,
+    sebiFnoAccepted,
+    confirmSebiRiskDisclosure,
   }), [
     user,
     firebaseUser,
@@ -2240,6 +2254,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     upstoxStatus,
     enforceMarketHours,
     isMarketOpen,
+    sebiFnoAccepted,
+    confirmSebiRiskDisclosure,
   ]);
 
   return (
