@@ -946,12 +946,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               nextLow = tick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
             }
 
-            if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
+            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
               return inst;
             }
 
             changed = true;
-            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            const priceMovedEnough = Math.abs(nextLtp - inst.ltp) >= 0.05;
+            const sparkCopy = priceMovedEnough ? [...inst.sparkline.slice(1), nextLtp] : inst.sparkline;
             return {
               ...inst,
               ltp: nextLtp,
@@ -1005,12 +1006,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               nextLow = matchedTick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
             }
 
-            if (nextLtp === inst.ltp && nextChange === inst.change && nextHigh === inst.high && nextLow === inst.low) {
+            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
               return inst;
             }
 
             changed = true;
-            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            const priceMovedEnough = Math.abs(nextLtp - inst.ltp) >= 0.05;
+            const sparkCopy = priceMovedEnough ? [...inst.sparkline.slice(1), nextLtp] : inst.sparkline;
             return {
               ...inst,
               ltp: nextLtp,

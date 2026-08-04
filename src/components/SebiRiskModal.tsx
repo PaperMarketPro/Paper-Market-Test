@@ -83,8 +83,13 @@ export const SebiRiskModal: React.FC<SebiRiskModalProps> = ({ isOpen, onConfirm,
 
           {/* Action Button */}
           <button
-            onClick={onConfirm}
-            className="w-full py-4 px-6 rounded-2xl font-bold text-sm text-white bg-[#00c076] hover:bg-[#00a867] active:scale-[0.99] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onConfirm();
+            }}
+            className="w-full py-4 px-6 rounded-2xl font-bold text-sm text-white bg-[#00c076] hover:bg-[#00a867] active:scale-[0.98] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer relative z-10"
           >
             <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
             <span>Okay, I understand</span>
