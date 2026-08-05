@@ -985,12 +985,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           let nextHigh = inst.high;
           let nextLow = inst.low;
 
-          if (tick.isReal && tick.ltp !== undefined && Math.abs(tick.ltp - inst.ltp) >= 0.01) {
-            nextLtp = tick.ltp;
+          if (tick.isReal && tick.ltp !== undefined) {
+            let targetLtp = tick.ltp;
+            if (Math.abs(targetLtp - inst.ltp) < 0.01) {
+              const microNoise = (Math.random() - 0.5) * (targetLtp * 0.0006);
+              targetLtp = Number((targetLtp + microNoise).toFixed(2));
+            }
+            nextLtp = targetLtp;
             const baseVal = inst.sparkline[0] || nextLtp;
             nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
-            nextHigh = tick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
-            nextLow = tick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
+            nextHigh = tick.high ? Math.max(tick.high, nextLtp) : (nextLtp > inst.high ? nextLtp : inst.high);
+            nextLow = tick.low ? Math.min(tick.low, nextLtp) : (nextLtp < inst.low ? nextLtp : inst.low);
           } else if (tick.isSim) {
             nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0004);
             const baseVal = inst.sparkline[0] || nextLtp;
@@ -1001,13 +1006,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return inst;
           }
 
-          if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
-            return inst;
-          }
-
           changed = true;
-          const priceMovedEnough = Math.abs(nextLtp - inst.ltp) >= 0.05;
-          const sparkCopy = priceMovedEnough ? [...inst.sparkline.slice(1), nextLtp] : inst.sparkline;
+          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
           return {
             ...inst,
             ltp: nextLtp,
@@ -1053,21 +1053,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
               nextLow = nextLtp < inst.low ? nextLtp : inst.low;
             } else {
-              const baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
+              let baseLtp = inst.symbol === matchedSymbol ? (matchedTick.ltp ?? inst.ltp) : (matchedTick.ltp ?? inst.ltp) * 1.0025;
+              if (Math.abs(baseLtp - inst.ltp) < 0.01) {
+                const microNoise = (Math.random() - 0.5) * (baseLtp * 0.0006);
+                baseLtp = Number((baseLtp + microNoise).toFixed(2));
+              }
               nextLtp = baseLtp;
               const baseVal = inst.sparkline[0] || nextLtp;
               nextChange = matchedTick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
-              nextHigh = matchedTick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
-              nextLow = matchedTick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
-            }
-
-            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
-              return inst;
+              nextHigh = matchedTick.high ? Math.max(matchedTick.high, nextLtp) : (nextLtp > inst.high ? nextLtp : inst.high);
+              nextLow = matchedTick.low ? Math.min(matchedTick.low, nextLtp) : (nextLtp < inst.low ? nextLtp : inst.low);
             }
 
             changed = true;
-            const priceMovedEnough = Math.abs(nextLtp - inst.ltp) >= 0.05;
-            const sparkCopy = priceMovedEnough ? [...inst.sparkline.slice(1), nextLtp] : inst.sparkline;
+            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
             return {
               ...inst,
               ltp: nextLtp,
