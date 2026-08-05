@@ -56,7 +56,7 @@ export const NativeTickerTape: React.FC = React.memo(() => {
   }, [instruments]);
 
   return (
-    <div className="w-full bg-[#07090e]/85 border-b border-white/5 py-1.5 z-40 relative overflow-hidden select-none">
+    <div className="w-full bg-slate-100/90 dark:bg-[#07090e]/85 border-b border-slate-200 dark:border-white/5 py-1.5 z-40 relative overflow-hidden select-none">
       <div className="flex w-max whitespace-nowrap animate-marquee">
         {/* Triple the list to ensure a seamless looping scroll animation */}
         {[...majorInstruments, ...majorInstruments, ...majorInstruments].map((inst, index) => {
@@ -64,15 +64,15 @@ export const NativeTickerTape: React.FC = React.memo(() => {
           return (
             <div 
               key={`${inst.symbol}-${index}`} 
-              className="inline-flex items-center space-x-2 px-5 border-r border-white/5 text-[11px] hover:bg-white/5 transition cursor-pointer"
+              className="inline-flex items-center space-x-2 px-5 border-r border-slate-200 dark:border-white/5 text-[11px] hover:bg-slate-200/50 dark:hover:bg-white/5 transition cursor-pointer"
             >
-              <span className="font-bold text-gray-200 font-display uppercase">
+              <span className="font-bold text-slate-800 dark:text-gray-200 font-display uppercase">
                 {inst.symbol}
               </span>
-              <span className="text-gray-400 font-mono">
+              <span className="text-slate-600 dark:text-gray-400 font-mono">
                 ₹{inst.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
-              <span className={`font-mono font-bold flex items-center gap-0.5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`font-mono font-bold flex items-center gap-0.5 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 {isPositive ? '▲' : '▼'}{inst.change.toFixed(2)}%
               </span>
             </div>
