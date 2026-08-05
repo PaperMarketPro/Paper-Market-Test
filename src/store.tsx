@@ -866,6 +866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           document.cookie = `upstox_token=${encodeURIComponent(data.token)}; path=/; max-age=2592000; SameSite=Lax; Secure`;
         }
         await refreshUpstoxStatus();
+        fetchRealUpstoxLtp();
         pushNotification('Upstox Linked!', `Successfully connected using Analytics Access Token.`, 'badge');
         return { success: true };
       } else {
@@ -877,6 +878,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Otherwise (e.g. Vercel serverless timeout or HTML error), fallback to saved local token connection
         if (trimmed.length >= 15) {
           await refreshUpstoxStatus();
+          fetchRealUpstoxLtp();
           pushNotification('Upstox Session Activated!', 'Connected to live market feed with stored token.', 'badge');
           return { success: true };
         }
@@ -922,7 +924,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     fetchRealUpstoxLtp();
-    const interval = setInterval(fetchRealUpstoxLtp, 1500);
+    const interval = setInterval(fetchRealUpstoxLtp, 3000);
     return () => clearInterval(interval);
   }, [fetchRealUpstoxLtp]);
 
@@ -959,6 +961,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     batchInterval = setInterval(() => {
       const pendingMap = pendingTicksRef.current;
       const keys = Object.keys(pendingMap);
+      if (keys.length === 0) return;
 
       // Make a local snapshot and clear the pending map
       const ticksToProcess = { ...pendingMap };
@@ -975,24 +978,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let changed = false;
         const next = prev.map(inst => {
           const tick = ticksToProcess[inst.symbol];
+          if (!tick) return inst;
 
           let nextLtp = inst.ltp;
           let nextChange = inst.change;
           let nextHigh = inst.high;
           let nextLow = inst.low;
 
-          if (tick && tick.isReal && tick.ltp !== undefined && Math.abs(tick.ltp - inst.ltp) >= 0.01) {
+          if (tick.isReal && tick.ltp !== undefined && Math.abs(tick.ltp - inst.ltp) >= 0.01) {
             nextLtp = tick.ltp;
             const baseVal = inst.sparkline[0] || nextLtp;
             nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
             nextHigh = tick.high ?? (nextLtp > inst.high ? nextLtp : inst.high);
             nextLow = tick.low ?? (nextLtp < inst.low ? nextLtp : inst.low);
-          } else {
+          } else if (tick.isSim) {
             nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0004);
             const baseVal = inst.sparkline[0] || nextLtp;
             nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
             nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
             nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+          } else {
+            return inst;
           }
 
           if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01 && nextHigh === inst.high && nextLow === inst.low) {
@@ -1179,7 +1185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const now = Date.now();
         instrumentsRef.current.forEach(inst => {
           const lastLiveTime = lastLiveTicksRef.current[inst.symbol] || 0;
-          if (now - lastLiveTime > 1000) {
+          if (now - lastLiveTime > 6000) {
             pendingTicksRef.current[inst.symbol] = { isSim: true };
           }
         });
