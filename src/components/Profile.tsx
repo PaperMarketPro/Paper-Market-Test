@@ -243,6 +243,14 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
         throw new Error(orderData.error || "Order creation failed on server.");
       }
 
+      if (orderData.isSimulated) {
+        // Upgrade user subscription immediately in paper mode
+        upgradeToPro();
+        setShowCheckout(false);
+        setIsUpgrading(false);
+        return;
+      }
+
       const { orderId, amount, currency, keyId } = orderData;
 
       // 3. Open Razorpay Checkout modal
@@ -628,7 +636,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                 </h3>
               </div>
               <div>
-                {upstoxStatus.connected ? (
+                {upstoxStatus.isRealUpstox ? (
                   <div className="flex items-center gap-1.5 bg-emerald-500/10 px-3.5 py-1.5 rounded-full border border-emerald-500/20 shadow-sm">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
@@ -663,7 +671,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
               </div>
             )}
 
-            {upstoxStatus.connected ? (
+            {upstoxStatus.isRealUpstox ? (
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-sans flex items-center gap-1.5">

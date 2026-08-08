@@ -1253,8 +1253,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           if (message.type === 'STATUS') {
             setUpstoxStatus(prev => {
-              if (prev.connected === message.connected && prev.user?.email === message.user?.email) return prev;
-              return { ...prev, connected: message.connected, user: message.user };
+              const newIsReal = message.isRealUpstox ?? message.connected; // Fallback to connected if not provided explicitly
+              if (prev.connected === message.connected && prev.user?.email === message.user?.email && prev.isRealUpstox === newIsReal) return prev;
+              return { ...prev, connected: message.connected, user: message.user, isRealUpstox: newIsReal };
             });
           } else if (message.type === 'TICK') {
             lastLiveTicksRef.current[message.symbol] = Date.now();

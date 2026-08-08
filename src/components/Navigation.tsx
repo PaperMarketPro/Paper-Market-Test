@@ -36,10 +36,8 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
       setIsDrawerOpen(false);
       return;
     }
-    React.startTransition(() => {
-      onNavigate(tab);
-      setIsDrawerOpen(false);
-    });
+    onNavigate(tab);
+    setIsDrawerOpen(false);
   }, [onNavigate, sebiFnoAccepted]);
 
   const handleConfirmSebi = React.useCallback(() => {
@@ -188,11 +186,17 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
             {/* Market Status Pill */}
             <div 
               onClick={() => handleNavClick('profile')}
-              className="cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5 text-[11px] font-medium text-slate-700 dark:text-gray-300 transition-all hover:bg-slate-200 dark:hover:bg-white/10"
-              title="NSE / BSE Market Status"
+              className={`cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${
+                upstoxStatus.isRealUpstox 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-white/5 dark:border-white/5 dark:text-gray-300'
+              }`}
+              title={upstoxStatus.isRealUpstox ? "Live Pro Feed Connected" : "NSE / BSE Market Status"}
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold text-slate-600 dark:text-gray-400">NSE / BSE</span>
+              <span className={`w-2 h-2 rounded-full ${upstoxStatus.isRealUpstox ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold">
+                {upstoxStatus.isRealUpstox ? 'LIVE FEED: PRO' : 'NSE / BSE'}
+              </span>
             </div>
 
             {/* Live Virtual Capital Badge */}
