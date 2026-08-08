@@ -284,7 +284,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               {mode === 'equity' ? 'EQUITY TRADING' : 'F&O DERIVATIVES'}
             </span>
             <h2 className="text-lg font-bold text-white tracking-tight">
-              {mode === 'equity' ? 'Live Stock Watchlist' : 'F&O Derivatives Segment'}
+              {mode === 'equity' ? 'Stock Watchlist' : 'F&O Derivatives Segment'}
             </h2>
           </div>
           <div className="flex items-center gap-2">

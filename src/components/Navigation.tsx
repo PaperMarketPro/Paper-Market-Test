@@ -185,26 +185,14 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
 
           {/* Right section: Live Feed Badge, Balance, notifications, level indicators */}
           <div className="flex items-center gap-3">
-            {/* Live Feed Status Badge */}
+            {/* Market Status Pill */}
             <div 
               onClick={() => handleNavClick('profile')}
-              className={`cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${
-                upstoxStatus.connected 
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-              }`}
-              title={upstoxStatus.connected ? "Upstox Live Pro Feed Connected" : "Live Market Feed Active"}
+              className="cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5 text-[11px] font-medium text-slate-700 dark:text-gray-300 transition-all hover:bg-slate-200 dark:hover:bg-white/10"
+              title="NSE / BSE Market Status"
             >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="hidden sm:inline">
-                {upstoxStatus.connected ? 'LIVE FEED: UPSTOX PRO' : 'LIVE FEED: ACTIVE'}
-              </span>
-              <span className="sm:hidden">
-                {upstoxStatus.connected ? 'UPSTOX' : 'LIVE'}
-              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold text-slate-600 dark:text-gray-400">NSE / BSE</span>
             </div>
 
             {/* Live Virtual Capital Badge */}

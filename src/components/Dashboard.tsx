@@ -256,7 +256,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
-                Live Market Indices
+                Market Indices
               </span>
               <span className="text-[9px] font-sans text-gray-500">
                 Tap to trade derivatives
