@@ -924,7 +924,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     fetchRealUpstoxLtp();
-    const interval = setInterval(fetchRealUpstoxLtp, 3000);
+    const interval = setInterval(fetchRealUpstoxLtp, 1500);
     return () => clearInterval(interval);
   }, [fetchRealUpstoxLtp]);
 

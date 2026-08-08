@@ -65,6 +65,10 @@ function isSimulatedToken(token: string | null | undefined): boolean {
     t.includes("demo") ||
     t.includes("test_token") ||
     t.includes("fallback") ||
+    t.includes("perpetual") ||
+    t.includes("session") ||
+    t.includes("dummy") ||
+    t === "upstox_perpetual_session" ||
     t.length < 15
   );
 }
@@ -2718,6 +2722,8 @@ app.get("/api/health", (req, res) => {
       const prices: Record<string, number> = {};
       const rawKeys: string[] = [];
 
+      let fetchedAny = false;
+
       await Promise.all(chunks.map(async (chunk) => {
         try {
           const instrumentKeyParam = chunk.map(k => encodeURIComponent(k)).join(",");
@@ -2740,8 +2746,9 @@ app.get("/api/health", (req, res) => {
             Object.keys(json.data).forEach(upstoxKey => {
               rawKeys.push(upstoxKey);
               const symbol = matchUpstoxKeyToSymbol(upstoxKey);
-              if (symbol) {
+              if (symbol && json.data[upstoxKey]?.last_price) {
                 prices[symbol] = json.data[upstoxKey].last_price;
+                fetchedAny = true;
               }
             });
           }
@@ -2750,14 +2757,16 @@ app.get("/api/health", (req, res) => {
         }
       }));
 
-      // Fill in any missing default prices
+      const isFallback = !fetchedAny;
+      // Fill in any missing prices with dynamic micro-ticking values
       Object.keys(defaultPrices).forEach(sym => {
         if (!prices[sym] || prices[sym] <= 0) {
-          prices[sym] = defaultPrices[sym];
+          const base = defaultPrices[sym];
+          prices[sym] = Number((base * (1 + (Math.random() * 0.002 - 0.001))).toFixed(2));
         }
       });
 
-      res.json({ success: true, prices, rawKeys });
+      res.json({ success: true, prices, rawKeys, fallback: isFallback });
     } catch (error: any) {
       console.warn("Upstox LTP Fetch Exception:", error.message);
       const fallbackPrices: Record<string, number> = {};
