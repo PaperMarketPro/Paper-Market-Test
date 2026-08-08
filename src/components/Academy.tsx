@@ -205,7 +205,7 @@ export const Academy: React.FC = React.memo(() => {
             onClick={() => setSelectedCourse(null)}
             className="text-xs text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1.5 transition bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/10 w-fit"
           >
-            ← Back to All Hindi & English Courses
+            ← Back to All Masterclass Courses
           </button>
 
           {/* Course Banner Card */}
@@ -217,7 +217,7 @@ export const Academy: React.FC = React.memo(() => {
                 </span>
                 {selectedCourse.language && (
                   <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-                    <Globe className="w-3 h-3" /> {selectedCourse.language === 'Hindi' ? '🇮🇳 हिंदी (Hindi)' : '🇬🇧 English'}
+                    <Globe className="w-3 h-3" /> {selectedCourse.language}
                   </span>
                 )}
               </div>
@@ -228,13 +228,10 @@ export const Academy: React.FC = React.memo(() => {
 
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">{selectedCourse.title}</h1>
-              {selectedCourse.titleHindi && (
-                <p className="text-xs sm:text-sm text-sky-400/90 font-medium mt-1">{selectedCourse.titleHindi}</p>
-              )}
             </div>
 
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed max-w-2xl font-sans">
-              {selectedCourse.descriptionHindi || selectedCourse.description}
+              {selectedCourse.description}
             </p>
 
             {/* Course Progress */}
@@ -324,7 +321,7 @@ export const Academy: React.FC = React.memo(() => {
                 onClick={startQuiz}
                 className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg"
               >
-                <GraduationCap className="w-5 h-5 text-emerald-200" /> Start Course Evaluation Quiz (हिंदी / English)
+                <GraduationCap className="w-5 h-5 text-emerald-200" /> Start Course Evaluation Quiz
               </button>
             </div>
           )}
@@ -341,12 +338,12 @@ export const Academy: React.FC = React.memo(() => {
                     <Video className="w-3 h-3 text-sky-400" /> Video Learning Center
                   </span>
                   <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-amber-500/20">
-                    🇮🇳 हिंदी स्पेशल
+                    Masterclass Series
                   </span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Trading Academy (ट्रेडिंग एकेडमी)</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Trading Academy</h1>
                 <p className="text-xs sm:text-sm text-gray-300 font-sans">
-                  Learn Stock Market, Options Trading, Price Action & Technical Analysis through structured video lessons in Hindi.
+                  Learn Stock Market, Options Trading, Price Action & Technical Analysis through structured video masterclasses.
                 </p>
               </div>
 
@@ -360,13 +357,13 @@ export const Academy: React.FC = React.memo(() => {
             </div>
 
             {/* Search & Filter Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/5">
               {/* Search input */}
-              <div className="relative col-span-1 sm:col-span-1">
+              <div className="relative col-span-1">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search in Hindi or English..."
+                  placeholder="Search courses or topics..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-[#0b0e14] border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-500 transition"
