@@ -957,7 +957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let reconnectAttempts = 0;
     let lastMsgTime = Date.now();
 
-    // Process pending ticks every 1000ms to keep UI snappy, responsive and smooth
+    // Process pending ticks every 1800ms to keep UI snappy, responsive and smooth
     batchInterval = setInterval(() => {
       const pendingMap = pendingTicksRef.current;
       const keys = Object.keys(pendingMap);
@@ -974,53 +974,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let latestInsts = instrumentsRef.current;
         let latestFuts = futuresRef.current;
 
-      // 1. Batch update instruments
-      setInstruments(prev => {
-        let changed = false;
-        const next = prev.map(inst => {
-          const tick = ticksToProcess[inst.symbol];
-          if (!tick) return inst;
+        // 1. Batch update instruments
+        setInstruments(prev => {
+          let changed = false;
+          const next = prev.map(inst => {
+            const tick = ticksToProcess[inst.symbol];
+            if (!tick) return inst;
 
-          let nextLtp = inst.ltp;
-          let nextChange = inst.change;
-          let nextHigh = inst.high;
-          let nextLow = inst.low;
+            let nextLtp = inst.ltp;
+            let nextChange = inst.change;
+            let nextHigh = inst.high;
+            let nextLow = inst.low;
 
-          if (tick.ltp !== undefined && tick.ltp > 0) {
-            let targetLtp = tick.ltp;
-            if (tick.isSim || Math.abs(targetLtp - inst.ltp) < 0.01) {
-              const microNoise = (Math.random() - 0.5) * (targetLtp * 0.0006);
-              targetLtp = Number((targetLtp + microNoise).toFixed(2));
+            if (tick.ltp !== undefined && tick.ltp > 0) {
+              let targetLtp = tick.ltp;
+              if (tick.isSim || Math.abs(targetLtp - inst.ltp) < 0.01) {
+                const microNoise = (Math.random() - 0.5) * (targetLtp * 0.0006);
+                targetLtp = Number((targetLtp + microNoise).toFixed(2));
+              }
+              nextLtp = targetLtp;
+              const baseVal = inst.sparkline[0] || nextLtp;
+              nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
+              nextHigh = tick.high ? Math.max(tick.high, nextLtp) : (nextLtp > inst.high ? nextLtp : inst.high);
+              nextLow = tick.low ? Math.min(tick.low, nextLtp) : (nextLtp < inst.low ? nextLtp : inst.low);
+            } else if (tick.isSim) {
+              nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0004);
+              const baseVal = inst.sparkline[0] || nextLtp;
+              nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
+              nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
+              nextLow = nextLtp < inst.low ? nextLtp : inst.low;
+            } else {
+              return inst;
             }
-            nextLtp = targetLtp;
-            const baseVal = inst.sparkline[0] || nextLtp;
-            nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
-            nextHigh = tick.high ? Math.max(tick.high, nextLtp) : (nextLtp > inst.high ? nextLtp : inst.high);
-            nextLow = tick.low ? Math.min(tick.low, nextLtp) : (nextLtp < inst.low ? nextLtp : inst.low);
-          } else if (tick.isSim) {
-            nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0004);
-            const baseVal = inst.sparkline[0] || nextLtp;
-            nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
-            nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
-            nextLow = nextLtp < inst.low ? nextLtp : inst.low;
-          } else {
-            return inst;
-          }
 
-          changed = true;
-          const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
-          return {
-            ...inst,
-            ltp: nextLtp,
-            change: nextChange,
-            high: nextHigh,
-            low: nextLow,
-            sparkline: sparkCopy
-          };
+            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01) {
+              return inst;
+            }
+
+            changed = true;
+            const sparkCopy = [...inst.sparkline.slice(1), nextLtp];
+            return {
+              ...inst,
+              ltp: nextLtp,
+              change: nextChange,
+              high: nextHigh,
+              low: nextLow,
+              sparkline: sparkCopy
+            };
+          });
+          if (changed) latestInsts = next;
+          return changed ? next : prev;
         });
-        if (changed) latestInsts = next;
-        return changed ? next : prev;
-      });
 
         // 2. Batch update futures
         setFutures(prev => {
@@ -1064,6 +1068,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               nextChange = matchedTick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
               nextHigh = matchedTick.high ? Math.max(matchedTick.high, nextLtp) : (nextLtp > inst.high ? nextLtp : inst.high);
               nextLow = matchedTick.low ? Math.min(matchedTick.low, nextLtp) : (nextLtp < inst.low ? nextLtp : inst.low);
+            }
+
+            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01) {
+              return inst;
             }
 
             changed = true;
@@ -1112,7 +1120,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               putLtp = calculatedPutLtp < 1.0 ? 1.05 : calculatedPutLtp;
             }
 
-            if (callLtp === item.calls.ltp && putLtp === item.puts.ltp) {
+            if (Math.abs(callLtp - item.calls.ltp) < 0.05 && Math.abs(putLtp - item.puts.ltp) < 0.05) {
               return item;
             }
 
@@ -1178,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? nextPositions : prevPositions;
         });
       });
-    }, 1200);
+    }, 1800);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;

@@ -181,7 +181,8 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
   const spotPrice = selectedIndexInstrument ? selectedIndexInstrument.ltp : 24325.85;
 
   const currentOptionChain = React.useMemo(() => {
-    return getDynamicOptionChain(selectedOptionIndex, spotPrice);
+    const roundedSpot = Math.round(spotPrice * 2) / 2; // Round to nearest 0.50 to avoid micro tick churn
+    return getDynamicOptionChain(selectedOptionIndex, roundedSpot);
   }, [selectedOptionIndex, spotPrice]);
 
   const filteredOptionsUnderliers = React.useMemo(() => {
@@ -382,13 +383,23 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     <div className="w-20 h-8 hidden sm:block">
                       <svg className="w-full h-full" viewBox="0 0 80 32">
                         <path
-                          d={inst.sparkline.map((val, idx) => {
-                            const x = (idx / (inst.sparkline.length - 1)) * 80;
-                            const minVal = Math.min(...inst.sparkline);
-                            const maxVal = Math.max(...inst.sparkline);
-                            const y = 30 - ((val - minVal) / (maxVal - minVal || 1)) * 28;
-                            return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-                          }).join(' ')}
+                          d={(() => {
+                            const pts = inst.sparkline;
+                            if (!pts || pts.length === 0) return '';
+                            let minV = pts[0];
+                            let maxV = pts[0];
+                            for (let i = 1; i < pts.length; i++) {
+                              if (pts[i] < minV) minV = pts[i];
+                              if (pts[i] > maxV) maxV = pts[i];
+                            }
+                            const range = maxV - minV || 1;
+                            const n = pts.length - 1 || 1;
+                            return pts.map((val, idx) => {
+                              const x = (idx / n) * 80;
+                              const y = 30 - ((val - minV) / range) * 28;
+                              return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                            }).join(' ');
+                          })()}
                           fill="none"
                           stroke={isChangePositive ? '#10b981' : '#ef4444'}
                           strokeWidth="1.5"
@@ -627,13 +638,23 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                         <div className="w-20 h-8 hidden sm:block">
                           <svg className="w-full h-full" viewBox="0 0 80 32">
                             <path
-                              d={inst.sparkline.map((val, idx) => {
-                                const x = (idx / (inst.sparkline.length - 1)) * 80;
-                                const minVal = Math.min(...inst.sparkline);
-                                const maxVal = Math.max(...inst.sparkline);
-                                const y = 30 - ((val - minVal) / (maxVal - minVal || 1)) * 28;
-                                return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-                              }).join(' ')}
+                              d={(() => {
+                                const pts = inst.sparkline;
+                                if (!pts || pts.length === 0) return '';
+                                let minV = pts[0];
+                                let maxV = pts[0];
+                                for (let i = 1; i < pts.length; i++) {
+                                  if (pts[i] < minV) minV = pts[i];
+                                  if (pts[i] > maxV) maxV = pts[i];
+                                }
+                                const range = maxV - minV || 1;
+                                const n = pts.length - 1 || 1;
+                                return pts.map((val, idx) => {
+                                  const x = (idx / n) * 80;
+                                  const y = 30 - ((val - minV) / range) * 28;
+                                  return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                                }).join(' ');
+                              })()}
                               fill="none"
                               stroke={isChangePositive ? '#10b981' : '#ef4444'}
                               strokeWidth="1.5"
