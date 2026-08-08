@@ -223,14 +223,22 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
         headers: { "Content-Type": "application/json" }
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Failed to create payment order: ${errText}`);
-      }
-
       const orderText = await res.text();
       let orderData: any = {};
       try { orderData = JSON.parse(orderText); } catch (_) {}
+
+      if (!res.ok) {
+        let errMsg = "Failed to create payment order.";
+        if (orderData.details) {
+          errMsg = `${orderData.error || 'Payment order error'}: ${orderData.details}`;
+        } else if (orderData.error) {
+          errMsg = orderData.error;
+        } else if (orderText) {
+          errMsg = orderText.slice(0, 150);
+        }
+        throw new Error(errMsg);
+      }
+
       if (!orderData.success) {
         throw new Error(orderData.error || "Order creation failed on server.");
       }

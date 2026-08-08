@@ -1481,14 +1481,20 @@ function startLiveLtpPollingLoop() {
   }, 2000);
 }
 
-// Initialize Razorpay client with environment variables or fallback to provided test credentials
-const razorpayKeyId = process.env.RAZORPAY_KEY_ID || "rzp_test_TC3Hx6D3Aywz7D";
-const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || "qwRsIZ4BEbOcPLy5Erk5AEg4";
+// Initialize Razorpay client with environment variables or user provided test credentials
+const getRazorpayKeys = () => {
+  const keyId = process.env.RAZORPAY_KEY_ID?.trim() || "rzp_test_TLAAvWgsYBq2ke";
+  const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim() || "mhiWY679nxN3JDB1E5y7bAkE";
+  return { keyId, keySecret };
+};
 
-const razorpay = new Razorpay({
-  key_id: razorpayKeyId,
-  key_secret: razorpayKeySecret,
-});
+const getRazorpayClient = () => {
+  const { keyId, keySecret } = getRazorpayKeys();
+  return new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret,
+  });
+};
 
 // Lazy-initialize the official @google/genai SDK
 let aiClient: GoogleGenAI | null = null;
@@ -2793,31 +2799,42 @@ app.get("/api/health", (req, res) => {
   // Razorpay Payment Gateway Integration Routes
   app.post("/api/razorpay/create-order", async (req, res) => {
     try {
+      const { keyId } = getRazorpayKeys();
+      const client = getRazorpayClient();
+      const amount = req.body?.amount ? Number(req.body.amount) : 900; // default ₹9.00 or custom amount in paise
       const options = {
-        amount: 900, // ₹9.00 in paise
+        amount,
         currency: "INR",
         receipt: `receipt_${Date.now()}`,
       };
-      const order = await razorpay.orders.create(options);
+      const order = await client.orders.create(options);
       res.json({
         success: true,
         orderId: order.id,
         amount: order.amount,
         currency: order.currency,
-        keyId: razorpayKeyId
+        keyId: keyId
       });
     } catch (error: any) {
       console.error("Razorpay order creation error:", error);
-      res.status(500).json({ success: false, error: "Failed to create Razorpay order.", details: error.message });
+      res.status(500).json({
+        success: false,
+        error: "Failed to create Razorpay order.",
+        details: error?.error?.description || error?.message || String(error)
+      });
     }
   });
 
   app.post("/api/razorpay/verify-signature", async (req, res) => {
     try {
+      const { keySecret } = getRazorpayKeys();
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ success: false, error: "Missing required Razorpay payment signature parameters." });
+      }
       const body = razorpay_order_id + "|" + razorpay_payment_id;
       const expectedSignature = crypto
-        .createHmac("sha256", razorpayKeySecret)
+        .createHmac("sha256", keySecret)
         .update(body.toString())
         .digest("hex");
 
