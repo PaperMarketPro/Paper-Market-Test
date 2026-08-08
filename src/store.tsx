@@ -969,9 +969,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         delete pendingMap[key];
       }
 
-      // Process batch updates directly
-      let latestInsts = instrumentsRef.current;
-      let latestFuts = futuresRef.current;
+      // Process batch updates as low-priority background transition
+      startTransition(() => {
+        let latestInsts = instrumentsRef.current;
+        let latestFuts = futuresRef.current;
 
       // 1. Batch update instruments
       setInstruments(prev => {
@@ -1176,7 +1177,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? nextPositions : prevPositions;
         });
-    }, 1000);
+      });
+    }, 1200);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;

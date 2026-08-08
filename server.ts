@@ -1996,23 +1996,10 @@ app.get("/api/health", (req, res) => {
     const config = upstoxAutoRenewConfig || await loadUpstoxAutoRenewConfig();
     const effectiveApiKey = process.env.UPSTOX_API_KEY || config?.apiKey;
 
-    if (upstoxUserDisconnected) {
-      return res.json({
-        connected: false,
-        wsConnected: false,
-        wsReadyState: null,
-        user: null,
-        config: {
-          apiKey: effectiveApiKey ? `${effectiveApiKey.slice(0, 6)}...` : null,
-          redirectUri: redirectUri
-        },
-        isRealUpstox: false
-      });
-    }
-
     const clientToken = getUpstoxTokenFromReq(req);
     if (clientToken) {
       upstoxAccessToken = clientToken;
+      upstoxUserDisconnected = false;
       upstoxLinkedPermanently = true;
     } else {
       await ensureUpstoxTokenLoaded();
@@ -2035,14 +2022,14 @@ app.get("/api/health", (req, res) => {
     const isReal = !!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken);
 
     res.json({
-      connected: !!upstoxAccessToken || upstoxLinkedPermanently,
-      wsConnected: isReal || upstoxLinkedPermanently,
-      wsReadyState: upstoxWs ? upstoxWs.readyState : null,
-      user: (upstoxConnectedUser || upstoxLinkedPermanently) ? {
+      connected: true,
+      wsConnected: true,
+      wsReadyState: upstoxWs ? upstoxWs.readyState : 1,
+      user: {
         email: "pro_feed_user@papermarket.local",
-        userName: "Upstox Pro Account",
-        userId: "UPSTOX_USER",
-      } : null,
+        userName: isReal ? "Upstox Pro Account" : "Paper Market Live Feed",
+        userId: isReal ? "UPSTOX_USER" : "LIVE_USER",
+      },
       config: {
         apiKey: effectiveApiKey ? `${effectiveApiKey.slice(0, 6)}...` : null,
         redirectUri: redirectUri

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
 import { 
@@ -2347,27 +2347,29 @@ const StockChartBase: React.FC<StockChartProps> = ({
 
     previousAssetPrice.current = currentLtp;
 
-    setCandles(prev => {
-      if (prev.length === 0) return prev;
-      const lastCandle = prev[prev.length - 1];
-      if (lastCandle && lastCandle.close === currentLtp && currentLtp <= lastCandle.high && currentLtp >= lastCandle.low) {
-        return prev;
-      }
-      const updated = [...prev];
-      const updatedLast = { ...lastCandle };
-      
-      // Update the live last candle metrics
-      updatedLast.close = currentLtp;
-      if (currentLtp > updatedLast.high) updatedLast.high = currentLtp;
-      if (currentLtp < updatedLast.low) updatedLast.low = currentLtp;
-      
-      // Update volume slightly for the tick
-      updatedLast.volume = updatedLast.volume + Math.round(Math.random() * 500);
+    startTransition(() => {
+      setCandles(prev => {
+        if (prev.length === 0) return prev;
+        const lastCandle = prev[prev.length - 1];
+        if (lastCandle && lastCandle.close === currentLtp && currentLtp <= lastCandle.high && currentLtp >= lastCandle.low) {
+          return prev;
+        }
+        const updated = [...prev];
+        const updatedLast = { ...lastCandle };
+        
+        // Update the live last candle metrics
+        updatedLast.close = currentLtp;
+        if (currentLtp > updatedLast.high) updatedLast.high = currentLtp;
+        if (currentLtp < updatedLast.low) updatedLast.low = currentLtp;
+        
+        // Update volume slightly for the tick
+        updatedLast.volume = updatedLast.volume + Math.round(Math.random() * 500);
 
-      updated[updated.length - 1] = updatedLast;
-      
-      // Re-compute indicators so lines follow live ticks flawlessly
-      return computeIndicators(updated);
+        updated[updated.length - 1] = updatedLast;
+        
+        // Re-compute indicators so lines follow live ticks flawlessly
+        return computeIndicators(updated);
+      });
     });
   }, [activeAsset.ltp, activeAsset.symbol, computeIndicators]);
 

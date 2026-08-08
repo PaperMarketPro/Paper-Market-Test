@@ -25,18 +25,24 @@ function MainAppCoordinator() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
 
+  const handleNavigate = useCallback((tab: string) => {
+    React.startTransition(() => {
+      setCurrentTab(tab);
+    });
+  }, []);
+
   React.useEffect(() => {
     const handleNavigateEvent = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail) {
-        setCurrentTab(customEvent.detail);
+        handleNavigate(customEvent.detail);
       }
     };
     window.addEventListener('navigate_tab', handleNavigateEvent);
     return () => {
       window.removeEventListener('navigate_tab', handleNavigateEvent);
     };
-  }, []);
+  }, [handleNavigate]);
 
   const handleJournalShortcut = useCallback((pos: Position) => {
     setJournalPosition(pos);
@@ -78,15 +84,15 @@ function MainAppCoordinator() {
   }
 
   return (
-    <Navigation currentTab={currentTab} onNavigate={setCurrentTab}>
+    <Navigation currentTab={currentTab} onNavigate={handleNavigate}>
       {currentTab === 'dashboard' && (
-        <Dashboard onNavigate={setCurrentTab} />
+        <Dashboard onNavigate={handleNavigate} />
       )}
       {currentTab === 'equity' && (
-        <Markets mode="equity" onNavigate={setCurrentTab} />
+        <Markets mode="equity" onNavigate={handleNavigate} />
       )}
       {currentTab === 'fno' && (
-        <Markets mode="fno" onNavigate={setCurrentTab} />
+        <Markets mode="fno" onNavigate={handleNavigate} />
       )}
       {currentTab === 'trade' && (
         <TradeScreen onSuccess={handleTradeSuccess} />
