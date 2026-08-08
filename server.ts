@@ -1684,18 +1684,21 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 let isTokenLoading = false;
+let hasAttemptedTokenLoad = false;
 async function ensureUpstoxTokenLoaded() {
-  if (isTokenLoading || upstoxUserDisconnected) return;
+  if (hasAttemptedTokenLoad || isTokenLoading || upstoxUserDisconnected) return;
 
   const envToken = process.env.UPSTOX_ACCESS_TOKEN || process.env.UPSTOX_TOKEN;
   if (envToken && !isSimulatedToken(envToken)) {
     upstoxAccessToken = envToken.trim();
     upstoxLinkedPermanently = true;
+    hasAttemptedTokenLoad = true;
     return;
   }
 
   if (!upstoxAccessToken || isSimulatedToken(upstoxAccessToken)) {
     isTokenLoading = true;
+    hasAttemptedTokenLoad = true;
     try {
       const saved = await loadUpstoxTokenFromFirestore();
       if (saved && saved.accessToken && !isSimulatedToken(saved.accessToken)) {

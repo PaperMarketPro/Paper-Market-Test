@@ -23,9 +23,16 @@ import { Position } from './types';
 function MainAppCoordinator() {
   const { user, isAuthLoading, logoutUser } = useApp();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['dashboard']));
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
 
   const handleNavigate = useCallback((tab: string) => {
+    setVisitedTabs(prev => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
     React.startTransition(() => {
       setCurrentTab(tab);
     });
@@ -46,8 +53,8 @@ function MainAppCoordinator() {
 
   const handleJournalShortcut = useCallback((pos: Position) => {
     setJournalPosition(pos);
-    setCurrentTab('journal');
-  }, []);
+    handleNavigate('journal');
+  }, [handleNavigate]);
 
   const handleClearPreselected = useCallback(() => {
     setJournalPosition(null);
@@ -59,12 +66,12 @@ function MainAppCoordinator() {
     } catch (err) {
       console.error("Error logging out:", err);
     }
-    setCurrentTab('dashboard');
-  }, [logoutUser]);
+    handleNavigate('dashboard');
+  }, [logoutUser, handleNavigate]);
 
   const handleTradeSuccess = useCallback(() => {
-    setCurrentTab('positions');
-  }, []);
+    handleNavigate('positions');
+  }, [handleNavigate]);
 
   if (isAuthLoading) {
     return (
@@ -85,47 +92,83 @@ function MainAppCoordinator() {
 
   return (
     <Navigation currentTab={currentTab} onNavigate={handleNavigate}>
-      {currentTab === 'dashboard' && (
+      <div style={{ display: currentTab === 'dashboard' ? 'block' : 'none' }}>
         <Dashboard onNavigate={handleNavigate} />
+      </div>
+
+      {visitedTabs.has('equity') && (
+        <div style={{ display: currentTab === 'equity' ? 'block' : 'none' }}>
+          <Markets mode="equity" onNavigate={handleNavigate} />
+        </div>
       )}
-      {currentTab === 'equity' && (
-        <Markets mode="equity" onNavigate={handleNavigate} />
+
+      {visitedTabs.has('fno') && (
+        <div style={{ display: currentTab === 'fno' ? 'block' : 'none' }}>
+          <Markets mode="fno" onNavigate={handleNavigate} />
+        </div>
       )}
-      {currentTab === 'fno' && (
-        <Markets mode="fno" onNavigate={handleNavigate} />
+
+      {visitedTabs.has('trade') && (
+        <div style={{ display: currentTab === 'trade' ? 'block' : 'none' }}>
+          <TradeScreen onSuccess={handleTradeSuccess} />
+        </div>
       )}
-      {currentTab === 'trade' && (
-        <TradeScreen onSuccess={handleTradeSuccess} />
+
+      {visitedTabs.has('positions') && (
+        <div style={{ display: currentTab === 'positions' ? 'block' : 'none' }}>
+          <PositionsList onJournalShortcut={handleJournalShortcut} />
+        </div>
       )}
-      {currentTab === 'positions' && (
-        <PositionsList onJournalShortcut={handleJournalShortcut} />
+
+      {visitedTabs.has('analytics') && (
+        <div style={{ display: currentTab === 'analytics' ? 'block' : 'none' }}>
+          <Analytics />
+        </div>
       )}
-      {currentTab === 'analytics' && (
-        <Analytics />
+
+      {visitedTabs.has('journal') && (
+        <div style={{ display: currentTab === 'journal' ? 'block' : 'none' }}>
+          <Journal
+            preselectedPosition={journalPosition}
+            onClearPreselected={handleClearPreselected}
+          />
+        </div>
       )}
-      {currentTab === 'journal' && (
-        <Journal
-          preselectedPosition={journalPosition}
-          onClearPreselected={handleClearPreselected}
-        />
+
+      {visitedTabs.has('ai-coach') && (
+        <div style={{ display: currentTab === 'ai-coach' ? 'block' : 'none' }}>
+          <AICoach />
+        </div>
       )}
-      {currentTab === 'ai-coach' && (
-        <AICoach />
+
+      {visitedTabs.has('strategy') && (
+        <div style={{ display: currentTab === 'strategy' ? 'block' : 'none' }}>
+          <StrategyBuilder />
+        </div>
       )}
-      {currentTab === 'strategy' && (
-        <StrategyBuilder />
+
+      {visitedTabs.has('risk-management') && (
+        <div style={{ display: currentTab === 'risk-management' ? 'block' : 'none' }}>
+          <RiskManagement />
+        </div>
       )}
-      {currentTab === 'risk-management' && (
-        <RiskManagement />
+
+      {visitedTabs.has('academy') && (
+        <div style={{ display: currentTab === 'academy' ? 'block' : 'none' }}>
+          <Academy />
+        </div>
       )}
-      {currentTab === 'academy' && (
-        <Academy />
+
+      {visitedTabs.has('profile') && (
+        <div style={{ display: currentTab === 'profile' ? 'block' : 'none' }}>
+          <Profile onLogout={handleLogout} initialSubTab="stats" />
+        </div>
       )}
-      {currentTab === 'profile' && (
-        <Profile onLogout={handleLogout} initialSubTab="stats" />
-      )}
-      {currentTab === 'settings' && (
-        <Profile onLogout={handleLogout} initialSubTab="settings" />
+
+      {visitedTabs.has('settings') && (
+        <div style={{ display: currentTab === 'settings' ? 'block' : 'none' }}>
+          <Profile onLogout={handleLogout} initialSubTab="settings" />
+        </div>
       )}
     </Navigation>
   );
