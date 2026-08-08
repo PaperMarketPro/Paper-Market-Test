@@ -181,7 +181,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Indian Market Hours Checking States
   const [enforceMarketHours, setEnforceMarketHours] = useState<boolean>(() => {
     const saved = localStorage.getItem('enforceMarketHours');
-    return saved === null ? true : saved === 'true';
+    return saved === null ? false : saved === 'true';
   });
 
   // SEBI Mandatory F&O Risk Disclosure State (per-session regulatory check)
@@ -986,9 +986,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           let nextHigh = inst.high;
           let nextLow = inst.low;
 
-          if (tick.isReal && tick.ltp !== undefined) {
+          if (tick.ltp !== undefined && tick.ltp > 0) {
             let targetLtp = tick.ltp;
-            if (Math.abs(targetLtp - inst.ltp) < 0.01) {
+            if (tick.isSim || Math.abs(targetLtp - inst.ltp) < 0.01) {
               const microNoise = (Math.random() - 0.5) * (targetLtp * 0.0006);
               targetLtp = Number((targetLtp + microNoise).toFixed(2));
             }
@@ -1186,12 +1186,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const now = Date.now();
         instrumentsRef.current.forEach(inst => {
           const lastLiveTime = lastLiveTicksRef.current[inst.symbol] || 0;
-          if (now - lastLiveTime > 6000) {
+          if (now - lastLiveTime > 2000) {
             pendingTicksRef.current[inst.symbol] = { isSim: true };
           }
         });
       }, 1000);
     };
+
+    // Always ensure fallback tick generator is active for immediate smooth price movement
+    startFallbackSimulation();
 
     const MAX_WS_RECONNECT_ATTEMPTS = 5;
 

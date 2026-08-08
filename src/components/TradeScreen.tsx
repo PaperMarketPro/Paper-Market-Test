@@ -14,7 +14,8 @@ interface TradeScreenProps {
 }
 
 export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }) => {
-  const { selectedAsset, addOrder, user, isMarketOpen } = useApp();
+  const { selectedAsset, addOrder, user, isMarketOpen, enforceMarketHours } = useApp();
+  const isTradingBlocked = enforceMarketHours && !isMarketOpen;
   
   // Ticket States
   const [direction, setDirection] = useState<'Buy' | 'Sell'>('Buy');
@@ -526,24 +527,24 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
             </div>
           </div>
 
-          {!isMarketOpen && (
+          {isTradingBlocked && (
             <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3.5 text-xs text-amber-800 dark:text-amber-200/90 leading-normal font-sans font-medium">
-              ⚠️ Indian Markets (NSE/BSE) are currently <strong>CLOSED</strong>. Transactions are strictly locked. Trading hours are Monday to Friday, 9:15 AM - 3:30 PM IST.
+              ⚠️ Strict Market Hours Enforced: Indian Markets (NSE/BSE) are currently <strong>CLOSED</strong>. You can disable 'Enforce Market Hours' in Settings to practice paper trading 24/7.
             </div>
           )}
 
           {/* Execute CTA Button */}
           <button
             type="submit"
-            disabled={!isMarketOpen}
+            disabled={isTradingBlocked}
             className={`w-full text-white font-extrabold py-3.5 rounded-xl text-sm transition tracking-wide flex items-center justify-center gap-1.5 duration-200 ${
-              !isMarketOpen
+              isTradingBlocked
                 ? 'bg-slate-300 dark:bg-slate-800/60 text-slate-500 dark:text-gray-500 cursor-not-allowed border border-slate-200 dark:border-white/5'
                 : (direction === 'Buy' ? 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer active:scale-[0.99]' : 'bg-rose-600 hover:bg-rose-700 cursor-pointer active:scale-[0.99]')
             }`}
             style={{ touchAction: 'manipulation' }}
           >
-            {isMarketOpen ? (
+            {!isTradingBlocked ? (
               <>
                 CONFIRM SIMULATED {direction.toUpperCase()} <Sparkles className="w-4 h-4" />
               </>

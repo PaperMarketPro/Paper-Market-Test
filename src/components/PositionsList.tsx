@@ -14,7 +14,8 @@ interface PositionsListProps {
 }
 
 export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJournalShortcut }) => {
-  const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen } = useApp();
+  const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen, enforceMarketHours } = useApp();
+  const isTradingBlocked = enforceMarketHours && !isMarketOpen;
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'orders'>('open');
 
   // Filter lists
@@ -189,27 +190,27 @@ export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJourn
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => handleExit(pos.id)}
-                        disabled={!isMarketOpen}
+                        disabled={isTradingBlocked}
                         className={`flex-1 font-bold py-2.5 rounded-xl text-xs transition duration-200 ${
-                          !isMarketOpen
+                          isTradingBlocked
                             ? 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-gray-500 cursor-not-allowed border border-slate-200 dark:border-white/5'
                             : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 cursor-pointer active:scale-[0.98]'
                         }`}
                         style={{ touchAction: 'manipulation' }}
-                        title={!isMarketOpen ? 'Indian markets are currently closed. Exiting positions is disabled.' : 'Exit position at market rate'}
+                        title={isTradingBlocked ? 'Indian markets are currently closed. Exiting positions is disabled.' : 'Exit position at market rate'}
                       >
-                        {isMarketOpen ? 'Exit Position (Market)' : 'Markets Closed'}
+                        {!isTradingBlocked ? 'Exit Position (Market)' : 'Markets Closed'}
                       </button>
                       <button
                         onClick={() => handleEditRiskStart(pos)}
-                        disabled={!isMarketOpen}
+                        disabled={isTradingBlocked}
                         className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-white/5 transition flex items-center gap-1 ${
-                          !isMarketOpen
+                          isTradingBlocked
                             ? 'bg-slate-100 dark:bg-slate-800/20 text-slate-400 dark:text-gray-600 cursor-not-allowed'
                             : 'bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white cursor-pointer active:scale-[0.98]'
                         }`}
                         style={{ touchAction: 'manipulation' }}
-                        title={!isMarketOpen ? 'Markets closed' : 'Modify Stop Loss'}
+                        title={isTradingBlocked ? 'Markets closed' : 'Modify Stop Loss'}
                       >
                         <Edit3 className="w-3.5 h-3.5" /> Modify S/L
                       </button>

@@ -1666,14 +1666,36 @@ function getLLMParameters(llmConfig: any, cognitiveRules: any, defaultModel: str
 export const app = express();
 app.disable("x-powered-by");
 
-// Harden HTTP Security Headers
+// Harden HTTP Security Headers and handle Vercel Serverless Function routing
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Upstox-Access-Token, X-Requested-With");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
   
-  // Normalize req.url on Vercel serverless functions if /api prefix was stripped
+  // Normalize req.url on Vercel serverless functions when rewrites forward to /api/index
+  const forwardedUrl = (req.headers["x-forwarded-url"] as string) || (req.headers["x-url"] as string) || (req as any).originalUrl;
+  if (forwardedUrl && typeof forwardedUrl === "string") {
+    try {
+      const parsed = new URL(forwardedUrl, "http://localhost");
+      if (parsed.pathname && parsed.pathname.startsWith("/api") && parsed.pathname !== "/api/index") {
+        req.url = parsed.pathname + parsed.search;
+      }
+    } catch (_) {}
+  } else if (req.headers["x-matched-path"] && typeof req.headers["x-matched-path"] === "string") {
+    const matched = req.headers["x-matched-path"];
+    if (matched.startsWith("/api") && matched !== "/api/index") {
+      req.url = matched + (req.url.includes("?") ? "?" + req.url.split("?")[1] : "");
+    }
+  }
+
   if (req.url && !req.url.startsWith("/api") && req.url.startsWith("/")) {
     req.url = "/api" + req.url;
   }
