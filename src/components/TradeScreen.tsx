@@ -117,30 +117,25 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
 
   const handleOrderSubmission = React.useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsLoading(false);
     setFeedback(null);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      const res = addOrder({
-        symbol: selectedAsset.symbol,
-        direction,
-        type: orderType,
-        quantity: qty,
-        price: orderType !== 'Market' ? parseFloat(limitPrice) : undefined,
-        triggerPrice: orderType === 'Stop-Loss' ? parseFloat(triggerPrice) : undefined,
-        stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
-        target: target ? parseFloat(target) : undefined
-      });
+    const res = addOrder({
+      symbol: selectedAsset.symbol,
+      direction,
+      type: orderType,
+      quantity: qty,
+      price: orderType !== 'Market' ? parseFloat(limitPrice) : undefined,
+      triggerPrice: orderType === 'Stop-Loss' ? parseFloat(triggerPrice) : undefined,
+      stopLoss: stopLoss ? parseFloat(stopLoss) : undefined,
+      target: target ? parseFloat(target) : undefined
+    });
 
-      setFeedback(res);
+    setFeedback(res);
 
-      if (res.success) {
-        setTimeout(() => {
-          onSuccess();
-        }, 1500);
-      }
-    }, 1000);
+    if (res.success) {
+      onSuccess();
+    }
   }, [addOrder, selectedAsset.symbol, direction, orderType, qty, limitPrice, triggerPrice, stopLoss, target, onSuccess]);
 
   // Mock TradingView-style candlestick coordinates for SVG
