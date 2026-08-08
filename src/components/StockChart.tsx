@@ -2048,11 +2048,11 @@ const StockChartBase: React.FC<StockChartProps> = ({
   }, [timeframe]);
 
   // Technical Indicators Formulas: EMA, SMA, Bollinger Bands, EMA 50/200, VWAP, Supertrend
-  const computeIndicators = useCallback((rawCandles: Candle[]): Candle[] => {
+  const computeIndicators = useCallback((rawCandles: Candle[], inPlace = false): Candle[] => {
     if (rawCandles.length === 0) return [];
     
     // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
-    const data = rawCandles.map(c => ({ ...c }));
+    const data = inPlace ? rawCandles : rawCandles.map(c => ({ ...c }));
 
     // 1. EMA (Period dynamic)
     const k = 2 / (emaPeriod + 1);
@@ -2404,7 +2404,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
         updated[updated.length - 1] = updatedLast;
         
         // Re-compute indicators so lines follow live ticks flawlessly
-        return computeIndicators(updated);
+        return computeIndicators(updated, true);
       });
     });
   }, [activeAsset.ltp, activeAsset.symbol, computeIndicators]);

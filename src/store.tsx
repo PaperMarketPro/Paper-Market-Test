@@ -957,7 +957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let reconnectAttempts = 0;
     let lastMsgTime = Date.now();
 
-    // Process pending ticks every 1800ms to keep UI snappy, responsive and smooth
+    // Process pending ticks every 100ms to keep UI snappy, responsive and smooth
     batchInterval = setInterval(() => {
       const pendingMap = pendingTicksRef.current;
       const keys = Object.keys(pendingMap);
@@ -1186,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? nextPositions : prevPositions;
         });
       });
-    }, 1800);
+    }, 100);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
