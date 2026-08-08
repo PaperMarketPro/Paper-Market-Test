@@ -181,7 +181,8 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
   const spotPrice = selectedIndexInstrument ? selectedIndexInstrument.ltp : 24325.85;
 
   const currentOptionChain = React.useMemo(() => {
-    const roundedSpot = Math.round(spotPrice * 2) / 2; // Round to nearest 0.50 to avoid micro tick churn
+    // Round spot price to nearest 5 points to prevent unnecessary recalculation on micro-tick churn
+    const roundedSpot = Math.round(spotPrice / 5) * 5;
     return getDynamicOptionChain(selectedOptionIndex, roundedSpot);
   }, [selectedOptionIndex, spotPrice]);
 

@@ -26,7 +26,9 @@ function MainAppCoordinator() {
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
 
   const handleNavigate = useCallback((tab: string) => {
-    setCurrentTab(tab);
+    React.startTransition(() => {
+      setCurrentTab(tab);
+    });
   }, []);
 
   React.useEffect(() => {

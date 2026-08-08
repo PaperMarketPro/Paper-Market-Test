@@ -290,9 +290,6 @@ export const Academy: React.FC = React.memo(() => {
                             </span>
                           )}
                         </div>
-                        {lesson.titleHindi && (
-                          <p className="text-xs text-sky-400/90">{lesson.titleHindi}</p>
-                        )}
                         <span className="text-[11px] text-gray-400 font-mono block">{lesson.duration}</span>
                       </div>
                     </div>
@@ -462,13 +459,10 @@ export const Academy: React.FC = React.memo(() => {
                       <h3 className="text-base font-bold text-white leading-tight group-hover:text-sky-400 transition">
                         {course.title}
                       </h3>
-                      {course.titleHindi && (
-                        <p className="text-xs text-sky-400/90 font-medium mt-0.5">{course.titleHindi}</p>
-                      )}
                     </div>
 
                     <p className="text-xs text-gray-400 leading-relaxed font-sans line-clamp-2">
-                      {course.descriptionHindi || course.description}
+                      {course.description}
                     </p>
                   </div>
 
@@ -529,9 +523,6 @@ export const Academy: React.FC = React.memo(() => {
                 <div>
                   <span className="text-[10px] font-mono text-sky-400 uppercase tracking-widest block">{selectedCourse.title}</span>
                   <h3 className="text-base sm:text-lg font-bold text-white mt-0.5">{activeLesson.title}</h3>
-                  {activeLesson.titleHindi && (
-                    <p className="text-xs text-sky-300">{activeLesson.titleHindi}</p>
-                  )}
                 </div>
                 <button
                   onClick={() => setActiveLesson(null)}
