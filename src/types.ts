@@ -176,24 +176,40 @@ export interface Strategy {
   backtestAudit?: string;
 }
 
+export interface VideoTimestamp {
+  time: string; // e.g. "02:15"
+  seconds: number;
+  title: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
+  titleHindi?: string;
   duration: string;
   isCompleted: boolean;
   isPremium: boolean;
   content: string;
+  contentHindi?: string;
   videoUrl?: string;
+  youtubeId?: string;
+  timestamps?: VideoTimestamp[];
+  keyTakeaways?: string[];
 }
 
 export interface Course {
   id: string;
   title: string;
+  titleHindi?: string;
   description: string;
+  descriptionHindi?: string;
+  language?: 'Hindi' | 'English' | 'Hinglish';
+  category?: 'Basics' | 'Options' | 'Price Action' | 'Psychology';
   level: 'Beginner' | 'Intermediate' | 'Advanced';
   duration: string;
   progress: number; // percentage
   isPremium: boolean;
+  thumbnailUrl?: string;
   lessons: Lesson[];
   quiz?: {
     questions: {
