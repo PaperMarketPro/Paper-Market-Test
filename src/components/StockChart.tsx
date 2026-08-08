@@ -506,7 +506,8 @@ export const TradingViewChart: React.FC<{
   showSupertrend: boolean;
   showVWAP: boolean;
   showEma50_200: boolean;
-}> = ({
+  theme?: 'light' | 'dark';
+}> = React.memo(({
   symbol,
   timeframe,
   candles,
@@ -523,7 +524,8 @@ export const TradingViewChart: React.FC<{
   bbPeriod,
   showSupertrend,
   showVWAP,
-  showEma50_200
+  showEma50_200,
+  theme = 'dark'
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
@@ -539,6 +541,7 @@ export const TradingViewChart: React.FC<{
   const bbUpperSeriesRef = useRef<any>(null);
   const bbLowerSeriesRef = useRef<any>(null);
   const bbBasisSeriesRef = useRef<any>(null);
+  const lastCandlesRef = useRef<any[]>([]);
 
   // Advanced TradingView States
   const [activeTool, setActiveTool] = useState<
@@ -552,7 +555,7 @@ export const TradingViewChart: React.FC<{
   const [showMACD, setShowMACD] = useState(false);
   const [chartTheme, setChartTheme] = useState<'charcoal' | 'forest' | 'cyberpunk' | 'light'>('charcoal');
 
-  const { theme } = useApp();
+  
 
   // Synchronize chart theme with global app theme automatically
   useEffect(() => {
@@ -1494,6 +1497,39 @@ export const TradingViewChart: React.FC<{
     if (!chartRef.current || candles.length === 0) return;
     const enrichedCandles = enrichCandlesWithTimestamps(candles, timeframe);
 
+    const isTickUpdate = 
+      lastCandlesRef.current.length === candles.length && 
+      lastCandlesRef.current.length > 0 &&
+      lastCandlesRef.current[0].time === candles[0].time;
+    
+    lastCandlesRef.current = candles;
+
+    if (isTickUpdate) {
+       const last = enrichedCandles[enrichedCandles.length - 1];
+       const t = last.timestamp as UTCTimestamp;
+       
+       if (chartType === 'candle' && candlestickSeriesRef.current) {
+         candlestickSeriesRef.current.update({ time: t, open: last.open, high: last.high, low: last.low, close: last.close });
+       } else if (areaSeriesRef.current) {
+         areaSeriesRef.current.update({ time: t, value: last.close });
+       }
+       if (volumeSeriesRef.current) {
+         volumeSeriesRef.current.update({ time: t, value: last.volume, color: last.close >= last.open ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' });
+       }
+       if (emaSeriesRef.current && last.ema !== undefined) {
+         emaSeriesRef.current.update({ time: t, value: last.ema });
+       }
+       if (smaSeriesRef.current && last.sma !== undefined) {
+         smaSeriesRef.current.update({ time: t, value: last.sma });
+       }
+       if (bbUpperSeriesRef.current && bbLowerSeriesRef.current && bbBasisSeriesRef.current && last.bbUpper !== undefined) {
+         bbUpperSeriesRef.current.update({ time: t, value: last.bbUpper });
+         bbLowerSeriesRef.current.update({ time: t, value: last.bbLower! });
+         bbBasisSeriesRef.current.update({ time: t, value: last.bbBasis! });
+       }
+       return;
+    }
+
     if (chartType === 'candle' && candlestickSeriesRef.current) {
       candlestickSeriesRef.current.setData(enrichedCandles.map(c => ({
         time: c.timestamp as UTCTimestamp,
@@ -1959,14 +1995,14 @@ export const TradingViewChart: React.FC<{
       )}
     </div>
   );
-};
+});
 
 const StockChartBase: React.FC<StockChartProps> = ({ 
   asset, 
   height = 240, 
   showControls = true 
 }) => {
-  const { selectedAsset, instruments } = useApp();
+  const { selectedAsset, instruments, theme } = useApp();
   
   // Use explicitly passed asset, or fallback to selectedAsset, or first instrument
   const activeAsset = asset || selectedAsset || instruments[0];
@@ -2552,7 +2588,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
         {/* Main Chart viewport container */}
         <div className={`col-span-1 ${showControls ? 'xl:col-span-3' : 'xl:col-span-4'} relative`} style={{ height: `${height}px` }}>
-          <TradingViewChart 
+          <TradingViewChart theme={theme} 
             symbol={activeAsset.symbol} 
             timeframe={timeframe} 
             candles={candles}
@@ -2818,7 +2854,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
           
           {/* Main Fullscreen workspace */}
           <div className="flex-1 min-h-0 bg-[#090c13] rounded-2xl border border-white/5 overflow-hidden">
-            <TradingViewChart 
+            <TradingViewChart theme={theme} 
               symbol={activeAsset.symbol} 
               timeframe={timeframe} 
               candles={candles}
