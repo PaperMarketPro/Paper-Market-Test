@@ -30,7 +30,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     setActiveSubTab(prev => prev === initialSubTab ? prev : initialSubTab);
   }, [initialSubTab]);
 
-  // Upstox Manual Access Token Connection state
+  // Market Feed Access Token Connection state
   const [manualToken, setManualToken] = useState('');
   const [isConnectingToken, setIsConnectingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
@@ -43,14 +43,14 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     setTokenError(null);
     setTokenSuccess(null);
     if (!manualToken.trim()) {
-      setTokenError("Please enter or paste your Analytics Access Token.");
+      setTokenError("Please enter or paste your Access Token.");
       return;
     }
     setIsConnectingToken(true);
     try {
       const res = await connectUpstoxManually(manualToken.trim());
       if (res.success) {
-        setTokenSuccess("Successfully connected to live market feed using Analytics Access Token!");
+        setTokenSuccess("Successfully connected to live market feed!");
         setManualToken('');
       } else {
         setTokenError(res.error || "Failed to connect live feed using Access Token.");
