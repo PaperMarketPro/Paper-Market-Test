@@ -27,7 +27,8 @@ import {
   Languages,
   RotateCcw,
   Volume2,
-  Check
+  Check,
+  ExternalLink
 } from 'lucide-react';
 
 export const Academy: React.FC = React.memo(() => {
@@ -36,7 +37,7 @@ export const Academy: React.FC = React.memo(() => {
   // Selection states
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-  const [lessonLang, setLessonLang] = useState<'Hindi' | 'English'>('Hindi');
+  const [lessonLang, setLessonLang] = useState<'Hindi' | 'English'>('English');
   
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -546,6 +547,21 @@ export const Academy: React.FC = React.memo(() => {
               {/* Video Player Frame */}
               {activeLesson.youtubeId ? (
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2 bg-[#0b0e14] px-3 py-2 rounded-xl border border-white/5 text-xs">
+                    <span className="text-gray-400 font-mono text-[11px] flex items-center gap-1.5">
+                      <Video className="w-3.5 h-3.5 text-red-500" /> Embedded HD Video
+                    </span>
+                    <a
+                      href={activeLesson.videoUrl || `https://www.youtube.com/watch?v=${activeLesson.youtubeId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 border border-red-500/30"
+                    >
+                      <span>Watch directly on YouTube</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
                   <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-xl">
                     <iframe
                       ref={iframeRef}
@@ -561,7 +577,7 @@ export const Academy: React.FC = React.memo(() => {
                   {activeLesson.timestamps && activeLesson.timestamps.length > 0 && (
                     <div className="space-y-1.5 bg-[#0b0e14] p-3 rounded-xl border border-white/5">
                       <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider block flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-sky-400" /> Key Chapter Timestamps (वीडियो चैप्टर)
+                        <Clock className="w-3 h-3 text-sky-400" /> Key Chapter Timestamps
                       </span>
                       <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1">
                         {activeLesson.timestamps.map((ts, i) => (
@@ -594,16 +610,16 @@ export const Academy: React.FC = React.memo(() => {
                 {activeLesson.contentHindi && (
                   <div className="flex items-center bg-[#0b0e14] p-1 rounded-lg border border-white/10 text-xs">
                     <button
-                      onClick={() => setLessonLang('Hindi')}
-                      className={`px-2.5 py-1 rounded-md font-medium transition ${lessonLang === 'Hindi' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                      🇮🇳 हिंदी नोट्स
-                    </button>
-                    <button
                       onClick={() => setLessonLang('English')}
                       className={`px-2.5 py-1 rounded-md font-medium transition ${lessonLang === 'English' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
                     >
-                      🇬🇧 English
+                      🇬🇧 English Notes
+                    </button>
+                    <button
+                      onClick={() => setLessonLang('Hindi')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition ${lessonLang === 'Hindi' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                      🇮🇳 Hindi Notes
                     </button>
                   </div>
                 )}
@@ -613,7 +629,7 @@ export const Academy: React.FC = React.memo(() => {
               {activeLesson.keyTakeaways && activeLesson.keyTakeaways.length > 0 && (
                 <div className="bg-sky-500/5 p-3.5 rounded-xl border border-sky-500/15 space-y-2">
                   <span className="text-[10px] font-mono text-sky-400 uppercase tracking-widest font-bold block">
-                     मुख्य बिंदु (Key Takeaways)
+                    Key Takeaways
                   </span>
                   <ul className="space-y-1.5 text-xs text-gray-200">
                     {activeLesson.keyTakeaways.map((point, pIdx) => (

@@ -1933,15 +1933,15 @@ export const INITIAL_AI_INSIGHTS: AIInsight[] = [
   }
 ];
 
-// Academy Courses - Comprehensive Video Masterclasses in Hindi & English
+// Academy Courses - Comprehensive Video Masterclasses
 export const ACADEMY_COURSES: Course[] = [
   {
     id: 'crs-1',
-    title: 'Stock Market Basics (शेयर बाज़ार मास्टरक्लास)',
-    titleHindi: 'शेयर बाज़ार बेसिक मास्टरक्लास',
-    description: 'Learn foundational stock market concepts in Hindi — NSE/BSE mechanics, candlestick charts, order types, and support-resistance levels with video tutorials.',
-    descriptionHindi: 'हिंदी में सीखें शेयर बाज़ार की बुनियादी बातें - NSE/BSE कैसे काम करता है, कैंडलस्टिक चार्ट्स पढ़ना, और पहला ट्रेड निष्पादित करना।',
-    language: 'Hindi',
+    title: 'Stock Market Basics Masterclass',
+    titleHindi: 'Stock Market Basics Masterclass',
+    description: 'Learn foundational stock market concepts including NSE/BSE exchange mechanics, reading candlestick charts, order execution types, and identifying key support-resistance levels.',
+    descriptionHindi: 'Learn foundational stock market concepts including NSE/BSE exchange mechanics, reading candlestick charts, order execution types, and identifying key support-resistance levels.',
+    language: 'English',
     category: 'Basics',
     level: 'Beginner',
     duration: '1 hr 15 mins',
@@ -1951,35 +1951,35 @@ export const ACADEMY_COURSES: Course[] = [
     lessons: [
       {
         id: 'l-101',
-        title: 'What is Stock Market & How NSE/BSE Works? (शेयर मार्केट क्या है?)',
-        titleHindi: 'शेयर मार्केट क्या है और NSE/BSE कैसे काम करता है?',
+        title: 'What is Stock Market & How NSE/BSE Exchanges Work',
+        titleHindi: 'What is Stock Market & How NSE/BSE Exchanges Work',
         duration: '12 mins',
         isCompleted: true,
         isPremium: false,
         youtubeId: 'Xn7KewMRE7U',
         videoUrl: 'https://www.youtube.com/watch?v=Xn7KewMRE7U',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'परिचय (Introduction to Stock Markets)' },
-          { time: '02:30', seconds: 150, title: 'NSE और BSE क्या हैं?' },
-          { time: '06:15', seconds: 375, title: 'शेयर की कीमत ऊपर-नीचे क्यों होती है? (Supply & Demand)' },
-          { time: '09:40', seconds: 580, title: 'डीमैट अकाउंट और ब्रोकर का रोल (Zerodha, Upstox)' }
+          { time: '00:00', seconds: 0, title: 'Introduction to Stock Markets' },
+          { time: '02:30', seconds: 150, title: 'Role of NSE and BSE Exchanges' },
+          { time: '06:15', seconds: 375, title: 'Why Stock Prices Fluctuate (Supply & Demand)' },
+          { time: '09:40', seconds: 580, title: 'Role of Demat Account & Stock Brokers' }
         ],
         keyTakeaways: [
-          'शेयर बाज़ार में कंपनी के हिस्से खरीदकर आप उसके आंशिक मालिक बनते हैं।',
-          'सप्लाई और डिमांड (मांग और आपूर्ति) ही शेयर की कीमत तय करती है।',
-          'NSE (National Stock Exchange) और BSE (Bombay Stock Exchange) भारत के दो मुख्य एक्सचेंज हैं।',
-          'SEBI (Securities and Exchange Board of India) बाज़ार की निगरानी करता है।'
+          'Buying stock gives you fractional ownership in a publicly traded company.',
+          'Stock prices move based on the balance of supply (sellers) and demand (buyers).',
+          'NSE (National Stock Exchange) and BSE (Bombay Stock Exchange) are India’s primary exchanges.',
+          'SEBI regulates market operations to protect retail investors.'
         ],
-        contentHindi: `### 1. शेयर मार्केट का परिचय
-शेयर मार्केट (Share Market) वह जगह है जहाँ कंपनियों के शेयर्स (Shares) खरीदे और बेचे जाते हैं। जब आप किसी कंपनी का शेयर खरीदते हैं, तो आप उस कंपनी के कुछ हिस्से के मालिक बन जाते हैं।
+        contentHindi: `### 1. Introduction to Stock Markets
+A stock market is an exchange where investors buy and sell shares of publicly traded companies.
 
-### 2. शेयर की कीमत कैसे बदलती है?
-- **डिमांड (मांग) > सप्लाई (आपूर्ति)**: जब ज्यादा लोग शेयर खरीदना चाहते हैं, तो कीमत बढ़ती है (Bullish)।
-- **सप्लाई > डिमांड**: जब ज्यादा लोग शेयर बेचना चाहते हैं, तो कीमत गिरती है (Bearish)।
+### 2. Supply & Demand Mechanics
+- High Buy Orders (Demand): Price surges upward (Bullish).
+- High Sell Orders (Supply): Price drops downward (Bearish).
 
-### 3. भारत के प्रमुख स्टॉक एक्सचेंज
-1. **NSE (National Stock Exchange)**: भारत का सबसे बड़ा और आधुनिक इलेक्ट्रॉनिक एक्सचेंज (NIFTY 50)।
-2. **BSE (Bombay Stock Exchange)**: एशिया का सबसे पुराना एक्सचेंज (SENSEX)।`,
+### 3. Key Indian Exchanges
+1. NSE (National Stock Exchange): Benchmark index is NIFTY 50.
+2. BSE (Bombay Stock Exchange): Benchmark index is SENSEX.`,
         content: `### 1. What is Stock Market?
 A stock market is an exchange where investors buy and sell shares of publicly traded companies.
 
@@ -1989,88 +1989,88 @@ A stock market is an exchange where investors buy and sell shares of publicly tr
       },
       {
         id: 'l-102',
-        title: 'Mastering Candlestick Charts (कैंडलस्टिक चार्ट्स समझना सीखें)',
-        titleHindi: 'कैंडलस्टिक चार्ट्स और ग्रीन/रेड कैंडल का रहस्य',
+        title: 'Mastering Candlestick Charts & OHLC Data',
+        titleHindi: 'Mastering Candlestick Charts & OHLC Data',
         duration: '18 mins',
         isCompleted: true,
         isPremium: false,
         youtubeId: '1-J_S_fV9Xo',
         videoUrl: 'https://www.youtube.com/watch?v=1-J_S_fV9Xo',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'कैंडलस्टिक क्या होती है?' },
-          { time: '03:20', seconds: 200, title: 'OHLC (Open, High, Low, Close) का गणित' },
-          { time: '08:10', seconds: 490, title: 'Bullish vs Bearish Candlestick Difference' },
-          { time: '13:45', seconds: 825, title: 'कैंडल की विक (Wick/Shadow) की व्याख्या' }
+          { time: '00:00', seconds: 0, title: 'What is a Candlestick Chart?' },
+          { time: '03:20', seconds: 200, title: 'Understanding OHLC (Open, High, Low, Close)' },
+          { time: '08:10', seconds: 490, title: 'Bullish vs Bearish Candlesticks' },
+          { time: '13:45', seconds: 825, title: 'Interpreting Candlestick Wicks & Shadows' }
         ],
         keyTakeaways: [
-          'हर कैंडल 4 डेटा पॉइंट्स दिखाती है: Open, High, Low, Close (OHLC)।',
-          'हरी (Green) कैंडल = कीमत बढ़ी (Close > Open)।',
-          'लाल (Red) कैंडल = कीमत गिरी (Close < Open)।',
-          'लंबी विक (Wick) रिजेक्शन का संकेत देती है।'
+          'Each candle reflects 4 price points: Open, High, Low, and Close (OHLC).',
+          'Green candle indicates price closed higher than it opened (Bullish).',
+          'Red candle indicates price closed lower than it opened (Bearish).',
+          'Long wicks signal price rejection at specific levels.'
         ],
-        contentHindi: `### 1. कैंडलस्टिक का ढांचा (Candle Anatomy)
-हर कैंडलस्टिक एक तय समय (Timeframe - 1m, 5m, 15m, 1D) की प्राइस मूवमेंट दिखाती है।
+        contentHindi: `### 1. Candlestick Anatomy
+Every candlestick represents price action over a specific timeframe (1m, 5m, 15m, 1D).
 
-### 2. OHLC क्या है?
-- **Open (ओपन)**: समय शुरू होने पर कीमत।
-- **High (हाई)**: उस दौरान बनी सबसे ऊँची कीमत।
-- **Low (लो)**: उस दौरान बनी सबसे नीची कीमत।
-- **Close (क्लोज़)**: समय खत्म होने पर अंतिम कीमत।`,
+### 2. OHLC Breakdown
+- Open: Price at session start.
+- High: Maximum price achieved during session.
+- Low: Minimum price achieved during session.
+- Close: Final price at session end.`,
         content: `### 1. Anatomy of a Candlestick
 Every Japanese Candlestick shows 4 critical prices: Open, High, Low, Close (OHLC).`
       },
       {
         id: 'l-103',
-        title: 'Support and Resistance Strategy (सपोर्ट और रेजिस्टेंस)',
-        titleHindi: 'सपोर्ट और रेजिस्टेंस लेवल्स कैसे मार्क करें?',
+        title: 'Support and Resistance Trading Strategy',
+        titleHindi: 'Support and Resistance Trading Strategy',
         duration: '22 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: 'J8m3T5gC11s',
         videoUrl: 'https://www.youtube.com/watch?v=J8m3T5gC11s',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'सपोर्ट क्या है? (Floor Price)' },
-          { time: '04:15', seconds: 255, title: 'रेजिस्टेंस क्या है? (Ceiling Price)' },
-          { time: '10:00', seconds: 600, title: 'चार्ट पर सही सपोर्ट कैसे बनाएं?' },
-          { time: '16:30', seconds: 990, title: 'Role Reversal Concept (Support becomes Resistance)' }
+          { time: '00:00', seconds: 0, title: 'What is Support? (Price Floor)' },
+          { time: '04:15', seconds: 255, title: 'What is Resistance? (Price Ceiling)' },
+          { time: '10:00', seconds: 600, title: 'Plotting Support & Resistance on Charts' },
+          { time: '16:30', seconds: 990, title: 'Role Reversal (Support becoming Resistance)' }
         ],
         keyTakeaways: [
-          'सपोर्ट (Support) वह लेवल है जहाँ बायर्स एक्टिव होते हैं और प्राइस गिरने से बचती है।',
-          'रेजिस्टेंस (Resistance) वह लेवल है जहाँ सेलर्स एक्टिव होते हैं और प्राइस रुकती है।',
-          'अगर रेजिस्टेंस टूटता है तो वह नया सपोर्ट बन जाता है।'
+          'Support is a price level where buying interest prevents further decline.',
+          'Resistance is a price level where selling pressure halts upward movement.',
+          'When resistance breaks cleanly, it often becomes new support.'
         ],
-        contentHindi: `### 1. सपोर्ट (Support)
-जहाँ से शेयर की कीमत बार-बार ऊपर की ओर बाउंस करती है। यह बायर्स (Buyers) का मजबूत गढ़ होता है।
+        contentHindi: `### 1. Support
+A price zone where buying demand is strong enough to bounce price upward.
 
-### 2. रेजिस्टेंस (Resistance)
-जहाँ शेयर की कीमत ऊपर जाते-जाते रुक जाती है और नीचे गिरती है। यह सेलर्स (Sellers) का गढ़ होता है।`,
+### 2. Resistance
+A price zone where selling supply is strong enough to reject price downward.`,
         content: `### 1. Support & Resistance
 Support is a price level where buying interest is strong enough to overcome selling pressure. Resistance is where selling interest overcomes buying.`
       },
       {
         id: 'l-104',
         title: 'Understanding Order Types (Market, Limit, Stop-Loss)',
-        titleHindi: 'ऑर्डर टाइप्स समझें: Market, Limit, Stop-Loss',
+        titleHindi: 'Understanding Order Types (Market, Limit, Stop-Loss)',
         duration: '15 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: '9o9Z_S4W4jM',
         videoUrl: 'https://www.youtube.com/watch?v=9o9Z_S4W4jM',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'मार्केट ऑर्डर (Market Order)' },
-          { time: '04:30', seconds: 270, title: 'लिमिट ऑर्डर (Limit Order)' },
-          { time: '09:15', seconds: 555, title: 'स्टॉप-लॉस ऑर्डर (Stop-Loss SL/SL-M)' }
+          { time: '00:00', seconds: 0, title: 'Market Orders Explained' },
+          { time: '04:30', seconds: 270, title: 'Limit Orders Explained' },
+          { time: '09:15', seconds: 555, title: 'Stop-Loss & SL-M Orders' }
         ],
         keyTakeaways: [
-          'Market Order: तुरंत करंट प्राइस पर एग्जीक्यूट होता है।',
-          'Limit Order: आपकी मनपसंद तय कीमत पर ही ऑर्डर उठाता है।',
-          'Stop-Loss Order: बड़े नुकसान से बचाने के लिए ऑटोमैटिक सेफगार्ड है।'
+          'Market Order: Executes instantly at current prevailing market price.',
+          'Limit Order: Executes only at specified price or better.',
+          'Stop-Loss Order: Automatic risk safeguard against excessive loss.'
         ],
-        contentHindi: `### 1. मार्केट ऑर्डर
-तुरंत सबसे उपलब्ध बेहतरीन रेट पर शेयर खरीद लेता है।
+        contentHindi: `### 1. Market Order
+Executes immediately at best available current price.
 
-### 2. लिमिट ऑर्डर
-आप कहते हैं "मैं ₹100 का शेयर सिर्फ ₹95 में ही खरीदूँगा"। जब कीमत ₹95 आएगी तभी आपका ऑर्डर पूरा होगा।`,
+### 2. Limit Order
+Pending order that triggers only when price reaches target rate.`,
         content: `### 1. Order Types Overview
 Market Order executes immediately at current price; Limit Order executes only at specified target or better.`
       }
@@ -2078,27 +2078,27 @@ Market Order executes immediately at current price; Limit Order executes only at
     quiz: {
       questions: [
         {
-          question: 'हरी (Green) कैंडल का क्या अर्थ होता है?',
-          options: ['क्लोज़ कीमत ओपन से कम थी', 'क्लोज़ कीमत ओपन से ज्यादा थी (Price Increased)', 'कीमत में कोई बदलाव नहीं हुआ', 'मार्केट बंद था'],
+          question: 'What does a Green candlestick signify on a chart?',
+          options: ['Close price was lower than Open', 'Close price was higher than Open (Price Rose)', 'No price movement occurred', 'Market was closed'],
           correctIndex: 1,
-          explanation: 'हरी कैंडल दिखाती है कि टाइमफ्रेम के दौरान शेयर की कीमत बढ़ी (Closing Price > Opening Price)।'
+          explanation: 'Green candles indicate price increases where Closing Price is above Opening Price.'
         },
         {
-          question: 'किस ऑर्डर टाइप में तुरंत करंट प्राइस पर ट्रेड लग जाता है?',
+          question: 'Which order type executes instantly at the current price?',
           options: ['Limit Order', 'Market Order', 'GTT Order', 'Target Order'],
           correctIndex: 1,
-          explanation: 'Market Order तुरंत उपलब्ध करंट मार्केट रेट पर एग्जीक्यूट होता है।'
+          explanation: 'Market orders execute immediately at the best available ask or bid price.'
         }
       ]
     }
   },
   {
     id: 'crs-2',
-    title: 'Options Trading Hindi Mastercourse (ऑप्शंस ट्रेडिंग)',
-    titleHindi: 'ऑप्शंस ट्रेडिंग हिंदी गाइड (Calls, Puts & Greeks)',
-    description: 'Master Nifty & Bank Nifty Options Trading in Hindi — Call/Put buying, Live Option Chain analysis, Open Interest (OI), and Option Greeks.',
-    descriptionHindi: 'निफ्टी और बैंक निफ्टी में ऑप्शंस ट्रेडिंग सीखें - Call और Put क्या है, लाइव ऑप्शन चेन और ग्रीक्स (Delta, Theta) का सही इस्तेमाल।',
-    language: 'Hindi',
+    title: 'Options Trading Mastercourse (Calls, Puts & Greeks)',
+    titleHindi: 'Options Trading Mastercourse (Calls, Puts & Greeks)',
+    description: 'Master Nifty & Bank Nifty Options Trading — Call/Put contract mechanics, Live Option Chain analysis, Open Interest (OI), and Option Greeks like Delta & Theta.',
+    descriptionHindi: 'Master Nifty & Bank Nifty Options Trading — Call/Put contract mechanics, Live Option Chain analysis, Open Interest (OI), and Option Greeks like Delta & Theta.',
+    language: 'English',
     category: 'Options',
     level: 'Intermediate',
     duration: '1 hr 45 mins',
@@ -2108,108 +2108,105 @@ Market Order executes immediately at current price; Limit Order executes only at
     lessons: [
       {
         id: 'l-201',
-        title: 'Call & Put Options Explained in Hindi (कॉल और पुट क्या है?)',
-        titleHindi: 'Call और Put Option का बेसिक गणित',
+        title: 'Call & Put Options Fundamentals',
+        titleHindi: 'Call & Put Options Fundamentals',
         duration: '22 mins',
         isCompleted: true,
         isPremium: false,
         youtubeId: 'S_KqIq3u6v8',
         videoUrl: 'https://www.youtube.com/watch?v=S_KqIq3u6v8',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'ऑप्शन ट्रेडिंग क्या है?' },
-          { time: '04:15', seconds: 255, title: 'Call Option (CE) कब खरीदें?' },
-          { time: '11:30', seconds: 690, title: 'Put Option (PE) कब खरीदें?' },
-          { time: '17:00', seconds: 1020, title: 'Strike Price और Expiry डेट की भूमिका' }
+          { time: '00:00', seconds: 0, title: 'What is Option Trading?' },
+          { time: '04:15', seconds: 255, title: 'When to Buy Call Options (CE)' },
+          { time: '11:30', seconds: 690, title: 'When to Buy Put Options (PE)' },
+          { time: '17:00', seconds: 1020, title: 'Strike Price & Expiry Date' }
         ],
         keyTakeaways: [
-          'Call Option (CE): जब बाज़ार ऊपर जाने वाला हो तब कॉल ऑप्शन खरीदा जाता है।',
-          'Put Option (PE): जब बाज़ार नीचे गिरने वाला हो तब पुट ऑप्शन खरीदा जाता है।',
-          'Strike Price: वह तय रेट जिस पर आप कॉन्ट्रैक्ट खरीदते हैं।',
-          'Premium: ऑप्शन कॉन्ट्रैक्ट की खरीद कीमत।'
+          'Call Option (CE): Purchased when expecting market prices to rise.',
+          'Put Option (PE): Purchased when expecting market prices to decline.',
+          'Strike Price: Set contract price at which buyer has the right to trade.',
+          'Premium: Price paid to acquire the option contract.'
         ],
-        contentHindi: `### 1. कॉल ऑप्शन (Call Option - CE)
-जब आपको लगे कि निफ्टी या बैंक निफ्टी ऊपर भागेगा, तब Call खरीदा जाता है।
+        contentHindi: `### 1. Call Options (CE)
+Bought when expecting bullish movement in index or stock.
 
-### 2. पुट ऑप्शन (Put Option - PE)
-जब आपको लगे कि बाज़ार नीचे गिरेगा, तब Put खरीदा जाता है।
-
-### 3. स्ट्राइक प्राइस (Strike Price)
-जैसे NIFTY 24,300 CE या BANKNIFTY 52,500 PE।`,
+### 2. Put Options (PE)
+Bought when expecting bearish movement in index or stock.`,
         content: `### 1. Call & Put Options
 Call options allow traders to profit from market rallies (bullish). Put options allow traders to profit from market declines (bearish).`
       },
       {
         id: 'l-202',
-        title: 'Live Option Chain & Open Interest (ऑप्शन चेन देखना सीखें)',
-        titleHindi: 'लाइव ऑप्शन चेन और ओपन इंटरेस्ट (OI) का जादू',
+        title: 'Live Option Chain & Open Interest Analysis',
+        titleHindi: 'Live Option Chain & Open Interest Analysis',
         duration: '28 mins',
         isCompleted: false,
         isPremium: true,
         youtubeId: 'u_sL8E7X3_o',
         videoUrl: 'https://www.youtube.com/watch?v=u_sL8E7X3_o',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'ऑप्शन चेन का लेआउट' },
-          { time: '05:40', seconds: 340, title: 'Open Interest (OI) क्या होता है?' },
-          { time: '12:10', seconds: 730, title: 'Max Pain और PCR (Put-Call Ratio)' },
-          { time: '20:15', seconds: 1215, title: 'ऑप्शन चेन से सपोर्ट और रेजिस्टेंस ढूंढें' }
+          { time: '00:00', seconds: 0, title: 'Option Chain Layout' },
+          { time: '05:40', seconds: 340, title: 'Understanding Open Interest (OI)' },
+          { time: '12:10', seconds: 730, title: 'Max Pain & Put-Call Ratio (PCR)' },
+          { time: '20:15', seconds: 1215, title: 'Finding Support & Resistance via OI' }
         ],
         keyTakeaways: [
-          'Call side पर सबसे ज्यादा OI = मजबूत रेजिस्टेंस।',
-          'Put side पर सबसे ज्यादा OI = मजबूत सपोर्ट।',
-          'PCR > 1.2 = Bullish sentiment, PCR < 0.7 = Bearish sentiment.'
+          'High Call OI at a strike indicates heavy resistance.',
+          'High Put OI at a strike indicates strong support.',
+          'PCR > 1.2 reflects bullish sentiment; PCR < 0.7 reflects bearish sentiment.'
         ],
-        contentHindi: `### 1. ऑप्शन चेन (Option Chain)
-ऑप्शन चेन डेटा का वह चार्ट है जो हर स्ट्राइक प्राइस के लिए Call/Put प्रीमियम, OI (Open Interest), IV (Implied Volatility) दिखाता है।`,
+        contentHindi: `### 1. Option Chain Analysis
+Option chain displays call/put premiums, Open Interest (OI), and Implied Volatility across strike prices.`,
         content: `### 1. Understanding Option Chain
 Option chain reflects call and put OI distribution, helping identify major support and resistance clusters.`
       },
       {
         id: 'l-203',
-        title: 'Theta Decay & Option Greeks (थेटा डिपे और ग्रीक्स)',
-        titleHindi: 'Theta Decay (समय का नुकसान) और Delta, Vega समझें',
+        title: 'Theta Time Decay & Option Greeks Explained',
+        titleHindi: 'Theta Time Decay & Option Greeks Explained',
         duration: '25 mins',
         isCompleted: false,
         isPremium: true,
         youtubeId: '2v-s8W2W01M',
         videoUrl: 'https://www.youtube.com/watch?v=2v-s8W2W01M',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'Theta Decay क्या है?' },
-          { time: '06:10', seconds: 370, title: 'Delta (डेल्टा) का असर' },
-          { time: '12:45', seconds: 765, title: 'Vega और Implied Volatility' },
-          { time: '18:30', seconds: 1110, title: 'Expiry वाले दिन का विशेष जोखिम' }
+          { time: '00:00', seconds: 0, title: 'What is Theta Time Decay?' },
+          { time: '06:10', seconds: 370, title: 'Role of Delta in Premium Pricing' },
+          { time: '12:45', seconds: 765, title: 'Vega and Implied Volatility' },
+          { time: '18:30', seconds: 1110, title: 'Expiry Day Risk Management' }
         ],
         keyTakeaways: [
-          'Theta Decay: समय बीतने के साथ-साथ प्रीमियम की वैल्यू घटती जाती है।',
-          'Delta: निफ्टी 100 पॉइंट हिला तो ऑप्शन प्रीमियम कितना हिलेगा (उदा: Delta 0.5 = ₹50 मूवमेंट)।',
-          'ऑप्शन बायर्स को साइडवेज बाज़ार में थेटा डिपे से नुकसान होता है।'
+          'Theta Decay: Premium value erodes progressively as expiry approaches.',
+          'Delta: Measures expected change in option price per 1-point move in underlying asset.',
+          'Option buyers face loss in sideways markets due to time decay.'
         ],
-        contentHindi: `### 1. थेटा डि के (Theta Decay)
-समय की बर्बादी। जैसे-जैसे एक्सपायरी पास आती है, टाइम वैल्यू खत्म होती जाती है।`,
+        contentHindi: `### 1. Theta Decay
+Extrinsic time value erodes as expiration approaches.`,
         content: `### 1. Option Greeks
 Theta decay reduces option extrinsic value every second as expiration approaches.`
       },
       {
         id: 'l-204',
-        title: 'Nifty Intraday Option Buying Setup (इंट्राडे ऑप्शन बाइंग स्ट्रेटजी)',
-        titleHindi: 'निफ्टी इंट्राडे ऑप्शन बाइंग स्ट्रेटजी',
+        title: 'Nifty Intraday Option Buying Strategy',
+        titleHindi: 'Nifty Intraday Option Buying Strategy',
         duration: '30 mins',
         isCompleted: false,
         isPremium: true,
         youtubeId: 'eXW7R9Nq3kE',
         videoUrl: 'https://www.youtube.com/watch?v=eXW7R9Nq3kE',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'स्ट्रैटेजी सेटअप और टाइमफ्रेम (5m/15m)' },
-          { time: '08:00', seconds: 480, title: 'एंट्री रूल्स और वॉल्यूम कन्फर्मेशन' },
-          { time: '16:20', seconds: 980, title: 'Stop Loss और Target का सही लेवल' },
-          { time: '24:00', seconds: 1440, title: 'लाइव चार्ट पर बैकटेस्ट उदाहरण' }
+          { time: '00:00', seconds: 0, title: 'Strategy Setup & Timeframes (5m/15m)' },
+          { time: '08:00', seconds: 480, title: 'Entry Rules & Volume Confirmation' },
+          { time: '16:20', seconds: 980, title: 'Setting Stop Loss & Target Levels' },
+          { time: '24:00', seconds: 1440, title: 'Live Chart Backtesting Examples' }
         ],
         keyTakeaways: [
-          'हमेशा ट्रेंड की दिशा में ही ऑप्शन बाय करें।',
-          'Stop-loss बिना काम कभी न करें (Max Risk 10-15% of Premium)।',
-          '1:2 या 1:3 का Risk-to-Reward अनुपात बनाए रखें।'
+          'Always buy options aligned with prevailing market momentum.',
+          'Never trade without a strict Stop-Loss (Max Risk 10-15% of Premium).',
+          'Maintain at least 1:2 or 1:3 Risk-to-Reward ratio.'
         ],
-        contentHindi: `### 1. इंट्राडे ऑप्शन बाइंग रूल
-केवल मोमेंटम वाले दिन ही बाय करें। साइडवेज दिन पर ट्रेड न करें।`,
+        contentHindi: `### 1. Intraday Option Buying Rule
+Trade only during active momentum breakout sessions. Avoid choppy sideways days.`,
         content: `### 1. Option Buying Rules
 Trade only with strong momentum and volume breakdown or breakout.`
       }
@@ -2217,27 +2214,27 @@ Trade only with strong momentum and volume breakdown or breakout.`
     quiz: {
       questions: [
         {
-          question: 'यदि आपको लगता है कि Nifty 50 आज ऊपर जाएगा, तो आपको कौन सा ऑप्शन खरीदना चाहिए?',
-          options: ['Put Option (PE)', 'Call Option (CE)', 'Futures Short', 'कोई नहीं'],
+          question: 'If you expect Nifty 50 to rally today, which option contract should you buy?',
+          options: ['Put Option (PE)', 'Call Option (CE)', 'Futures Short', 'None'],
           correctIndex: 1,
-          explanation: 'Call Option (CE) तेज़ी (Bullish) के समय खरीदा जाता है।'
+          explanation: 'Call Option (CE) gains value when the underlying asset price rises.'
         },
         {
-          question: 'ऑप्शन बायर के लिए सबसे बड़ा दुश्मन कौन सा ग्रीक होता है?',
+          question: 'Which Option Greek causes option premium value to erode over time?',
           options: ['Delta', 'Gamma', 'Theta (Time Decay)', 'Vega'],
           correctIndex: 2,
-          explanation: 'Theta decay समय के साथ प्रीमियम घटाता है, जो बायर्स के लिए नुकसानदायक है।'
+          explanation: 'Theta measures rate of time decay in option contracts.'
         }
       ]
     }
   },
   {
     id: 'crs-3',
-    title: 'Price Action & Candlestick Trading (प्राइस एक्शन हिंदी)',
-    titleHindi: 'प्राइस एक्शन और कैंडलस्टिक पैटर्न्स मास्टरक्लास',
-    description: 'Learn Price Action trading without lagging indicators — Hammer, Shooting Star, Engulfing patterns, and Trendline breakouts.',
-    descriptionHindi: 'बिना इंडिकेटर के प्राइस एक्शन से ट्रेडिंग करें - हैमर, शूटिंग स्टार, एंगल्फिंग पैटर्न और ट्रेंडलाइन ब्रेकआउट समझें।',
-    language: 'Hindi',
+    title: 'Price Action & Candlestick Trading Strategies',
+    titleHindi: 'Price Action & Candlestick Trading Strategies',
+    description: 'Learn Price Action trading techniques without relying on lagging indicators. Master Hammer, Shooting Star, Engulfing patterns, and trendline breakouts.',
+    descriptionHindi: 'Learn Price Action trading techniques without relying on lagging indicators. Master Hammer, Shooting Star, Engulfing patterns, and trendline breakouts.',
+    language: 'English',
     category: 'Price Action',
     level: 'Intermediate',
     duration: '1 hr 30 mins',
@@ -2247,73 +2244,73 @@ Trade only with strong momentum and volume breakdown or breakout.`
     lessons: [
       {
         id: 'l-301',
-        title: 'Top 5 Candlestick Patterns (5 सबसे शक्तिशाली कैंडलस्टिक पैटर्न्स)',
-        titleHindi: '5 पावरफुल कैंडलस्टिक पैटर्न्स जो काम करते हैं',
+        title: 'Top 5 Powerful Candlestick Patterns',
+        titleHindi: 'Top 5 Powerful Candlestick Patterns',
         duration: '25 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: 'Hk9sZq9x9-k',
         videoUrl: 'https://www.youtube.com/watch?v=Hk9sZq9x9-k',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'Hammer Candle (हैमर कैंडल)' },
-          { time: '05:30', seconds: 330, title: 'Shooting Star (शूटिंग स्टार)' },
+          { time: '00:00', seconds: 0, title: 'Hammer Candlestick Pattern' },
+          { time: '05:30', seconds: 330, title: 'Shooting Star Pattern' },
           { time: '11:15', seconds: 675, title: 'Bullish & Bearish Engulfing' },
-          { time: '18:00', seconds: 1080, title: 'Doji Candle & Morning Star' }
+          { time: '18:00', seconds: 1080, title: 'Doji & Morning Star Reversals' }
         ],
         keyTakeaways: [
-          'Hammer सपोर्ट पर बने तो बहुत मजबूत Bullish सिग्नल होता है।',
-          'Shooting Star रेजिस्टेंस पर बने तो मजबूत Bearish सिग्नल होता है।',
-          'कैंडल का लोकेशन ही उसकी ताकत तय करता है।'
+          'Hammer formed at key support provides a strong bullish reversal signal.',
+          'Shooting Star formed at resistance provides a strong bearish reversal signal.',
+          'Candlestick significance depends heavily on chart location.'
         ],
-        contentHindi: `### 1. हैमर कैंडल (Hammer)
-सपोर्ट के पास लंबी नीचे की विक वाली छोटी बॉडी। यह दिखाता है कि सेलर्स ने पुश किया पर बायर्स ने वापस ऊपर खींच लिया।`,
+        contentHindi: `### 1. Hammer Candle
+Small body with long lower wick near support indicates buyers reclaiming control.`,
         content: `### 1. Reversal Patterns
 Hammer at support indicates buyer takeover; Shooting Star at resistance indicates seller rejection.`
       },
       {
         id: 'l-302',
-        title: 'Breakout vs Fakeout Identification (असली बनाम नकली ब्रेकआउट)',
-        titleHindi: 'ब्रेकआउट और फेक ब्रेकआउट की पहचान कैसे करें?',
+        title: 'Breakout vs Fakeout Identification',
+        titleHindi: 'Breakout vs Fakeout Identification',
         duration: '25 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: 'z1_P4X8m4qA',
         videoUrl: 'https://www.youtube.com/watch?v=z1_P4X8m4qA',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'ब्रेकआउट क्या होता है?' },
-          { time: '06:15', seconds: 375, title: 'वॉल्यूम कन्फर्मेशन (Volume Spike)' },
-          { time: '12:30', seconds: 750, title: 'री-टेस्ट स्ट्रेटेजी (Retest Entry)' },
-          { time: '18:45', seconds: 1125, title: 'फेकआउट (Fake Breakout) से कैसे बचें?' }
+          { time: '00:00', seconds: 0, title: 'Understanding Breakouts' },
+          { time: '06:15', seconds: 375, title: 'Volume Confirmation Spikes' },
+          { time: '12:30', seconds: 750, title: 'Retest Entry Strategy' },
+          { time: '18:45', seconds: 1125, title: 'Avoiding False Breakouts (Fakeouts)' }
         ],
         keyTakeaways: [
-          'बिना वॉल्यूम स्पाइक के होने वाले ब्रेकआउट अक्सर फेक होते हैं।',
-          'हमेशा री-टेस्ट (Retest) या कंसॉलिडेशन के बाद एंट्री लें।'
+          'Breakouts lacking volume confirmation often trap retail traders into fakeouts.',
+          'Wait for candle close and retest confirmation before entering.'
         ],
-        contentHindi: `### 1. फेक ब्रेकआउट से बचाव
-ब्रेकआउट कैंडल के बंद होने का इंतजार करें और वॉल्यूम इंडिकेटर चेक करें।`,
+        contentHindi: `### 1. Avoiding Fakeouts
+Wait for breakout candle close and check corresponding volume expansion.`,
         content: `### 1. Breakout Rules
 Wait for candle close confirmation and elevated volume spikes before jumping into breakouts.`
       },
       {
         id: 'l-303',
-        title: 'Moving Average Crossover Strategy (EMA 20/50 Crossover)',
-        titleHindi: 'EMA 20 और 50 मूविंग एवरेज रणनीति',
+        title: 'Moving Average Crossover Strategy (EMA 20/50)',
+        titleHindi: 'Moving Average Crossover Strategy (EMA 20/50)',
         duration: '20 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: '7kXqX8M2x9I',
         videoUrl: 'https://www.youtube.com/watch?v=7kXqX8M2x9I',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'Exponential Moving Average (EMA) का गणित' },
+          { time: '00:00', seconds: 0, title: 'Exponential Moving Average (EMA) Math' },
           { time: '05:00', seconds: 300, title: 'Golden Cross vs Death Cross' },
-          { time: '11:20', seconds: 680, title: 'लाइव निफ्टी चार्ट पर मूविंग एवरेज सेटअप' }
+          { time: '11:20', seconds: 680, title: 'Live Nifty Moving Average Setup' }
         ],
         keyTakeaways: [
-          'EMA 20 जब EMA 50 को नीचे से काटकर ऊपर निकलती है = Golden Cross (Buy)।',
-          'EMA 20 जब EMA 50 को ऊपर से काटकर नीचे निकलती है = Death Cross (Sell)।'
+          'EMA 20 crossing above EMA 50 creates a Golden Cross (Bullish Buy).',
+          'EMA 20 crossing below EMA 50 creates a Death Cross (Bearish Sell).'
         ],
-        contentHindi: `### 1. EMA 20/50 क्रॉसओवर
-ट्रेंड की दिशा पहचानने और सही एंट्री लेने का सबसे आसान तरीका।`,
+        contentHindi: `### 1. EMA 20/50 Crossover
+Effective trend-following setup to capture directional market moves.`,
         content: `### 1. Exponential Moving Averages
 EMA crossover tracks short term trend reversals against longer term momentum.`
       }
@@ -2321,21 +2318,21 @@ EMA crossover tracks short term trend reversals against longer term momentum.`
     quiz: {
       questions: [
         {
-          question: 'सपोर्ट लेवल के पास बनने वाली लंबी नीची विक (Wick) वाली कैंडल को क्या कहते हैं?',
+          question: 'What candlestick pattern near support features a small body and long lower wick?',
           options: ['Shooting Star', 'Hammer', 'Marubozu', 'Doji'],
           correctIndex: 1,
-          explanation: 'Hammer कैंडल सपोर्ट के पास बायर्स के हावी होने का संकेत देती है।'
+          explanation: 'A Hammer candlestick at support signals potential bullish buyer takeover.'
         }
       ]
     }
   },
   {
     id: 'crs-4',
-    title: 'Risk Sizing & Trading Psychology (रिस्क और साइकोलॉजी)',
-    titleHindi: 'रिस्क मैनेजमेंट और साइकोलॉजी - नुकसान से कैसे बचें?',
-    description: 'Learn the 1% Capital Risk Sizing Rule, ATR Stop-Loss, controlling FOMO & Revenge trading emotions in Hindi.',
-    descriptionHindi: 'हिंदी में सीखें 1% रिस्क रूल, ATR स्टॉप लॉस, और FOMO व ओवरट्रेडिंग पर काबू पाना।',
-    language: 'Hindi',
+    title: 'Risk Management & Trading Psychology',
+    titleHindi: 'Risk Management & Trading Psychology',
+    description: 'Learn the 1% Capital Risk Rule, ATR-based Stop Loss calculations, position sizing formulas, and strategies to eliminate FOMO and revenge trading.',
+    descriptionHindi: 'Learn the 1% Capital Risk Rule, ATR-based Stop Loss calculations, position sizing formulas, and strategies to eliminate FOMO and revenge trading.',
+    language: 'English',
     category: 'Psychology',
     level: 'Advanced',
     duration: '1 hr 10 mins',
@@ -2345,47 +2342,47 @@ EMA crossover tracks short term trend reversals against longer term momentum.`
     lessons: [
       {
         id: 'l-401',
-        title: 'The 1% Risk Sizing Formula (कैपिटल सुरक्षित रखने का नियम)',
-        titleHindi: '1% रिस्क रूल - कैपिटल कभी खत्म नहीं होगी',
+        title: 'The 1% Capital Risk Sizing Formula',
+        titleHindi: 'The 1% Capital Risk Sizing Formula',
         duration: '20 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: '9k3P2qX_s9Y',
         videoUrl: 'https://www.youtube.com/watch?v=9k3P2qX_s9Y',
         timestamps: [
-          { time: '00:00', seconds: 0, title: '1% रिस्क रूल क्या है?' },
-          { time: '06:00', seconds: 360, title: 'पोजीशन साइजिंग का फॉर्मूला' },
-          { time: '12:30', seconds: 750, title: '₹1 लाख कैपिटल के उदाहरण से गणना' }
+          { time: '00:00', seconds: 0, title: 'What is the 1% Risk Rule?' },
+          { time: '06:00', seconds: 360, title: 'Position Sizing Calculation Formula' },
+          { time: '12:30', seconds: 750, title: 'Worked Example with ₹10 Lakh Account' }
         ],
         keyTakeaways: [
-          'किसी भी एक ट्रेड में कुल कैपिटल का 1% से ज्यादा रिस्क न लें।',
-          'क्वांटिटी = (कुल कैपिटल × 1%) ÷ (एंट्री प्राइस - स्टॉप लॉस)।'
+          'Never risk more than 1% of total portfolio capital on any single trade.',
+          'Quantity = (Total Capital × 1%) ÷ (Entry Price - Stop Loss Price).'
         ],
-        contentHindi: `### 1. 1% रिस्क नियम
-यदि आपके पास ₹1,000,000 हैं, तो एक ट्रेड में अधिकतम ₹10,000 का ही नुकसान सहें।`,
+        contentHindi: `### 1. The 1% Rule
+On a portfolio of ₹1,000,000, cap single trade risk strictly at ₹10,000.`,
         content: `### 1. Risk Protection
 Never risk more than 1% to 2% of total virtual capital on any single trade.`
       },
       {
         id: 'l-402',
-        title: 'Controlling Emotions, FOMO & Revenge Trading (साइकोलॉजी)',
-        titleHindi: 'FOMO और ओवरट्रेडिंग से कैसे बचें?',
+        title: 'Controlling Emotions, FOMO & Revenge Trading',
+        titleHindi: 'Controlling Emotions, FOMO & Revenge Trading',
         duration: '25 mins',
         isCompleted: false,
         isPremium: false,
         youtubeId: 'Xm7P2qX_s9Z',
         videoUrl: 'https://www.youtube.com/watch?v=Xm7P2qX_s9Z',
         timestamps: [
-          { time: '00:00', seconds: 0, title: 'FOMO (Fear Of Missing Out) का इलाज' },
-          { time: '07:30', seconds: 450, title: 'Revenge Trading (बदला लेने वाली ट्रेडिंग)' },
-          { time: '15:00', seconds: 900, title: 'रोज का 3-ट्रेड कूल-ऑफ रूल' }
+          { time: '00:00', seconds: 0, title: 'Overcoming Fear Of Missing Out (FOMO)' },
+          { time: '07:30', seconds: 450, title: 'Preventing Revenge Trading After Losses' },
+          { time: '15:00', seconds: 900, title: 'Enforcing Daily Cool-Off Limits' }
         ],
         keyTakeaways: [
-          'दिन में लगातार 2 लॉस होने पर स्क्रीन बंद कर दें।',
-          'ट्रेड छूट जाए तो कभी भागती हुई ट्रेन में न चढ़ें।'
+          'Close trading platform after 2 consecutive losing trades to prevent emotional spiraling.',
+          'Never chase stocks that have already surged without proper consolidation.'
         ],
-        contentHindi: `### 1. इमोशन कंट्रोल
-सफल ट्रेडर अपनी भावनाओं को अनुशासन और नियमों से कंट्रोल करते हैं।`,
+        contentHindi: `### 1. Discipline Mastery
+Successful traders rely on objective rules to separate emotion from trade execution.`,
         content: `### 1. Mindset Mastery
 Systematic rule enforcement isolates emotional impulse from trade execution.`
       }
