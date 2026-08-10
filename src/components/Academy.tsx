@@ -7,6 +7,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store';
 import { Course, Lesson, VideoTimestamp } from '../types';
+import { AILessonStudio } from './AILessonStudio';
 import { 
   GraduationCap, 
   BookOpen, 
@@ -38,6 +39,7 @@ export const Academy: React.FC = React.memo(() => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [lessonLang, setLessonLang] = useState<'Hindi' | 'English'>('English');
+  const [playerMode, setPlayerMode] = useState<'ai' | 'youtube'>('ai');
   
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,6 +81,7 @@ export const Academy: React.FC = React.memo(() => {
       return;
     }
     setActiveLesson(lesson);
+    setPlayerMode('ai');
     setLessonLang(lesson.contentHindi ? 'Hindi' : 'English');
   };
 
@@ -532,8 +535,41 @@ export const Academy: React.FC = React.memo(() => {
                 </button>
               </div>
 
-              {/* Video Player Frame */}
-              {activeLesson.youtubeId ? (
+              {/* Mode Selector Tabs */}
+              <div className="flex items-center gap-2 bg-[#0b0e14] p-1.5 rounded-xl border border-white/10 text-xs font-medium">
+                <button
+                  onClick={() => setPlayerMode('ai')}
+                  className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition ${
+                    playerMode === 'ai'
+                      ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold shadow-md'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-sky-300" />
+                  <span>🤖 AI Interactive Studio & Voiceover</span>
+                </button>
+                <button
+                  onClick={() => setPlayerMode('youtube')}
+                  className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition ${
+                    playerMode === 'youtube'
+                      ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold shadow-md'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Video className="w-4 h-4 text-red-300" />
+                  <span>🎥 YouTube Video Masterclass</span>
+                </button>
+              </div>
+
+              {/* Player Body depending on mode */}
+              {playerMode === 'ai' ? (
+                <AILessonStudio
+                  lesson={activeLesson}
+                  course={selectedCourse}
+                  lang={lessonLang}
+                  onCompleteLesson={handleMarkComplete}
+                />
+              ) : activeLesson.youtubeId ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2 bg-[#0b0e14] px-3 py-2 rounded-xl border border-white/5 text-xs">
                     <span className="text-gray-400 font-mono text-[11px] flex items-center gap-1.5">
@@ -550,6 +586,10 @@ export const Academy: React.FC = React.memo(() => {
                     </a>
                   </div>
 
+                  <div className="bg-sky-500/10 p-2.5 rounded-xl border border-sky-500/20 text-[11px] text-sky-200 flex items-center justify-between gap-2 font-mono">
+                    <span>💡 If YouTube iframe displays "Unavailable" due to browser domain policies, watch directly on YouTube or use AI Interactive Studio above.</span>
+                    <button onClick={() => setPlayerMode('ai')} className="underline font-bold hover:text-white shrink-0">Switch to AI Studio</button>
+                  </div>
                   <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-xl">
                     <iframe
                       ref={iframeRef}
