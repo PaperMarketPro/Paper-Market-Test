@@ -1186,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? nextPositions : prevPositions;
         });
       });
-    }, 100);
+    }, 800);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
