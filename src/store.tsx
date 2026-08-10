@@ -924,7 +924,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     fetchRealUpstoxLtp();
-    const interval = setInterval(fetchRealUpstoxLtp, 1500);
+    const interval = setInterval(fetchRealUpstoxLtp, 5000);
     return () => clearInterval(interval);
   }, [fetchRealUpstoxLtp]);
 
@@ -1186,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? nextPositions : prevPositions;
         });
       });
-    }, 800);
+    }, 3000);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
@@ -1198,7 +1198,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             pendingTicksRef.current[inst.symbol] = { isSim: true };
           }
         });
-      }, 1000);
+      }, 3000);
     };
 
     // Always ensure fallback tick generator is active for immediate smooth price movement
