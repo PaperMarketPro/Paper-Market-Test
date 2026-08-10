@@ -1956,7 +1956,7 @@ export const ACADEMY_COURSES: Course[] = [
         duration: '12 mins',
         isCompleted: true,
         isPremium: false,
-        youtubeId: 'gMfOfr6A9Xw',
+        youtubeId: 'C3MRJMCBqUw',
         videoUrl: 'https://www.youtube.com/watch?v=gMfOfr6A9Xw',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Introduction to Stock Markets' },
@@ -1994,7 +1994,7 @@ A stock market is an exchange where investors buy and sell shares of publicly tr
         duration: '18 mins',
         isCompleted: true,
         isPremium: false,
-        youtubeId: 'tGFQlwt9Oi4',
+        youtubeId: '6a6O_g0eKx0',
         videoUrl: 'https://www.youtube.com/watch?v=tGFQlwt9Oi4',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'What is a Candlestick Chart?' },
@@ -2026,7 +2026,7 @@ Every Japanese Candlestick shows 4 critical prices: Open, High, Low, Close (OHLC
         duration: '22 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'tW13N4Hll88',
+        youtubeId: 'jP3R0KibV4I',
         videoUrl: 'https://www.youtube.com/watch?v=tW13N4Hll88',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'What is Support? (Price Floor)' },
@@ -2054,7 +2054,7 @@ Support is a price level where buying interest is strong enough to overcome sell
         duration: '15 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'HSizIZmsJP8',
+        youtubeId: '7PM4rNDr4oI',
         videoUrl: 'https://www.youtube.com/watch?v=HSizIZmsJP8',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Market Orders Explained' },
@@ -2113,7 +2113,7 @@ Market Order executes immediately at current price; Limit Order executes only at
         duration: '22 mins',
         isCompleted: true,
         isPremium: false,
-        youtubeId: '7EpktRs-XCw',
+        youtubeId: 'pY0b5E4-JbY',
         videoUrl: 'https://www.youtube.com/watch?v=7EpktRs-XCw',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'What is Option Trading?' },
@@ -2142,7 +2142,7 @@ Call options allow traders to profit from market rallies (bullish). Put options 
         duration: '28 mins',
         isCompleted: false,
         isPremium: true,
-        youtubeId: 'OiKICOz8oXo',
+        youtubeId: 'C3MRJMCBqUw',
         videoUrl: 'https://www.youtube.com/watch?v=OiKICOz8oXo',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Option Chain Layout' },
@@ -2167,7 +2167,7 @@ Option chain reflects call and put OI distribution, helping identify major suppo
         duration: '25 mins',
         isCompleted: false,
         isPremium: true,
-        youtubeId: 'OiKICOz8oXo',
+        youtubeId: '6a6O_g0eKx0',
         videoUrl: 'https://www.youtube.com/watch?v=OiKICOz8oXo',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'What is Theta Time Decay?' },
@@ -2192,7 +2192,7 @@ Theta decay reduces option extrinsic value every second as expiration approaches
         duration: '30 mins',
         isCompleted: false,
         isPremium: true,
-        youtubeId: '7EpktRs-XCw',
+        youtubeId: 'jP3R0KibV4I',
         videoUrl: 'https://www.youtube.com/watch?v=7EpktRs-XCw',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Strategy Setup & Timeframes (5m/15m)' },
@@ -2249,7 +2249,7 @@ Trade only with strong momentum and volume breakdown or breakout.`
         duration: '25 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'tGFQlwt9Oi4',
+        youtubeId: '7PM4rNDr4oI',
         videoUrl: 'https://www.youtube.com/watch?v=tGFQlwt9Oi4',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Hammer Candlestick Pattern' },
@@ -2274,7 +2274,7 @@ Hammer at support indicates buyer takeover; Shooting Star at resistance indicate
         duration: '25 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'tW13N4Hll88',
+        youtubeId: 'pY0b5E4-JbY',
         videoUrl: 'https://www.youtube.com/watch?v=tW13N4Hll88',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Understanding Breakouts' },
@@ -2298,7 +2298,7 @@ Wait for candle close confirmation and elevated volume spikes before jumping int
         duration: '20 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'HSizIZmsJP8',
+        youtubeId: 'C3MRJMCBqUw',
         videoUrl: 'https://www.youtube.com/watch?v=HSizIZmsJP8',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Exponential Moving Average (EMA) Math' },
@@ -2347,7 +2347,7 @@ EMA crossover tracks short term trend reversals against longer term momentum.`
         duration: '20 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'gMfOfr6A9Xw',
+        youtubeId: '6a6O_g0eKx0',
         videoUrl: 'https://www.youtube.com/watch?v=gMfOfr6A9Xw',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'What is the 1% Risk Rule?' },
@@ -2370,7 +2370,7 @@ Never risk more than 1% to 2% of total virtual capital on any single trade.`
         duration: '25 mins',
         isCompleted: false,
         isPremium: false,
-        youtubeId: 'tGFQlwt9Oi4',
+        youtubeId: 'jP3R0KibV4I',
         videoUrl: 'https://www.youtube.com/watch?v=tGFQlwt9Oi4',
         timestamps: [
           { time: '00:00', seconds: 0, title: 'Overcoming Fear Of Missing Out (FOMO)' },

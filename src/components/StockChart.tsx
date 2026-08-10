@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
 import { 
@@ -2269,7 +2269,13 @@ const StockChartBase: React.FC<StockChartProps> = ({
         if (savedToken && savedToken.trim().length > 15) {
           headers['X-Upstox-Access-Token'] = savedToken.trim();
         }
-        const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`, { headers });
+        if (symbol.includes(' CE') || symbol.includes(' PE')) {
+          throw new Error("Options use simulated history");
+        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+        const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`, { headers, signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error("Network error loading candles");
         const candlesText = await res.text();
         let data: any = {};
@@ -2383,7 +2389,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
 
     previousAssetPrice.current = currentLtp;
 
-    startTransition(() => {
+    {
       setCandles(prev => {
         if (prev.length === 0) return prev;
         const lastCandle = prev[prev.length - 1];
@@ -2406,7 +2412,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
         // Re-compute indicators so lines follow live ticks flawlessly
         return computeIndicators(updated, true);
       });
-    });
+    }
   }, [activeAsset.ltp, activeAsset.symbol, computeIndicators]);
 
   // Min and Max prices for nice Y-Axis auto fitting

@@ -211,7 +211,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
     });
   }, [instruments, mode, selectedList, myWatchlist, equitySearchQuery, indicesList]);
 
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [visibleCount, setVisibleCount] = useState(20);
   React.useEffect(() => {
     setVisibleCount(50);
   }, [equitySearchQuery, selectedList]);
@@ -486,7 +486,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
             {filteredInstruments.length > visibleCount && (
               <div className="flex justify-center pt-2 pb-4">
                 <button
-                  onClick={() => setVisibleCount(prev => prev + 50)}
+                  onClick={() => setVisibleCount(prev => prev + 20)}
                   className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white border border-white/5 hover:border-white/10 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2"
                 >
                   <Activity className="w-3.5 h-3.5 text-sky-400 animate-pulse" /> Load More Stocks ({filteredInstruments.length - visibleCount} remaining)
@@ -1109,7 +1109,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
       {/* Dynamic Slide-up Watchlist search and add modal */}
       <AnimatePresence>
         {showSearchModal && (
-          <div className="fixed inset-0 bg-[#0b0e14]/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b0e14]/80  z-50 flex items-end sm:items-center justify-center p-4">
             <motion.div
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}

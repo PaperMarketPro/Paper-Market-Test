@@ -330,14 +330,14 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
         {/* Dynamic Overlay for feedback states */}
         <AnimatePresence>
           {isLoading && (
-            <div className="absolute inset-0 bg-white/90 dark:bg-[#0b0e14]/90 backdrop-blur-sm flex flex-col items-center justify-center z-10 text-slate-900 dark:text-white">
+            <div className="absolute inset-0 bg-white/90 dark:bg-[#0b0e14]/90  flex flex-col items-center justify-center z-10 text-slate-900 dark:text-white">
               <div className="w-10 h-10 border-4 border-blue-500/25 dark:border-sky-500/25 border-t-blue-600 dark:border-t-sky-500 rounded-full animate-spin mb-4" />
               <p className="text-sm font-semibold tracking-wide">Placing order on simulated ledger...</p>
             </div>
           )}
 
           {feedback && (
-            <div className="absolute inset-0 bg-white/95 dark:bg-[#0b0e14]/95 backdrop-blur-sm flex flex-col items-center justify-center z-10 p-6 text-center">
+            <div className="absolute inset-0 bg-white/95 dark:bg-[#0b0e14]/95  flex flex-col items-center justify-center z-10 p-6 text-center">
               {feedback.success ? (
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}

@@ -241,7 +241,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
         </header>
 
         {/* Top Header Row for mobile/tablet grids */}
-        <header className="md:hidden flex justify-between items-center bg-white/95 dark:bg-[#0c1020]/90 backdrop-blur-md px-4 py-3.5 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
+        <header className="md:hidden flex justify-between items-center bg-white dark:bg-[#0c1020]/90  px-4 py-3.5 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsDrawerOpen(true)}
@@ -272,7 +272,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
         </main>
 
         {/* 3. Bottom Navigation bar on Mobile Viewports */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5 backdrop-blur-xl px-1 py-2 pb-safe flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5  px-1 py-2 pb-safe flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
           {navItems.map(item => {
             const isActive = currentTab === item.key;
 
@@ -305,7 +305,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsDrawerOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 "
             />
 
             {/* Drawer Sliding body */}
