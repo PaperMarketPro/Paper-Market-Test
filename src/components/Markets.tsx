@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
@@ -317,7 +317,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               {(['All', 'My Watchlist'] as const).map(list => (
                 <button
                   key={list}
-                  onClick={() => setSelectedList(list)}
+                  onClick={() => startTransition(() => setSelectedList(list))}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                     selectedList === list ? 'bg-white/5 text-white' : 'text-gray-400 hover:text-white'
                   }`}
@@ -344,7 +344,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               type="text"
               placeholder="Filter equity stocks (e.g. RELIANCE, TCS, INFY)..."
               value={equitySearchQuery ?? ''}
-              onChange={(e) => setEquitySearchQuery(e.target.value)}
+              onChange={(e) => startTransition(() => setEquitySearchQuery(e.target.value))}
               className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
             />
             {equitySearchQuery && (
@@ -509,7 +509,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
           {/* F&O SECTION SELECTOR PILLS */}
           <div className="flex bg-[#0b0e14]/50 border border-white/5 p-1 rounded-xl">
             <button
-              onClick={() => setFnoSection('futures')}
+              onClick={() => startTransition(() => setFnoSection('futures'))}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                 fnoSection === 'futures'
                   ? 'bg-blue-600 dark:bg-sky-500 text-white shadow'
@@ -519,7 +519,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               Future
             </button>
             <button
-              onClick={() => setFnoSection('options')}
+              onClick={() => startTransition(() => setFnoSection('options'))}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                 fnoSection === 'options'
                   ? 'bg-blue-600 dark:bg-sky-500 text-white shadow'
@@ -540,7 +540,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 type="text"
                 placeholder="Filter futures contracts (e.g. NIFTY, BANKNIFTY, RELIANCE, FUT)..."
                 value={fnoFuturesSearchQuery ?? ''}
-                onChange={(e) => setFnoFuturesSearchQuery(e.target.value)}
+                onChange={(e) => startTransition(() => setFnoFuturesSearchQuery(e.target.value))}
                 className="w-full bg-[#0a0d16] border border-white/5 focus:border-amber-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500/25 transition duration-200"
               />
               {fnoFuturesSearchQuery && (
@@ -563,7 +563,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 value={fnoOptionsSearchQuery ?? ''}
                 onChange={(e) => {
                   const val = e.target.value;
-                  setFnoOptionsSearchQuery(val);
+                  startTransition(() => setFnoOptionsSearchQuery(val));
                   
                   // Smart underlier detector: Automatically switch active underlier if mentioned!
                   const lowerVal = val.toLowerCase();
@@ -692,8 +692,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                                 <Activity className="w-3.5 h-3.5 text-sky-400 animate-pulse" /> Real-Time Live Chart (3s ticks)
                               </span>
                               <div className="h-28 w-full bg-black/20 rounded-xl p-2.5 border border-white/5">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <AreaChart data={inst.sparkline.map((val, i) => ({ Tick: `T${i}`, Price: val }))}>
+                                <AreaChart width={140} height={40} data={inst.sparkline.map((val, i) => ({ Tick: `T${i}`, Price: val }))}>
                                     <YAxis domain={['auto', 'auto']} hide={true} />
                                     <Tooltip
                                       contentStyle={{ backgroundColor: '#11141c', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
@@ -708,7 +707,6 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                                     </defs>
                                     <Area type="monotone" dataKey="Price" stroke={isChangePositive ? '#10b981' : '#ef4444'} strokeWidth={1.5} fillOpacity={1} fill={`url(#colorPrice-${inst.symbol})`} />
                                   </AreaChart>
-                                </ResponsiveContainer>
                               </div>
                             </div>
 
@@ -793,7 +791,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     <button
                       key={idxObj.symbol}
                       type="button"
-                      onClick={() => setSelectedOptionIndex(idxObj.symbol)}
+                      onClick={() => startTransition(() => setSelectedOptionIndex(idxObj.symbol))}
                       className={`px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition border ${
                         selectedOptionIndex === idxObj.symbol
                           ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/15'
@@ -819,7 +817,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     <button
                       key={exp}
                       type="button"
-                      onClick={() => setSelectedExpiry(exp)}
+                      onClick={() => startTransition(() => setSelectedExpiry(exp))}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                         selectedExpiry === exp
                           ? 'bg-blue-600 text-white'
@@ -944,7 +942,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     {expiries.map(exp => (
                       <button
                         key={exp}
-                        onClick={() => setSelectedExpiry(exp)}
+                        onClick={() => startTransition(() => setSelectedExpiry(exp))}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                           selectedExpiry === exp ? 'bg-blue-600 dark:bg-sky-500 text-white dark:text-black' : 'bg-white/5 text-gray-400 hover:text-white'
                         }`}

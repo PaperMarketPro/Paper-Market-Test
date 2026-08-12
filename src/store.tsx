@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { UserProfile, Instrument, Order, Position, JournalEntry, AIInsight, Strategy, Course, Challenge, Badge, OptionChainItem, CognitiveRule, LLMConfig } from './types';
 import { INITIAL_INSTRUMENTS, MOCK_OPTION_CHAIN, INITIAL_POSITIONS, CLOSED_POSITIONS, INITIAL_ORDERS, INITIAL_JOURNAL, INITIAL_AI_INSIGHTS, ACADEMY_COURSES, INITIAL_CHALLENGES, INITIAL_BADGES, randomWalk, generateFuturesForInstruments } from './mockData';
 import { auth, db } from './firebase';
@@ -973,7 +973,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Process batch updates as low-priority background transition
-      {
+      startTransition(() => {
         let latestInsts = instrumentsRef.current;
         let latestFuts = futuresRef.current;
 
@@ -1188,8 +1188,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? nextPositions : prevPositions;
         });
-      }
-    }, 3000);
+      });
+    }, 250);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;

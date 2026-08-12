@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useCallback, Component, ErrorInfo, ReactNode, startTransition } from 'react';
 import { AppProvider, useApp } from './store';
 import { Navigation } from './components/Navigation';
 import { AuthAndOnboarding } from './components/AuthAndOnboarding';
@@ -26,7 +26,9 @@ function MainAppCoordinator() {
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
 
   const handleNavigate = useCallback((tab: string) => {
-    setCurrentTab(tab);
+    startTransition(() => {
+      setCurrentTab(tab);
+    });
   }, []);
 
   React.useEffect(() => {

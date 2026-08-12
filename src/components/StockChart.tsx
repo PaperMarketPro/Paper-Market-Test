@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
 import { useApp } from '../store';
 import { Instrument } from '../types';
 import { 
@@ -2389,7 +2389,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
 
     previousAssetPrice.current = currentLtp;
 
-    {
+    startTransition(() => {
       setCandles(prev => {
         if (prev.length === 0) return prev;
         const lastCandle = prev[prev.length - 1];
@@ -2412,7 +2412,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
         // Re-compute indicators so lines follow live ticks flawlessly
         return computeIndicators(updated, true);
       });
-    }
+    });
   }, [activeAsset.ltp, activeAsset.symbol, computeIndicators]);
 
   // Min and Max prices for nice Y-Axis auto fitting

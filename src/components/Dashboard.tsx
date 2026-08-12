@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store';
 import { Instrument, Position } from '../types';
@@ -660,7 +660,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     type="text"
                     placeholder="Search e.g. RELIANCE, NIFTY FUT, 24300 CE, PE..."
                     value={searchQuery ?? ''}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => startTransition(() => setSearchQuery(e.target.value))}
                     className="w-full bg-[#0a0d16] border border-white/10 focus:border-sky-500/20 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
                     autoFocus
                   />
@@ -680,7 +680,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => setSelectedSearchTab(tab)}
+                      onClick={() => startTransition(() => setSelectedSearchTab(tab))}
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider transition cursor-pointer ${
                         selectedSearchTab === tab
                           ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
