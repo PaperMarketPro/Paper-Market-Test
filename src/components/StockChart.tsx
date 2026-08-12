@@ -1704,7 +1704,7 @@ export const TradingViewChart: React.FC<{
 
         {/* Auto S/R pivots calculation */}
         <button
-          onClick={() => setShowAutoSR(!showAutoSR)}
+          onClick={() => startTransition(() => setShowAutoSR(!showAutoSR))}
           title="Toggle Auto-S/R Pivot Zones"
           className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
             showAutoSR ? 'bg-sky-500/15 text-sky-400 font-bold' : 'text-gray-500 hover:text-white hover:bg-white/5'
@@ -1715,7 +1715,7 @@ export const TradingViewChart: React.FC<{
 
         {/* Synchronized RSI Panel Toggle */}
         <button
-          onClick={() => setShowRSI(!showRSI)}
+          onClick={() => startTransition(() => setShowRSI(!showRSI))}
           title="Toggle RSI Oscillator Panel"
           className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
             showRSI ? 'bg-purple-500/15 text-purple-400 font-bold' : 'text-gray-500 hover:text-purple-400 hover:bg-white/5'
@@ -1726,7 +1726,7 @@ export const TradingViewChart: React.FC<{
 
         {/* Synchronized MACD Panel Toggle */}
         <button
-          onClick={() => setShowMACD(!showMACD)}
+          onClick={() => startTransition(() => setShowMACD(!showMACD))}
           title="Toggle MACD Indicator Panel"
           className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
             showMACD ? 'bg-blue-500/15 text-blue-400 font-bold' : 'text-gray-500 hover:text-blue-400 hover:bg-white/5'
@@ -2543,7 +2543,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
             {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
               <button
                 key={tf}
-                onClick={() => setTimeframe(tf)}
+                onClick={() => startTransition(() => setTimeframe(tf))}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition-all border-0 bg-transparent cursor-pointer ${
                   timeframe === tf 
                     ? 'bg-sky-500 text-white shadow-md' 
@@ -2558,7 +2558,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
           {/* Chart Type Selector */}
           <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
             <button
-              onClick={() => setChartType('candle')}
+              onClick={() => startTransition(() => setChartType('candle'))}
               className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border-0 bg-transparent cursor-pointer ${
                 chartType === 'candle' 
                   ? 'bg-sky-500 text-white shadow-md' 
@@ -2568,7 +2568,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
               Candles
             </button>
             <button
-              onClick={() => setChartType('area')}
+              onClick={() => startTransition(() => setChartType('area'))}
               className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border-0 bg-transparent cursor-pointer ${
                 chartType === 'area' 
                   ? 'bg-sky-500 text-white shadow-md' 
@@ -2646,7 +2646,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 : 'bg-[#07090e] border-white/5 text-gray-400'
             }`}>
               <button
-                onClick={() => setShowEMA(!showEMA)}
+                onClick={() => startTransition(() => setShowEMA(!showEMA))}
                 className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${showEMA ? 'bg-sky-400' : 'bg-gray-600'}`} />
@@ -2674,7 +2674,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 : 'bg-[#07090e] border-white/5 text-gray-400'
             }`}>
               <button
-                onClick={() => setShowSMA(!showSMA)}
+                onClick={() => startTransition(() => setShowSMA(!showSMA))}
                 className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${showSMA ? 'bg-amber-500' : 'bg-gray-600'}`} />
@@ -2702,7 +2702,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 : 'bg-[#07090e] border-white/5 text-gray-400'
             }`}>
               <button
-                onClick={() => setShowBB(!showBB)}
+                onClick={() => startTransition(() => setShowBB(!showBB))}
                 className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${showBB ? 'bg-purple-500' : 'bg-gray-600'}`} />
@@ -2724,7 +2724,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
             </div>
 
             <button
-              onClick={() => setShowSupertrend(!showSupertrend)}
+              onClick={() => startTransition(() => setShowSupertrend(!showSupertrend))}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showSupertrend 
                   ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 font-bold shadow-md' 
@@ -2736,7 +2736,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
             </button>
 
             <button
-              onClick={() => setShowVWAP(!showVWAP)}
+              onClick={() => startTransition(() => setShowVWAP(!showVWAP))}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showVWAP 
                   ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 font-bold shadow-md' 
@@ -2748,7 +2748,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
             </button>
 
             <button
-              onClick={() => setShowEma50_200(!showEma50_200)}
+              onClick={() => startTransition(() => setShowEma50_200(!showEma50_200))}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showEma50_200 
                   ? 'bg-pink-500/10 border-pink-500/20 text-pink-400 font-bold shadow-md' 
@@ -2760,7 +2760,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
             </button>
 
             <button
-              onClick={() => setShowVolume(!showVolume)}
+              onClick={() => startTransition(() => setShowVolume(!showVolume))}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
                 showVolume 
                   ? 'bg-white/10 border-white/20 text-white font-bold shadow-md' 
@@ -2809,7 +2809,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
                   <button
                     key={tf}
-                    onClick={() => setTimeframe(tf)}
+                    onClick={() => startTransition(() => setTimeframe(tf))}
                     className={`px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all border-0 bg-transparent cursor-pointer ${
                       timeframe === tf 
                         ? 'bg-sky-500 text-white shadow-md' 
@@ -2824,7 +2824,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
               {/* Chart Type Selector in expanded view */}
               <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
                 <button
-                  onClick={() => setChartType('candle')}
+                  onClick={() => startTransition(() => setChartType('candle'))}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-0 bg-transparent cursor-pointer ${
                     chartType === 'candle' 
                       ? 'bg-sky-500 text-white shadow-md' 
@@ -2834,7 +2834,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                   Candles
                 </button>
                 <button
-                  onClick={() => setChartType('area')}
+                  onClick={() => startTransition(() => setChartType('area'))}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-0 bg-transparent cursor-pointer ${
                     chartType === 'area' 
                       ? 'bg-sky-500 text-white shadow-md' 

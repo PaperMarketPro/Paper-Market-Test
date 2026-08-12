@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, startTransition } from 'react';
 import { motion } from 'motion/react';
 import { useApp } from '../store';
 import { Position, Order } from '../types';
@@ -67,7 +67,7 @@ export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJourn
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => startTransition(() => setActiveTab(tab.key as any))}
             className={`pb-3 text-xs sm:text-sm font-semibold transition relative whitespace-nowrap px-1 ${
               activeTab === tab.key ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
             }`}

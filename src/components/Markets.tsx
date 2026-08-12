@@ -237,12 +237,16 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
   }, []);
 
   const handleAssetTap = React.useCallback((inst: Instrument) => {
-    setExpandedAsset(prev => prev?.symbol === inst.symbol ? null : inst);
+    startTransition(() => {
+      setExpandedAsset(prev => prev?.symbol === inst.symbol ? null : inst);
+    });
   }, []);
 
   const handleQuickTrade = React.useCallback((symbol: string) => {
-    setSelectedAssetBySymbol(symbol);
-    onNavigate('trade');
+    startTransition(() => {
+      setSelectedAssetBySymbol(symbol);
+      onNavigate('trade');
+    });
   }, [setSelectedAssetBySymbol, onNavigate]);
 
   return (

@@ -239,7 +239,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
         {/* LEFT COLUMN: MAIN ANALYTICS & WATCHLISTS */}
         <div className="lg:col-span-2 space-y-6">
           {/* 1. SEARCH BOX BAR */}
-          <div className="relative font-sans cursor-pointer" onClick={() => setIsSearchOpen(true)}>
+          <div className="relative font-sans cursor-pointer" onClick={() => startTransition(() => setIsSearchOpen(true))}>
             <span className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-sky-400/60" />
             </span>
@@ -373,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-xs font-bold text-white uppercase font-mono tracking-wider">Active Positions ({openPositions.length})</h3>
               <button
-                onClick={() => onNavigate('positions')}
+                onClick={() => startTransition(() => onNavigate('positions'))}
                 className="text-[10px] text-blue-600 dark:text-sky-400 hover:text-blue-500 dark:hover:text-sky-300 font-bold font-mono uppercase flex items-center gap-1"
               >
                 Full View
@@ -502,7 +502,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               {/* Action CTAs */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => onNavigate('journal')}
+                  onClick={() => startTransition(() => onNavigate('journal'))}
                   className="flex-1 text-center text-[10px] text-blue-600 dark:text-sky-400 font-bold py-2 bg-sky-500/5 rounded-xl border border-sky-500/10 block uppercase font-mono tracking-wider"
                 >
                   Discipline Journal
@@ -642,7 +642,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                   </div>
                   <button 
                     onClick={() => {
-                      setIsSearchOpen(false);
+                      startTransition(() => setIsSearchOpen(false));
                       setSearchQuery('');
                     }} 
                     className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition cursor-pointer"
@@ -736,7 +736,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                             type="button"
                             onClick={() => {
                               setSelectedAssetBySymbol(asset.symbol);
-                              setIsSearchOpen(false);
+                              startTransition(() => setIsSearchOpen(false));
                               onNavigate('trade');
                             }}
                             className="opacity-90 group-hover:opacity-100 bg-sky-600 hover:bg-sky-500 text-white font-mono font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
