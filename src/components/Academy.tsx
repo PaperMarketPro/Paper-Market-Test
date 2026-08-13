@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { Course, Lesson, VideoTimestamp } from '../types';
 import { AILessonStudio } from './AILessonStudio';
 import { 
@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export const Academy: React.FC = React.memo(() => {
-  const { courses, completeLesson, submitQuiz, user } = useApp();
+  const { courses, completeLesson, submitQuiz, user } = useMainApp();
   
   // Selection states
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);

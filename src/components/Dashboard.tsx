@@ -5,7 +5,7 @@
 
 import React, { useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { Instrument, Position } from '../types';
 import { 
   Flame, TrendingUp, TrendingDown, Award, Calendar, DollarSign, 
@@ -19,7 +19,8 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) => {
-  const { user, positions = [], instruments = [], futures = [], optionChain = [], setSelectedAssetBySymbol, upstoxStatus } = useApp();
+  const { user, positions = [] } = useMainApp();
+  const { instruments = [], futures = [], optionChain = [], setSelectedAssetBySymbol, upstoxStatus } = useMarketData();
   const [activeTab, setActiveTab] = useState<'equity' | 'monthly'>('equity');
   const [isRefreshing, setIsRefreshing] = useState(false);
 

@@ -5,7 +5,7 @@
 
 import React, { useState, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { Instrument } from '../types';
 import { Search, Plus, Trash2, TrendingUp, TrendingDown, Eye, ChevronRight, X, Layers, Percent, Activity, ShieldCheck } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
@@ -93,7 +93,8 @@ interface MarketsProps {
 }
 
 export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode }) => {
-  const { instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus, sebiFnoAccepted, confirmSebiRiskDisclosure } = useApp();
+  const { sebiFnoAccepted, confirmSebiRiskDisclosure } = useMainApp();
+  const { instruments, futures, optionChain, setSelectedAssetBySymbol, upstoxStatus } = useMarketData();
   const [activeTab, setActiveTab] = useState<'watchlist' | 'options' | 'indices'>(
     mode === 'fno' ? 'options' : 'watchlist'
   );

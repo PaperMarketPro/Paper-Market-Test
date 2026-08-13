@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { Position, EmotionTag, MistakeTag } from '../types';
 import { 
   Plus, X, Search, Calendar, List, Check, ArrowRight, ArrowLeft, Star, 
@@ -19,7 +19,7 @@ interface JournalProps {
 }
 
 export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition, onClearPreselected }) => {
-  const { journals, positions, addJournalEntry, user, cognitiveRules } = useApp();
+  const { journals, positions, addJournalEntry, user, cognitiveRules } = useMainApp();
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

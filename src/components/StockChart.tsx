@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
-import { useApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { Instrument } from '../types';
 import { 
   TrendingUp, TrendingDown, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
@@ -46,7 +46,7 @@ interface Candle {
  * Renders a rolling ribbon of live prices for major Indian market assets.
  */
 export const NativeTickerTape: React.FC = React.memo(() => {
-  const { instruments } = useApp();
+  const { instruments } = useMarketData();
 
   const majorInstruments = React.useMemo(() => {
     const list = instruments.filter(inst => 
@@ -2002,7 +2002,8 @@ const StockChartBase: React.FC<StockChartProps> = ({
   height = 240, 
   showControls = true 
 }) => {
-  const { selectedAsset, instruments, theme } = useApp();
+  const { theme } = useMainApp();
+  const { selectedAsset, instruments } = useMarketData();
   
   // Use explicitly passed asset, or fallback to selectedAsset, or first instrument
   const activeAsset = asset || selectedAsset || instruments[0];

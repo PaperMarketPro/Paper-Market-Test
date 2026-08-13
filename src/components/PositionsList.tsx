@@ -5,7 +5,7 @@
 
 import React, { useState, startTransition } from 'react';
 import { motion } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { Position, Order } from '../types';
 import { Layers, CheckCircle2, TrendingUp, TrendingDown, Clock, HelpCircle, Edit3, X, Eye } from 'lucide-react';
 
@@ -14,7 +14,7 @@ interface PositionsListProps {
 }
 
 export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJournalShortcut }) => {
-  const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen, enforceMarketHours } = useApp();
+  const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen, enforceMarketHours } = useMainApp();
   const isTradingBlocked = enforceMarketHours && !isMarketOpen;
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'orders'>('open');
 

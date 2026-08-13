@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { StrategyCondition, Strategy } from '../types';
 import { 
   Plus, Play, Sparkles, Trash2, ShieldCheck, 
@@ -16,7 +16,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 
 export const StrategyBuilder: React.FC = React.memo(() => {
-  const { strategies, addStrategy, deleteStrategy, runBacktest, toggleAutoTrade, updateStrategyRiskParams } = useApp();
+  const { strategies, addStrategy, deleteStrategy, runBacktest, toggleAutoTrade, updateStrategyRiskParams } = useMainApp();
   const [activeTab, setActiveTab] = useState<'create' | 'saved'>('create');
   
   // AI Strategy Generator State

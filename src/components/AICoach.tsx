@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { 
   ShieldCheck, BrainCircuit, TrendingUp, HelpCircle, 
   ChevronDown, Award, Sparkles, Activity, MessageSquare, 
@@ -33,7 +33,7 @@ export const AICoach: React.FC = React.memo(() => {
     user,
     cognitiveRules,
     updateLLMConfig
-  } = useApp();
+  } = useMainApp();
 
   const [activeTab, setActiveTab] = useState<'chat' | 'teach' | 'scorecard'>('chat');
 

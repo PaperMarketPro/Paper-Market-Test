@@ -10,7 +10,7 @@ import {
   Settings, HelpCircle, BrainCircuit, Library, History, Sparkles, BookOpen,
   Briefcase, ArrowLeftRight, BarChart2
 } from 'lucide-react';
-import { useApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { BrandLogo } from './BrandLogo';
 import { NativeTickerTape } from './StockChart';
 import { SebiRiskModal } from './SebiRiskModal';
@@ -22,7 +22,8 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
-  const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, upstoxStatus, sebiFnoAccepted, confirmSebiRiskDisclosure } = useApp();
+  const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, sebiFnoAccepted, confirmSebiRiskDisclosure } = useMainApp();
+  const { upstoxStatus } = useMarketData();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showSebiModal, setShowSebiModal] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);

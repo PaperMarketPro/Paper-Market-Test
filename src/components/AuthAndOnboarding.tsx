@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { BrandLogo } from './BrandLogo';
 import { TrendingUp, ShieldCheck, Award, Zap, ArrowRight, Check, Sparkles, Mail, Lock, Phone, User, AlertCircle } from 'lucide-react';
 import { auth } from '../firebase';
@@ -16,7 +16,7 @@ interface AuthAndOnboardingProps {
 }
 
 export const AuthAndOnboarding: React.FC<AuthAndOnboardingProps> = ({ onComplete }) => {
-  const { user, initializeNewUser, initializeGuestUser } = useApp();
+  const { user, initializeNewUser, initializeGuestUser } = useMainApp();
 
   const handleGuestProceed = () => {
     initializeGuestUser({

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '../store';
+import { useMainApp } from '../store';
 import { 
   TrendingUp, TrendingDown, DollarSign, Percent, Award, ArrowUpRight, 
   ArrowDownRight, RefreshCw, BarChart2, PieChart, Activity, User, 
@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 
 export const Analytics: React.FC = React.memo(() => {
-  const { positions, journals, user } = useApp();
+  const { positions, journals, user } = useMainApp();
   const [timeframe, setTimeframe] = useState<'All' | 'Month' | 'Week'>('All');
   const [assetFilter, setAssetFilter] = useState<'All' | 'Equity' | 'FnO'>('All');
 

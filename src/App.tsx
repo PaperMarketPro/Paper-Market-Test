@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, Component, ErrorInfo, ReactNode, startTransition } from 'react';
-import { AppProvider, useApp } from './store';
+import { AppProvider, useMainApp } from './store';
 import { Navigation } from './components/Navigation';
 import { AuthAndOnboarding } from './components/AuthAndOnboarding';
 import { Dashboard } from './components/Dashboard';
@@ -21,7 +21,7 @@ import { RiskManagement } from './components/RiskManagement';
 import { Position } from './types';
 
 function MainAppCoordinator() {
-  const { user, isAuthLoading, logoutUser } = useApp();
+  const { user, isAuthLoading, logoutUser } = useMainApp();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
 

@@ -19,7 +19,7 @@ interface AppNotification {
   isRead: boolean;
 }
 
-interface AppContextType {
+export interface MainAppContextType {
   user: UserProfile | null;
   firebaseUser: any;
   isAuthLoading: boolean;
@@ -28,9 +28,6 @@ interface AppContextType {
   initializeGuestUser: (profileData: Partial<UserProfile>) => void;
   updateLLMConfig: (config: Partial<LLMConfig>) => void;
   theme: 'dark' | 'light';
-  instruments: Instrument[];
-  futures: Instrument[];
-  optionChain: OptionChainItem[];
   orders: Order[];
   positions: Position[];
   journals: JournalEntry[];
@@ -63,12 +60,6 @@ interface AppContextType {
   claimChallengeReward: (challengeId: string) => void;
   markNotificationAsRead: (id: string) => void;
   clearAllNotifications: () => void;
-  selectedAsset: Instrument;
-  setSelectedAssetBySymbol: (symbol: string) => void;
-  upstoxStatus: { connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean };
-  refreshUpstoxStatus: () => Promise<void>;
-  disconnectUpstox: () => Promise<void>;
-  connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
   enforceMarketHours: boolean;
   toggleEnforceMarketHours: () => void;
   isMarketOpen: boolean;
@@ -76,7 +67,22 @@ interface AppContextType {
   confirmSebiRiskDisclosure: () => void;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+export interface MarketDataContextType {
+  instruments: Instrument[];
+  futures: Instrument[];
+  optionChain: OptionChainItem[];
+  selectedAsset: Instrument;
+  setSelectedAssetBySymbol: (symbol: string) => void;
+  upstoxStatus: { connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean };
+  refreshUpstoxStatus: () => Promise<void>;
+  disconnectUpstox: () => Promise<void>;
+  connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
+}
+
+export type AppContextType = MainAppContextType & MarketDataContextType;
+
+const MainAppContext = createContext<MainAppContextType | undefined>(undefined);
+const MarketDataContext = createContext<MarketDataContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Theme state
@@ -2249,7 +2255,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const allPositions = useMemo(() => [...positions, ...closedHistory], [positions, closedHistory]);
 
-  const contextValue = useMemo(() => ({
+  const mainContextValue = useMemo<MainAppContextType>(() => ({
     user,
     firebaseUser,
     isAuthLoading,
@@ -2258,9 +2264,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initializeGuestUser,
     updateLLMConfig,
     theme,
-    instruments,
-    futures,
-    optionChain,
     orders,
     positions: allPositions,
     journals,
@@ -2293,12 +2296,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     claimChallengeReward,
     markNotificationAsRead,
     clearAllNotifications,
-    selectedAsset,
-    setSelectedAssetBySymbol,
-    upstoxStatus,
-    refreshUpstoxStatus,
-    disconnectUpstox,
-    connectUpstoxManually,
     enforceMarketHours,
     toggleEnforceMarketHours,
     isMarketOpen,
@@ -2309,9 +2306,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     firebaseUser,
     isAuthLoading,
     theme,
-    instruments,
-    futures,
-    optionChain,
     orders,
     allPositions,
     journals,
@@ -2322,25 +2316,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     challenges,
     badges,
     notifications,
-    selectedAsset,
-    upstoxStatus,
     enforceMarketHours,
     isMarketOpen,
     sebiFnoAccepted,
     confirmSebiRiskDisclosure,
   ]);
 
+  const marketDataContextValue = useMemo<MarketDataContextType>(() => ({
+    instruments,
+    futures,
+    optionChain,
+    selectedAsset,
+    setSelectedAssetBySymbol,
+    upstoxStatus,
+    refreshUpstoxStatus,
+    disconnectUpstox,
+    connectUpstoxManually,
+  }), [
+    instruments,
+    futures,
+    optionChain,
+    selectedAsset,
+    upstoxStatus,
+    refreshUpstoxStatus,
+    disconnectUpstox,
+    connectUpstoxManually,
+  ]);
+
   return (
-    <AppContext.Provider value={contextValue}>
-      {children}
-    </AppContext.Provider>
+    <MainAppContext.Provider value={mainContextValue}>
+      <MarketDataContext.Provider value={marketDataContextValue}>
+        {children}
+      </MarketDataContext.Provider>
+    </MainAppContext.Provider>
   );
 };
 
-export const useApp = () => {
-  const context = useContext(AppContext);
+export const useMainApp = (): MainAppContextType => {
+  const context = useContext(MainAppContext);
   if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
+    throw new Error('useMainApp must be used within an AppProvider');
   }
   return context;
+};
+
+export const useMarketData = (): MarketDataContextType => {
+  const context = useContext(MarketDataContext);
+  if (!context) {
+    throw new Error('useMarketData must be used within an AppProvider');
+  }
+  return context;
+};
+
+export const useApp = (): AppContextType => {
+  const main = useMainApp();
+  const market = useMarketData();
+  return { ...main, ...market };
 };

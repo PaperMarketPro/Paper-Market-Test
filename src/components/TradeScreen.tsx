@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, startTransition } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { Sparkles, ArrowRight, ShieldCheck, HelpCircle, Check, Info } from 'lucide-react';
 import { StockChart } from './StockChart';
 
@@ -14,7 +14,8 @@ interface TradeScreenProps {
 }
 
 export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }) => {
-  const { selectedAsset, addOrder, user, isMarketOpen, enforceMarketHours } = useApp();
+  const { addOrder, user, isMarketOpen, enforceMarketHours } = useMainApp();
+  const { selectedAsset } = useMarketData();
   const isTradingBlocked = enforceMarketHours && !isMarketOpen;
   
   // Ticket States
