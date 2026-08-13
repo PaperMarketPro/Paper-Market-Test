@@ -321,7 +321,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               {(['All', 'My Watchlist'] as const).map(list => (
                 <button
                   key={list}
-                  onClick={() => startTransition(() => setSelectedList(list))}
+                  onClick={() => setSelectedList(list)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                     selectedList === list ? 'bg-white/5 text-white' : 'text-gray-400 hover:text-white'
                   }`}
@@ -348,7 +348,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               type="text"
               placeholder="Filter equity stocks (e.g. RELIANCE, TCS, INFY)..."
               value={equitySearchQuery ?? ''}
-              onChange={(e) => startTransition(() => setEquitySearchQuery(e.target.value))}
+              onChange={(e) => setEquitySearchQuery(e.target.value)}
               className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
             />
             {equitySearchQuery && (
@@ -513,7 +513,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
           {/* F&O SECTION SELECTOR PILLS */}
           <div className="flex bg-[#0b0e14]/50 border border-white/5 p-1 rounded-xl">
             <button
-              onClick={() => startTransition(() => setFnoSection('futures'))}
+              onClick={() => setFnoSection('futures')}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                 fnoSection === 'futures'
                   ? 'bg-blue-600 dark:bg-sky-500 text-white shadow'
@@ -523,7 +523,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
               Future
             </button>
             <button
-              onClick={() => startTransition(() => setFnoSection('options'))}
+              onClick={() => setFnoSection('options')}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
                 fnoSection === 'options'
                   ? 'bg-blue-600 dark:bg-sky-500 text-white shadow'
@@ -544,7 +544,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 type="text"
                 placeholder="Filter futures contracts (e.g. NIFTY, BANKNIFTY, RELIANCE, FUT)..."
                 value={fnoFuturesSearchQuery ?? ''}
-                onChange={(e) => startTransition(() => setFnoFuturesSearchQuery(e.target.value))}
+                onChange={(e) => setFnoFuturesSearchQuery(e.target.value)}
                 className="w-full bg-[#0a0d16] border border-white/5 focus:border-amber-500/20 rounded-xl pl-9 pr-10 py-2.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500/25 transition duration-200"
               />
               {fnoFuturesSearchQuery && (
@@ -567,7 +567,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 value={fnoOptionsSearchQuery ?? ''}
                 onChange={(e) => {
                   const val = e.target.value;
-                  startTransition(() => setFnoOptionsSearchQuery(val));
+                  setFnoOptionsSearchQuery(val);
                   
                   // Smart underlier detector: Automatically switch active underlier if mentioned!
                   const lowerVal = val.toLowerCase();
@@ -821,7 +821,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     <button
                       key={exp}
                       type="button"
-                      onClick={() => startTransition(() => setSelectedExpiry(exp))}
+                      onClick={() => setSelectedExpiry(exp)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                         selectedExpiry === exp
                           ? 'bg-blue-600 text-white'

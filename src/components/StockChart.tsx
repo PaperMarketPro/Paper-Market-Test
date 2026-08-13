@@ -1704,7 +1704,7 @@ export const TradingViewChart: React.FC<{
 
         {/* Auto S/R pivots calculation */}
         <button
-          onClick={() => startTransition(() => setShowAutoSR(!showAutoSR))}
+          onClick={() => setShowAutoSR(!showAutoSR)}
           title="Toggle Auto-S/R Pivot Zones"
           className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
             showAutoSR ? 'bg-sky-500/15 text-sky-400 font-bold' : 'text-gray-500 hover:text-white hover:bg-white/5'
@@ -1715,7 +1715,7 @@ export const TradingViewChart: React.FC<{
 
         {/* Synchronized RSI Panel Toggle */}
         <button
-          onClick={() => startTransition(() => setShowRSI(!showRSI))}
+          onClick={() => setShowRSI(!showRSI)}
           title="Toggle RSI Oscillator Panel"
           className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
             showRSI ? 'bg-purple-500/15 text-purple-400 font-bold' : 'text-gray-500 hover:text-purple-400 hover:bg-white/5'
@@ -1726,7 +1726,7 @@ export const TradingViewChart: React.FC<{
 
         {/* Synchronized MACD Panel Toggle */}
         <button
-          onClick={() => startTransition(() => setShowMACD(!showMACD))}
+          onClick={() => setShowMACD(!showMACD)}
           title="Toggle MACD Indicator Panel"
           className={`p-2 rounded-lg transition-all border-0 bg-transparent cursor-pointer ${
             showMACD ? 'bg-blue-500/15 text-blue-400 font-bold' : 'text-gray-500 hover:text-blue-400 hover:bg-white/5'

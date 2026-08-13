@@ -219,7 +219,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
                     <button
                       key={v}
                       type="button"
-                      onClick={() => startTransition(() => setRiskPercent(v))}
+                      onClick={() => setRiskPercent(v)}
                       className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
                         riskPercent === v 
                           ? 'bg-blue-600 dark:bg-sky-500 text-white shadow' 
@@ -255,7 +255,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
                       <button
                         key={v}
                         type="button"
-                        onClick={() => startTransition(() => setSimSLPercent(v))}
+                        onClick={() => setSimSLPercent(v)}
                         className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
                           simSLPercent === v 
                             ? 'bg-amber-500 text-white shadow' 
@@ -378,7 +378,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
           <div className="grid grid-cols-2 bg-slate-100 dark:bg-white/5 rounded-xl p-1 border border-slate-200 dark:border-white/5">
             <button
               type="button"
-              onClick={() => startTransition(() => setDirection('Buy'))}
+              onClick={() => setDirection('Buy')}
               className={`py-2.5 text-xs font-extrabold rounded-lg transition ${
                 direction === 'Buy'
                   ? 'bg-emerald-600 text-white shadow'
@@ -390,7 +390,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
             </button>
             <button
               type="button"
-              onClick={() => startTransition(() => setDirection('Sell'))}
+              onClick={() => setDirection('Sell')}
               className={`py-2.5 text-xs font-extrabold rounded-lg transition ${
                 direction === 'Sell'
                   ? 'bg-rose-600 text-white shadow'
@@ -408,7 +408,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
               <button
                 key={type}
                 type="button"
-                onClick={() => startTransition(() => setOrderType(type))}
+                onClick={() => setOrderType(type)}
                 className={`py-1.5 text-xs font-bold rounded-lg transition ${
                   orderType === type ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
@@ -426,7 +426,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
               <div className="flex bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-1 items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => startTransition(() => handleQtyStep(-10))}
+                  onClick={() => handleQtyStep(-10)}
                   className="w-10 h-10 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center font-extrabold text-base"
                   style={{ touchAction: 'manipulation' }}
                 >
@@ -435,7 +435,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
                 <span className="font-extrabold text-sm text-slate-900 dark:text-white tabular-numbers">{qty}</span>
                 <button
                   type="button"
-                  onClick={() => startTransition(() => handleQtyStep(10))}
+                  onClick={() => handleQtyStep(10)}
                   className="w-10 h-10 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center font-extrabold text-base"
                   style={{ touchAction: 'manipulation' }}
                 >
