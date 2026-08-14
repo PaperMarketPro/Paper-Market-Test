@@ -393,7 +393,6 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
 
             return (
               <motion.div 
-                layout
                 key={entry.id} 
                 className="bg-white/2 border border-white/5 hover:border-white/10 rounded-2xl p-5 md:p-6 space-y-4 shadow-lg transition duration-200"
               >

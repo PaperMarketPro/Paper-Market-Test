@@ -82,6 +82,16 @@
 }
 
 /* 3. Global CSS Layout & Base Reset */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-app);

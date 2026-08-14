@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { useApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { 
   Shield, Calculator, Sliders, Info, Sparkles, TrendingUp, 
   Coins, AlertTriangle, ArrowRight, RefreshCw, CheckCircle2, ShieldAlert
@@ -13,7 +13,8 @@ import {
 import { Instrument } from '../types';
 
 export const RiskManagement: React.FC = React.memo(() => {
-  const { user, instruments, futures, setSelectedAssetBySymbol } = useApp();
+  const { user } = useMainApp();
+  const { instruments, futures, setSelectedAssetBySymbol } = useMarketData();
 
   // Available assets
   const allAssets = React.useMemo(() => [...(instruments || []), ...(futures || [])], [instruments, futures]);

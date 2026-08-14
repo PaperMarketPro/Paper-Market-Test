@@ -265,7 +265,9 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 if (tab.key === 'options' && !sebiFnoAccepted) {
                   setShowSebiModal(true);
                 } else {
-                  setActiveTab(tab.key as any);
+                  startTransition(() => {
+                    setActiveTab(tab.key as any);
+                  });
                 }
               }}
               className={`pb-3 text-sm font-semibold transition relative ${
