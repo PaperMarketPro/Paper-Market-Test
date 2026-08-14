@@ -77,6 +77,7 @@ export interface MarketDataContextType {
   refreshUpstoxStatus: () => Promise<void>;
   disconnectUpstox: () => Promise<void>;
   connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
+  livePositions: Position[];
 }
 
 export type AppContextType = MainAppContextType & MarketDataContextType;
@@ -1142,58 +1143,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? next : prev;
         });
-
-        // 4. Batch update open position prices in the EXACT SAME pass
-        setPositions(prevPositions => {
-          if (prevPositions.length === 0) return prevPositions;
-          let changed = false;
-          const nextPositions = prevPositions.map(pos => {
-            if (pos.status !== 'Open') return pos;
-            let nextPrice = pos.currentPrice;
-
-            const matchingAsset = latestInsts.find(i => i.symbol === pos.symbol);
-            if (matchingAsset) {
-              nextPrice = matchingAsset.ltp;
-            } else {
-              const matchingFuture = latestFuts.find(f => f.symbol === pos.symbol);
-              if (matchingFuture) {
-                nextPrice = matchingFuture.ltp;
-              } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
-                const parts = pos.symbol.split(' ');
-                const strikeStr = parts[parts.length - 2];
-                const typeStr = parts[parts.length - 1];
-                const strike = parseInt(strikeStr);
-                if (!isNaN(strike)) {
-                  const underlierName = parts[0];
-                  const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
-                  const underlier = latestInsts.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
-                  const spot = underlier ? underlier.ltp : 24325.85;
-                  const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
-                  const distance = strike - spot;
-                  
-                  if (typeStr === 'CE') {
-                    const callIntrinsic = Math.max(0, spot - strike);
-                    const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                    const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-                    nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
-                  } else {
-                    const putIntrinsic = Math.max(0, strike - spot);
-                    const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-                    const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-                    nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
-                  }
-                }
-              }
-            }
-
-            if (typeof nextPrice === 'number' && !isNaN(nextPrice) && Math.abs(nextPrice - pos.currentPrice) > 0.01) {
-              changed = true;
-              return { ...pos, currentPrice: nextPrice };
-            }
-            return pos;
-          });
-          return changed ? nextPositions : prevPositions;
-        });
       });
     }, 1000);
 
@@ -2255,6 +2204,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const allPositions = useMemo(() => [...positions, ...closedHistory], [positions, closedHistory]);
 
+  const livePositions = useMemo(() => {
+    if (!allPositions || allPositions.length === 0) return [];
+    return allPositions.map(pos => {
+      if (pos.status !== 'Open') return pos;
+      let nextPrice = pos.currentPrice;
+      const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
+      if (matchingAsset) {
+        nextPrice = matchingAsset.ltp;
+      } else {
+        const matchingFuture = futures.find(f => f.symbol === pos.symbol);
+        if (matchingFuture) {
+          nextPrice = matchingFuture.ltp;
+        } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
+          const parts = pos.symbol.split(' ');
+          const strikeStr = parts[parts.length - 2];
+          const typeStr = parts[parts.length - 1];
+          const strike = parseInt(strikeStr);
+          if (!isNaN(strike)) {
+            const underlierName = parts[0];
+            const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
+            const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
+            const spot = underlier ? underlier.ltp : 24325.85;
+            const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
+            const distance = strike - spot;
+            
+            if (typeStr === 'CE') {
+              const callIntrinsic = Math.max(0, spot - strike);
+              const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+              const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
+              nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
+            } else {
+              const putIntrinsic = Math.max(0, strike - spot);
+              const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
+              const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
+              nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
+            }
+          }
+        }
+      }
+      return typeof nextPrice === 'number' && !isNaN(nextPrice) && Math.abs(nextPrice - pos.currentPrice) > 0.01
+        ? { ...pos, currentPrice: nextPrice }
+        : pos;
+    });
+  }, [allPositions, instruments, futures, optionChain]);
+
   const mainContextValue = useMemo<MainAppContextType>(() => ({
     user,
     firebaseUser,
@@ -2332,6 +2326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshUpstoxStatus,
     disconnectUpstox,
     connectUpstoxManually,
+    livePositions,
   }), [
     instruments,
     futures,
@@ -2341,6 +2336,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshUpstoxStatus,
     disconnectUpstox,
     connectUpstoxManually,
+    livePositions,
   ]);
 
   return (
@@ -2371,5 +2367,9 @@ export const useMarketData = (): MarketDataContextType => {
 export const useApp = (): AppContextType => {
   const main = useMainApp();
   const market = useMarketData();
-  return { ...main, ...market };
+  return { 
+    ...main, 
+    ...market, 
+    positions: market.livePositions && market.livePositions.length > 0 ? market.livePositions : main.positions 
+  };
 };

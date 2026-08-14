@@ -21,9 +21,30 @@ interface NavigationProps {
   children: React.ReactNode;
 }
 
+const MarketFeedBadge: React.FC<{ onNavigate: (tab: string) => void }> = React.memo(({ onNavigate }) => {
+  const { upstoxStatus } = useMarketData();
+  const { isMarketOpen } = useMainApp();
+
+  return (
+    <div 
+      onClick={() => onNavigate('profile')}
+      className={`cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${
+        upstoxStatus.isRealUpstox 
+          ? isMarketOpen ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400'
+          : isMarketOpen ? 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-white/5 dark:border-white/5 dark:text-gray-300' : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/5 dark:text-gray-500'
+      }`}
+      title={upstoxStatus.isRealUpstox ? "Live Pro Feed Connected" : "NSE / BSE Market Status"}
+    >
+      <span className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`} />
+      <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold">
+        {upstoxStatus.isRealUpstox ? (isMarketOpen ? 'PRO FEED: ACTIVE' : 'PRO FEED: CLOSED') : (isMarketOpen ? 'NSE / BSE' : 'MKT CLOSED')}
+      </span>
+    </div>
+  );
+});
+
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
   const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, sebiFnoAccepted, confirmSebiRiskDisclosure } = useMainApp();
-  const { upstoxStatus } = useMarketData();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showSebiModal, setShowSebiModal] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
@@ -187,20 +208,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
           {/* Right section: Live Feed Badge, Balance, notifications, level indicators */}
           <div className="flex items-center gap-3">
             {/* Market Status Pill */}
-            <div 
-              onClick={() => handleNavClick('profile')}
-              className={`cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${
-                upstoxStatus.isRealUpstox 
-                  ? isMarketOpen ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400'
-                  : isMarketOpen ? 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-white/5 dark:border-white/5 dark:text-gray-300' : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/5 dark:text-gray-500'
-              }`}
-              title={upstoxStatus.isRealUpstox ? "Live Pro Feed Connected" : "NSE / BSE Market Status"}
-            >
-              <span className={`w-2 h-2 rounded-full ${isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500'}`} />
-              <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold">
-                {upstoxStatus.isRealUpstox ? (isMarketOpen ? 'PRO FEED: ACTIVE' : 'PRO FEED: CLOSED') : (isMarketOpen ? 'NSE / BSE' : 'MKT CLOSED')}
-              </span>
-            </div>
+            <MarketFeedBadge onNavigate={handleNavClick} />
 
             {/* Live Virtual Capital Badge */}
             <div className="flex flex-col items-end bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-3.5 py-1 shadow-sm">
