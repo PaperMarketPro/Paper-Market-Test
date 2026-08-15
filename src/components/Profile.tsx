@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useMainApp, useMarketData } from '../store';
+import { useMainApp, useUpstoxStatus } from '../store';
 import { 
   Flame, Award, ShieldAlert, CheckCircle, TrendingUp, Activity, 
   Settings, RefreshCw, LogOut, Check, Star, Shield, Bell, X, CreditCard, Sparkles, AlertTriangle,
@@ -25,7 +25,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
   } = useMainApp();
   const {
     upstoxStatus, disconnectUpstox, refreshUpstoxStatus, connectUpstoxManually
-  } = useMarketData();
+  } = useUpstoxStatus();
   const [activeSubTab, setActiveSubTab] = React.useState<'stats' | 'achievements' | 'subscription' | 'notifications' | 'settings'>(initialSubTab);
 
   React.useEffect(() => {

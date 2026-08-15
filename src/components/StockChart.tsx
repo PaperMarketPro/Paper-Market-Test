@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
-import { useMainApp, useMarketData } from '../store';
+import { useMainApp, useActiveAsset, useMarketData } from '../store';
 import { Instrument } from '../types';
 import { 
   TrendingUp, TrendingDown, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
@@ -2003,10 +2003,10 @@ const StockChartBase: React.FC<StockChartProps> = ({
   showControls = true 
 }) => {
   const { theme } = useMainApp();
-  const { selectedAsset, instruments } = useMarketData();
+  const { selectedAsset } = useActiveAsset();
   
-  // Use explicitly passed asset, or fallback to selectedAsset, or first instrument
-  const activeAsset = asset || selectedAsset || instruments[0];
+  // Use explicitly passed asset, or fallback to selectedAsset
+  const activeAsset = asset || selectedAsset;
 
   const [timeframe, setTimeframe] = useState<'1m' | '5m' | '15m' | '1h' | '1D'>('5m');
   const [chartType, setChartType] = useState<'candle' | 'area'>('candle');

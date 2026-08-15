@@ -10,7 +10,7 @@ import {
   Settings, HelpCircle, BrainCircuit, Library, History, Sparkles, BookOpen,
   Briefcase, ArrowLeftRight, BarChart2
 } from 'lucide-react';
-import { useMainApp, useMarketData } from '../store';
+import { useMainApp, useUpstoxStatus } from '../store';
 import { BrandLogo } from './BrandLogo';
 import { NativeTickerTape } from './StockChart';
 import { SebiRiskModal } from './SebiRiskModal';
@@ -22,7 +22,7 @@ interface NavigationProps {
 }
 
 const MarketFeedBadge: React.FC<{ onNavigate: (tab: string) => void }> = React.memo(({ onNavigate }) => {
-  const { upstoxStatus } = useMarketData();
+  const { upstoxStatus } = useUpstoxStatus();
   const { isMarketOpen } = useMainApp();
 
   return (

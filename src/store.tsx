@@ -67,6 +67,18 @@ export interface MainAppContextType {
   confirmSebiRiskDisclosure: () => void;
 }
 
+export interface UpstoxStatusContextType {
+  upstoxStatus: { connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean };
+  refreshUpstoxStatus: () => Promise<void>;
+  disconnectUpstox: () => Promise<void>;
+  connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
+}
+
+export interface ActiveAssetContextType {
+  selectedAsset: Instrument;
+  setSelectedAssetBySymbol: (symbol: string) => void;
+}
+
 export interface MarketDataContextType {
   instruments: Instrument[];
   futures: Instrument[];
@@ -84,6 +96,8 @@ export type AppContextType = MainAppContextType & MarketDataContextType;
 
 const MainAppContext = createContext<MainAppContextType | undefined>(undefined);
 const MarketDataContext = createContext<MarketDataContextType | undefined>(undefined);
+const UpstoxStatusContext = createContext<UpstoxStatusContextType | undefined>(undefined);
+const ActiveAssetContext = createContext<ActiveAssetContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Theme state
@@ -2339,11 +2353,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     livePositions,
   ]);
 
+  const upstoxContextValue = useMemo<UpstoxStatusContextType>(() => ({
+    upstoxStatus,
+    refreshUpstoxStatus,
+    disconnectUpstox,
+    connectUpstoxManually,
+  }), [upstoxStatus, refreshUpstoxStatus, disconnectUpstox, connectUpstoxManually]);
+
+  const activeAssetContextValue = useMemo<ActiveAssetContextType>(() => ({
+    selectedAsset,
+    setSelectedAssetBySymbol,
+  }), [selectedAsset, setSelectedAssetBySymbol]);
+
   return (
     <MainAppContext.Provider value={mainContextValue}>
-      <MarketDataContext.Provider value={marketDataContextValue}>
-        {children}
-      </MarketDataContext.Provider>
+      <UpstoxStatusContext.Provider value={upstoxContextValue}>
+        <ActiveAssetContext.Provider value={activeAssetContextValue}>
+          <MarketDataContext.Provider value={marketDataContextValue}>
+            {children}
+          </MarketDataContext.Provider>
+        </ActiveAssetContext.Provider>
+      </UpstoxStatusContext.Provider>
     </MainAppContext.Provider>
   );
 };
@@ -2352,6 +2382,22 @@ export const useMainApp = (): MainAppContextType => {
   const context = useContext(MainAppContext);
   if (!context) {
     throw new Error('useMainApp must be used within an AppProvider');
+  }
+  return context;
+};
+
+export const useUpstoxStatus = (): UpstoxStatusContextType => {
+  const context = useContext(UpstoxStatusContext);
+  if (!context) {
+    throw new Error('useUpstoxStatus must be used within an AppProvider');
+  }
+  return context;
+};
+
+export const useActiveAsset = (): ActiveAssetContextType => {
+  const context = useContext(ActiveAssetContext);
+  if (!context) {
+    throw new Error('useActiveAsset must be used within an AppProvider');
   }
   return context;
 };
