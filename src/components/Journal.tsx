@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMainApp } from '../store';
+import { getApiUrl } from '../config';
 import { Position, EmotionTag, MistakeTag } from '../types';
 import { 
   Plus, X, Search, Calendar, List, Check, ArrowRight, ArrowLeft, Star, 
@@ -138,7 +139,7 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
       setTimeout(() => setAiStatus('Evaluating trade speed and exit deviation...'), 1200);
       setTimeout(() => setAiStatus('Formulating behavioral psychology tags...'), 1800);
 
-      const res = await fetch('/api/journal/auto-generate', {
+      const res = await fetch(getApiUrl('/api/journal/auto-generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

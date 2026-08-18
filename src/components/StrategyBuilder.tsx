@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMainApp } from '../store';
+import { getApiUrl } from '../config';
 import { StrategyCondition, Strategy } from '../types';
 import { 
   Plus, Play, Sparkles, Trash2, ShieldCheck, 
@@ -65,7 +66,7 @@ export const StrategyBuilder: React.FC = React.memo(() => {
 
     setIsGeneratingAi(true);
     try {
-      const res = await fetch('/api/strategy/generate', {
+      const res = await fetch(getApiUrl('/api/strategy/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: text })

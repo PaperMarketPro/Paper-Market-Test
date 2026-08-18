@@ -67,8 +67,23 @@ export interface MainAppContextType {
   confirmSebiRiskDisclosure: () => void;
 }
 
+import { getApiUrl, getWsUrl } from './config';
+
+export type WSConnectionState = 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED';
+
+export interface UpstoxStatusType {
+  connected: boolean;
+  wsConnected?: boolean;
+  user: any;
+  config: any;
+  isRealUpstox?: boolean;
+  wsConnectionState?: WSConnectionState;
+  isStale?: boolean;
+  lastTickTime?: number;
+}
+
 export interface UpstoxStatusContextType {
-  upstoxStatus: { connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean };
+  upstoxStatus: UpstoxStatusType;
   refreshUpstoxStatus: () => Promise<void>;
   disconnectUpstox: () => Promise<void>;
   connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
@@ -85,7 +100,7 @@ export interface MarketDataContextType {
   optionChain: OptionChainItem[];
   selectedAsset: Instrument;
   setSelectedAssetBySymbol: (symbol: string) => void;
-  upstoxStatus: { connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean };
+  upstoxStatus: UpstoxStatusType;
   refreshUpstoxStatus: () => Promise<void>;
   disconnectUpstox: () => Promise<void>;
   connectUpstoxManually: (token: string) => Promise<{ success: boolean; error?: string }>;
@@ -728,12 +743,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Upstox integration state
-  const [upstoxStatus, setUpstoxStatus] = useState<{ connected: boolean; wsConnected?: boolean; user: any; config: any; isRealUpstox?: boolean }>({
+  const [upstoxStatus, setUpstoxStatus] = useState<UpstoxStatusType>({
     connected: true,
     wsConnected: true,
     user: { email: "pro_feed_user@papermarket.local", userName: "Upstox Pro Account", userId: "UPSTOX_USER" },
     config: null,
-    isRealUpstox: false
+    isRealUpstox: false,
+    wsConnectionState: 'CONNECTING',
+    isStale: false
   });
 
   const upstoxStatusRef = useRef(upstoxStatus);
@@ -769,7 +786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1500);
-      const res = await fetch('/api/integrations/upstox/ltp', { headers, signal: controller.signal });
+      const res = await fetch(getApiUrl('/api/integrations/upstox/ltp'), { headers, signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
         const text = await res.text();
@@ -801,7 +818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (savedToken) {
         headers['X-Upstox-Access-Token'] = savedToken;
       }
-      const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`, { headers });
+      const res = await fetch(getApiUrl(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`), { headers });
       if (res.ok) {
         const text = await res.text();
         let data: any = {};
@@ -812,17 +829,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               prev.connected === data.connected &&
               prev.wsConnected === data.wsConnected &&
               prev.isRealUpstox === data.isRealUpstox &&
+              prev.isStale === !!data.isStale &&
               JSON.stringify(prev.user) === JSON.stringify(data.user) &&
               JSON.stringify(prev.config) === JSON.stringify(data.config)
             ) {
               return prev;
             }
             return {
+              ...prev,
               connected: data.connected,
               wsConnected: data.wsConnected,
               user: data.user,
               config: data.config,
-              isRealUpstox: data.isRealUpstox
+              isRealUpstox: data.isRealUpstox,
+              isStale: !!data.isStale
             };
           });
           if (data.connected) {
@@ -856,9 +876,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         wsConnected: false,
         user: null,
         config: null,
-        isRealUpstox: false
+        isRealUpstox: false,
+        wsConnectionState: 'DISCONNECTED',
+        isStale: false
       });
-      await fetch('/api/integrations/upstox/disconnect', { method: 'POST' });
+      await fetch(getApiUrl('/api/integrations/upstox/disconnect'), { method: 'POST' });
       await refreshUpstoxStatus();
       pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
     } catch (e) {
@@ -874,7 +896,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         document.cookie = `upstox_token=${encodeURIComponent(trimmed)}; path=/; max-age=2592000; SameSite=Lax; Secure`;
       }
       
-      const res = await fetch('/api/integrations/upstox/connect-manual', {
+      const res = await fetch(getApiUrl('/api/integrations/upstox/connect-manual'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: trimmed })
@@ -1180,6 +1202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const scheduleReconnect = () => {
       startFallbackSimulation();
+      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS ? 'DISCONNECTED' : 'RECONNECTING' }));
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS) {
         console.info("[Upstox Feed] Running active simulation feed.");
@@ -1193,11 +1216,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const connectWS = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTING' }));
+      const baseWsUrl = getWsUrl();
       const token = localStorage.getItem('upstox_user_access_token');
       const wsUrl = token 
-        ? `${protocol}//${window.location.host}/api/ws?token=${encodeURIComponent(token)}`
-        : `${protocol}//${window.location.host}/api/ws`;
+        ? `${baseWsUrl}${baseWsUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+        : baseWsUrl;
       
       try {
         ws = new WebSocket(wsUrl);
@@ -1209,9 +1233,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ws.onopen = () => {
         reconnectAttempts = 0;
         lastMsgTime = Date.now();
+        setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
+
         if (token) {
           try {
             ws?.send(JSON.stringify({ type: 'INIT_TOKEN', token }));
+          } catch (_) {}
+        }
+
+        // Dynamically subscribe to all watchlist / market instruments
+        const currentSymbols = instrumentsRef.current.map(i => i.symbol);
+        if (currentSymbols.length > 0) {
+          try {
+            ws?.send(JSON.stringify({ type: 'SUBSCRIBE', symbols: currentSymbols }));
           } catch (_) {}
         }
       };
@@ -1225,9 +1259,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           if (message.type === 'STATUS') {
             setUpstoxStatus(prev => {
-              const newIsReal = message.isRealUpstox ?? message.connected; // Fallback to connected if not provided explicitly
-              if (prev.connected === message.connected && prev.user?.email === message.user?.email && prev.isRealUpstox === newIsReal) return prev;
-              return { ...prev, connected: message.connected, user: message.user, isRealUpstox: newIsReal };
+              const newIsReal = message.isRealUpstox ?? message.connected;
+              const newIsStale = !!message.isStale;
+              if (
+                prev.connected === message.connected &&
+                prev.user?.email === message.user?.email &&
+                prev.isRealUpstox === newIsReal &&
+                prev.isStale === newIsStale &&
+                prev.wsConnectionState === 'CONNECTED'
+              ) return prev;
+              return {
+                ...prev,
+                connected: message.connected,
+                user: message.user,
+                isRealUpstox: newIsReal,
+                isStale: newIsStale,
+                wsConnectionState: 'CONNECTED'
+              };
+            });
+          } else if (message.type === 'SNAPSHOT' && Array.isArray(message.ticks)) {
+            message.ticks.forEach((tick: any) => {
+              if (tick && tick.symbol) {
+                lastLiveTicksRef.current[tick.symbol] = Date.now();
+                pendingTicksRef.current[tick.symbol] = {
+                  ltp: tick.ltp,
+                  change: tick.change,
+                  high: tick.high,
+                  low: tick.low,
+                  isReal: tick.isReal ?? true
+                };
+              }
             });
           } else if (message.type === 'TICK') {
             lastLiveTicksRef.current[message.symbol] = Date.now();
@@ -1884,7 +1945,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           'coach'
         );
 
-        const res = await fetch('/api/journal/auto-generate', {
+        const res = await fetch(getApiUrl('/api/journal/auto-generate'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2053,7 +2114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetSymbol = symbolOverride || selectedAssetSymbol || 'NIFTY-50';
 
     try {
-      const res = await fetch("/api/strategy/backtest", {
+      const res = await fetch(getApiUrl("/api/strategy/backtest"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

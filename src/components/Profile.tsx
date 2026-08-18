@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMainApp, useUpstoxStatus } from '../store';
+import { getApiUrl } from '../config';
 import { 
   Flame, Award, ShieldAlert, CheckCircle, TrendingUp, Activity, 
   Settings, RefreshCw, LogOut, Check, Star, Shield, Bell, X, CreditCard, Sparkles, AlertTriangle,
@@ -105,7 +106,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
       const targetOrigin = window.location.origin;
       const chosenRedirectUri = `${targetOrigin}/api/integrations/upstox/callback`;
 
-      const response = await fetch(`/api/integrations/upstox/auth-url?origin=${encodeURIComponent(targetOrigin)}&redirectUri=${encodeURIComponent(chosenRedirectUri)}`);
+      const response = await fetch(getApiUrl(`/api/integrations/upstox/auth-url?origin=${encodeURIComponent(targetOrigin)}&redirectUri=${encodeURIComponent(chosenRedirectUri)}`));
       if (!response.ok) {
         const errText = await response.text();
         let errMsg = 'Failed to generate Upstox auth URL.';
@@ -148,7 +149,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
           }
 
           try {
-            const res = await fetch(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`);
+            const res = await fetch(getApiUrl(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`));
             if (res.ok) {
               const statusText = await res.text();
               let data: any = {};
@@ -220,7 +221,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
       }
 
       // 2. Create Order on backend
-      const res = await fetch("/api/razorpay/create-order", {
+      const res = await fetch(getApiUrl("/api/razorpay/create-order"), {
         method: "POST",
         headers: { "Content-Type": "application/json" }
       });
@@ -267,7 +268,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
           try {
             setIsUpgrading(true);
             // 4. Verify Signature on backend
-            const verifyRes = await fetch("/api/razorpay/verify-signature", {
+            const verifyRes = await fetch(getApiUrl("/api/razorpay/verify-signature"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

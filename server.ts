@@ -895,13 +895,93 @@ function matchUpstoxKeyToSymbol(key: string): string | null {
   return null;
 }
 
+interface CachedTick {
+  symbol: string;
+  ltp: number;
+  high: number;
+  low: number;
+  change: number;
+  timestamp: number;
+  isReal?: boolean;
+}
+
+const latestTicksCache = new Map<string, CachedTick>();
+const clientSubscriptionsMap = new Map<WS, Set<string>>();
+
 function broadcastToClients(payload: any) {
+  if (payload.type === "TICK" && payload.symbol) {
+    latestTicksCache.set(payload.symbol, {
+      symbol: payload.symbol,
+      ltp: payload.ltp,
+      high: payload.high,
+      low: payload.low,
+      change: payload.change,
+      timestamp: Date.now(),
+      isReal: payload.isReal ?? true
+    });
+  }
+
   const messageStr = JSON.stringify(payload);
   clientWsSockets.forEach(ws => {
     if (ws.readyState === WS.OPEN) {
-      ws.send(messageStr);
+      try {
+        ws.send(messageStr);
+      } catch (e) {}
     }
   });
+}
+
+function handleClientSubscription(ws: WS, symbols: string[]) {
+  let subSet = clientSubscriptionsMap.get(ws);
+  if (!subSet) {
+    subSet = new Set<string>();
+    clientSubscriptionsMap.set(ws, subSet);
+  }
+
+  const newUpstoxKeysToSub: string[] = [];
+
+  symbols.forEach(sym => {
+    subSet!.add(sym);
+    const upstoxKey = UPSTOX_INSTRUMENT_MAP[sym] || sym;
+    if (!upstoxActiveSubscriptions.has(upstoxKey)) {
+      upstoxActiveSubscriptions.add(upstoxKey);
+      newUpstoxKeysToSub.push(upstoxKey);
+    }
+
+    // Send cached tick if available immediately
+    const cachedTick = latestTicksCache.get(sym);
+    if (cachedTick && ws.readyState === WS.OPEN) {
+      try {
+        ws.send(JSON.stringify({
+          type: "TICK",
+          ...cachedTick
+        }));
+      } catch (_) {}
+    }
+  });
+
+  if (newUpstoxKeysToSub.length > 0 && upstoxWs && upstoxWs.readyState === WS.OPEN) {
+    console.log(`[DYNAMIC SUBSCRIPTION] Subscribing ${newUpstoxKeysToSub.length} new keys to Upstox feed:`, newUpstoxKeysToSub);
+    try {
+      upstoxWs.send(JSON.stringify({
+        guid: "papermarket-sub-" + Date.now(),
+        method: "sub",
+        data: {
+          mode: "full",
+          instrumentKeys: newUpstoxKeysToSub
+        }
+      }));
+    } catch (err: any) {
+      console.warn("[DYNAMIC SUBSCRIPTION ERROR]:", err.message);
+    }
+  }
+}
+
+function handleClientUnsubscription(ws: WS, symbols: string[]) {
+  const subSet = clientSubscriptionsMap.get(ws);
+  if (subSet) {
+    symbols.forEach(sym => subSet.delete(sym));
+  }
 }
 
 function isIndianMarketOpen(): boolean {
@@ -1765,9 +1845,48 @@ async function ensureUpstoxTokenLoaded() {
   }
 }
 
-// API Routes (Registered at top-level for Vercel serverless functions)
+// CORS Middleware for external frontend clients (e.g. Vercel deployments)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || "*";
+  res.header("Access-Control-Allow-Origin", origin);
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Upstox-Access-Token");
+  
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// API Routes
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+  const isRealConnected = (!!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) || upstoxLinkedPermanently;
+  const isStale = isRealConnected && isIndianMarketOpen() && (Date.now() - lastUpstoxRealTickTime > 30000);
+
+  res.json({
+    status: "ok",
+    upstoxConnected: !!upstoxAccessToken || upstoxLinkedPermanently,
+    isRealUpstox: isRealConnected,
+    isStale,
+    clientsCount: clientWsSockets.size,
+    cachedInstrumentsCount: latestTicksCache.size,
+    activeSubscriptionsCount: upstoxActiveSubscriptions.size,
+    lastRealTickTime: lastUpstoxRealTickTime,
+    timestamp: Date.now()
+  });
+});
+
+app.get("/api/market/quote", (req, res) => {
+  const symbol = req.query.symbol as string;
+  if (symbol) {
+    const cached = latestTicksCache.get(symbol);
+    if (cached) {
+      return res.json({ success: true, data: cached });
+    }
+    return res.status(404).json({ success: false, error: "Symbol not found in cache" });
+  }
+  return res.json({ success: true, data: Array.from(latestTicksCache.values()) });
 });
 
   // Upstox Integration API Endpoints
@@ -4320,6 +4439,7 @@ async function startServer() {
 
   wss.on("connection", async (ws, req) => {
     clientWsSockets.add(ws);
+    console.log(`[CLIENT WS CONNECTED] Active clients count: ${clientWsSockets.size}`);
 
     try {
       const requestUrl = req?.url || "";
@@ -4335,10 +4455,13 @@ async function startServer() {
 
     // Send immediate status to the client
     const isRealConnected = (!!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) || upstoxLinkedPermanently;
+    const isStale = isRealConnected && isIndianMarketOpen() && (Date.now() - lastUpstoxRealTickTime > 30000);
+
     ws.send(JSON.stringify({
       type: "STATUS",
       connected: !!upstoxAccessToken || upstoxLinkedPermanently,
       isRealUpstox: isRealConnected,
+      isStale: isStale,
       user: isRealConnected ? (upstoxConnectedUser || {
         email: "pro_feed_user@papermarket.local",
         userName: "Upstox Pro Account",
@@ -4346,11 +4469,24 @@ async function startServer() {
       }) : null
     }));
 
+    // Send immediate snapshot of cached market ticks so UI updates instantly
+    const cachedTicks = Array.from(latestTicksCache.values());
+    if (cachedTicks.length > 0) {
+      ws.send(JSON.stringify({
+        type: "SNAPSHOT",
+        ticks: cachedTicks
+      }));
+    }
+
     ws.on("message", async (msg) => {
       try {
         const parsed = JSON.parse(msg.toString());
         if (parsed.type === "PING") {
           ws.send(JSON.stringify({ type: "PONG" }));
+        } else if (parsed.type === "SUBSCRIBE" && Array.isArray(parsed.symbols)) {
+          handleClientSubscription(ws, parsed.symbols);
+        } else if (parsed.type === "UNSUBSCRIBE" && Array.isArray(parsed.symbols)) {
+          handleClientUnsubscription(ws, parsed.symbols);
         } else if (parsed.type === "INIT_TOKEN" && parsed.token && !isSimulatedToken(parsed.token)) {
           if (parsed.token !== upstoxAccessToken) {
             upstoxAccessToken = parsed.token;
@@ -4360,7 +4496,9 @@ async function startServer() {
             broadcastUpstoxStatusToClients();
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("[CLIENT WS PARSE NOTICE]:", e);
+      }
     });
 
     // Start simulation loop if Upstox is disconnected or to supplement updates
@@ -4368,6 +4506,8 @@ async function startServer() {
 
     ws.on("close", () => {
       clientWsSockets.delete(ws);
+      clientSubscriptionsMap.delete(ws);
+      console.log(`[CLIENT WS DISCONNECTED] Remaining active clients count: ${clientWsSockets.size}`);
       if (clientWsSockets.size === 0) {
         stopSimulationLoop();
       }

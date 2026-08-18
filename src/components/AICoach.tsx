@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMainApp } from '../store';
+import { getApiUrl } from '../config';
 import { 
   ShieldCheck, BrainCircuit, TrendingUp, HelpCircle, 
   ChevronDown, Award, Sparkles, Activity, MessageSquare, 
@@ -194,7 +195,7 @@ export const AICoach: React.FC = React.memo(() => {
     }, 450);
 
     try {
-      const res = await fetch('/api/coach/train-scorecard', {
+      const res = await fetch(getApiUrl('/api/coach/train-scorecard'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -245,7 +246,7 @@ export const AICoach: React.FC = React.memo(() => {
     setTimeout(() => setLessonStatus('Writing customized cognitive behavioral curriculum...'), 1400);
 
     try {
-      const res = await fetch('/api/coach/teach', {
+      const res = await fetch(getApiUrl('/api/coach/teach'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -286,7 +287,7 @@ export const AICoach: React.FC = React.memo(() => {
     setIsChatLoading(true);
 
     try {
-      const response = await fetch('/api/coach/chat', {
+      const response = await fetch(getApiUrl('/api/coach/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

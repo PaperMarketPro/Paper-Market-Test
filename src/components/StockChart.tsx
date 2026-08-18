@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, startTransition } from 'react';
 import { useMainApp, useActiveAsset, useMarketData } from '../store';
+import { getApiUrl } from '../config';
 import { Instrument } from '../types';
 import { 
   TrendingUp, TrendingDown, Activity, Settings, Eye, Info, RefreshCw, BarChart2,
@@ -610,7 +611,7 @@ export const TradingViewChart: React.FC<{
     }, 1100);
 
     try {
-      const res = await fetch("/api/coach/analyze-chart", {
+      const res = await fetch(getApiUrl("/api/coach/analyze-chart"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -2275,7 +2276,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
         }
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1000);
-        const res = await fetch(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`, { headers, signal: controller.signal });
+        const res = await fetch(getApiUrl(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`), { headers, signal: controller.signal });
         clearTimeout(timeoutId);
         if (!res.ok) throw new Error("Network error loading candles");
         const candlesText = await res.text();
