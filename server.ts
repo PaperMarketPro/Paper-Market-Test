@@ -1451,25 +1451,82 @@ async function verifyAndConnectProvidedToken(token: string) {
   }
 }
 
+const BASE_MARKET_PRICES: Record<string, number> = {
+  'NIFTY 50': 24325.85,
+  'SENSEX': 79842.10,
+  'BANKNIFTY': 52140.50,
+  'FINNIFTY': 23450.25,
+  'MIDCPNIFTY': 13120.40,
+  'RELIANCE': 3012.45,
+  'TCS': 4185.30,
+  'HDFCBANK': 1642.15,
+  'INFY': 1820.60,
+  'ICICIBANK': 1215.80,
+  'TATAMOTORS': 985.40,
+  'SBIN': 845.20,
+  'BHARTIARTL': 1430.75,
+  'ITC': 468.90,
+  'LT': 3610.15,
+  'WIPRO': 540.20,
+  'AXISBANK': 1180.30,
+  'KOTAKBANK': 1780.25,
+  'BAJFINANCE': 6890.50,
+  'M&M': 2890.10,
+  'SUNPHARMA': 1710.80
+};
+
+// Seed initial ticks in cache on server startup
+Object.entries(BASE_MARKET_PRICES).forEach(([symbol, base]) => {
+  latestTicksCache.set(symbol, {
+    symbol,
+    ltp: base,
+    high: Number((base * 1.012).toFixed(2)),
+    low: Number((base * 0.988).toFixed(2)),
+    change: 0.25,
+    timestamp: Date.now(),
+    isReal: false
+  });
+});
+
 function startSimulationLoop() {
   if (simulationInterval) return;
 
+  console.log("[SIMULATION ENGINE] Initializing 24/7 continuous market price tick generator...");
   simulationInterval = setInterval(() => {
     // If real Upstox market ticks were received in the last 3500ms, suppress simulation ticks
     if (Date.now() - lastUpstoxRealTickTime < 3500) return;
 
-    // Otherwise (e.g. outside Indian market hours, weekends, or when Upstox socket is quiet),
-    // broadcast fallback ticks so live feed & paper trading NEVER freeze or stop updating!
-    const symbols = Object.keys(UPSTOX_INSTRUMENT_MAP);
-    for (let i = 0; i < 6; i++) {
-      const randomSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+    const symbols = Object.keys(BASE_MARKET_PRICES);
+    // Process a batch of instruments every tick cycle (800ms)
+    symbols.forEach(symbol => {
+      const base = BASE_MARKET_PRICES[symbol] || 1000;
+      const cached = latestTicksCache.get(symbol);
+      const currLtp = cached ? cached.ltp : base;
+
+      // Small realistic random walk step (±0.04% volatility with minimum step)
+      const rawDelta = (Math.random() - 0.495) * (currLtp * 0.0008);
+      const sign = rawDelta >= 0 ? 1 : -1;
+      const minStep = currLtp > 5000 ? 0.25 : (currLtp > 1000 ? 0.10 : 0.05);
+      const step = sign * Math.max(Math.abs(rawDelta), minStep);
+
+      const nextLtp = Number((currLtp + step).toFixed(2));
+      const nextHigh = cached ? Math.max(cached.high, nextLtp) : Number((nextLtp * 1.008).toFixed(2));
+      const nextLow = cached ? Math.min(cached.low, nextLtp) : Number((nextLtp * 0.992).toFixed(2));
+      const nextChange = Number((((nextLtp - base) / base) * 100).toFixed(2));
+
       const payload = {
-        type: "SIM_TICK",
-        symbol: randomSymbol
+        type: "TICK",
+        symbol,
+        ltp: nextLtp,
+        high: nextHigh,
+        low: nextLow,
+        change: nextChange,
+        isReal: false
       };
+
       broadcastToClients(payload);
-    }
-  }, 1000);
+    });
+  }, 800);
 }
 
 function stopSimulationLoop() {
@@ -4501,21 +4558,19 @@ async function startServer() {
       }
     });
 
-    // Start simulation loop if Upstox is disconnected or to supplement updates
+    // Start simulation loop so market ticks and latestTicksCache stay active 24/7
     startSimulationLoop();
 
     ws.on("close", () => {
       clientWsSockets.delete(ws);
       clientSubscriptionsMap.delete(ws);
       console.log(`[CLIENT WS DISCONNECTED] Remaining active clients count: ${clientWsSockets.size}`);
-      if (clientWsSockets.size === 0) {
-        stopSimulationLoop();
-      }
     });
   });
 
   server.listen(PORT, "0.0.0.0", async () => {
     console.log(`Paper Market Pro Full-Stack server booted smoothly on http://0.0.0.0:${PORT}`);
+    startSimulationLoop();
     
     // 1. Load auto-renew configuration on boot
     await loadUpstoxAutoRenewConfig();

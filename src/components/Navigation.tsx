@@ -113,9 +113,6 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
 
   const drawerItems = [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-4 h-4" /> },
-    { key: 'positions', label: 'Positions & Orders', icon: <Briefcase className="w-4 h-4" /> },
-    { key: 'equity', label: 'Equity Watchlists', icon: <TrendingUp className="w-4 h-4" /> },
-    { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-4 h-4" /> },
     { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
     { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
     { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },

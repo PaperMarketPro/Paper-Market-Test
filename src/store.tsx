@@ -1033,18 +1033,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             let nextLow = inst.low;
 
             if (tick.ltp !== undefined && tick.ltp > 0) {
-              let targetLtp = tick.ltp;
-              if (tick.isSim || Math.abs(targetLtp - inst.ltp) < 0.01) {
-                const microNoise = (Math.random() - 0.5) * (targetLtp * 0.0006);
-                targetLtp = Number((targetLtp + microNoise).toFixed(2));
-              }
-              nextLtp = targetLtp;
+              nextLtp = Number(tick.ltp.toFixed(2));
               const baseVal = inst.sparkline[0] || nextLtp;
               nextChange = tick.change ?? Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
               nextHigh = tick.high ? Math.max(tick.high, nextLtp) : (nextLtp > inst.high ? nextLtp : inst.high);
               nextLow = tick.low ? Math.min(tick.low, nextLtp) : (nextLtp < inst.low ? nextLtp : inst.low);
             } else if (tick.isSim) {
-              nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0004);
+              nextLtp = randomWalk(inst.ltp, inst.low * 0.98, inst.high * 1.02, 0.0008);
               const baseVal = inst.sparkline[0] || nextLtp;
               nextChange = Number((((nextLtp - baseVal) / baseVal) * 100).toFixed(2));
               nextHigh = nextLtp > inst.high ? nextLtp : inst.high;
@@ -1053,7 +1048,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return inst;
             }
 
-            if (Math.abs(nextLtp - inst.ltp) < 0.01 && Math.abs(nextChange - inst.change) < 0.01) {
+            if (nextLtp === inst.ltp && nextChange === inst.change) {
               return inst;
             }
 
@@ -1178,6 +1173,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
           });
           return changed ? next : prev;
+        });
+
+        // 4. Batch update open positions P&L
+        setPositions(prev => {
+          if (!prev || prev.length === 0) return prev;
+          let posChanged = false;
+          const next = prev.map(pos => {
+            if (pos.status !== 'Open') return pos;
+            const instMatch = latestInsts.find(i => i.symbol === pos.symbol) || latestFuts.find(f => f.symbol === pos.symbol);
+            if (!instMatch) return pos;
+
+            const currentLtp = instMatch.ltp;
+            if (currentLtp === pos.currentPrice) return pos;
+
+            posChanged = true;
+            const pnl = pos.direction === 'Long'
+              ? (currentLtp - pos.entryPrice) * pos.quantity
+              : (pos.entryPrice - currentLtp) * pos.quantity;
+
+            return {
+              ...pos,
+              currentPrice: currentLtp,
+              unrealizedPnl: Number(pnl.toFixed(2))
+            };
+          });
+          return posChanged ? next : prev;
         });
       });
     }, 1000);
