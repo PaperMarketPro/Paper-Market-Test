@@ -310,7 +310,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
               </span>
-              <span>{upstoxStatus?.connected ? 'UPSTOX REAL-TIME FEED' : 'REAL-TIME LIVE STREAM'}</span>
+              <span>REAL-TIME LIVE STREAM</span>
             </div>
           </div>
         </div>

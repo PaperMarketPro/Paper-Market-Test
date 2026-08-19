@@ -91,7 +91,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
         refreshUpstoxStatus();
-        setTokenSuccess("Successfully authenticated via Upstox Developer login flow!");
+        setTokenSuccess("Successfully authenticated live market feed session!");
         setTokenError(null);
       }
     };
@@ -109,7 +109,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
       const response = await fetch(getApiUrl(`/api/integrations/upstox/auth-url?origin=${encodeURIComponent(targetOrigin)}&redirectUri=${encodeURIComponent(chosenRedirectUri)}`));
       if (!response.ok) {
         const errText = await response.text();
-        let errMsg = 'Failed to generate Upstox auth URL.';
+        let errMsg = 'Failed to generate auth URL.';
         try {
           const errObj = JSON.parse(errText);
           if (errObj.error) errMsg = errObj.error;
@@ -160,7 +160,7 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
                   pollingIntervalRef.current = null;
                 }
                 refreshUpstoxStatus();
-                setTokenSuccess("Successfully authenticated via Upstox Developer login flow!");
+                setTokenSuccess("Successfully authenticated live market feed session!");
                 setTokenError(null);
                 try {
                   popup.close();

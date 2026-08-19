@@ -62,7 +62,7 @@ const MarketFeedBadge: React.FC<{ onNavigate: (tab: string) => void }> = React.m
     <div 
       onClick={() => onNavigate('profile')}
       className={`cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${badgeStyle}`}
-      title={`Upstox WebSocket State: ${wsState}${isStale ? ' (Stale ticks)' : ''}`}
+      title={`Live Market Feed State: ${wsState}${isStale ? ' (Stale ticks)' : ''}`}
     >
       <span className={`w-2 h-2 rounded-full ${dotStyle}`} />
       <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold">

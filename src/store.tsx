@@ -746,7 +746,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [upstoxStatus, setUpstoxStatus] = useState<UpstoxStatusType>({
     connected: true,
     wsConnected: true,
-    user: { email: "pro_feed_user@papermarket.local", userName: "Upstox Pro Account", userId: "UPSTOX_USER" },
+    user: { email: "pro_feed_user@papermarket.local", userName: "Pro Feed Session", userId: "PRO_USER" },
     config: null,
     isRealUpstox: false,
     wsConnectionState: 'CONNECTING',
@@ -862,7 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
         connected: true,
         isRealUpstox: true,
-        user: prev.user || { email: "pro_feed_user@papermarket.local", userName: "Upstox Live Session", userId: "UPSTOX_USER" }
+        user: prev.user || { email: "pro_feed_user@papermarket.local", userName: "Live Market Session", userId: "PRO_USER" }
       }));
     }
   }, [fetchRealUpstoxLtp, getStoredUpstoxToken]);
@@ -882,7 +882,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       await fetch(getApiUrl('/api/integrations/upstox/disconnect'), { method: 'POST' });
       await refreshUpstoxStatus();
-      pushNotification('Upstox Disconnected', 'Logged out from Upstox market data provider.', 'alert');
+      pushNotification('Feed Disconnected', 'Logged out from market data provider.', 'alert');
     } catch (e) {
       console.warn("Failed to disconnect Upstox:", e);
     }
@@ -913,30 +913,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         await refreshUpstoxStatus();
         fetchRealUpstoxLtp();
-        pushNotification('Upstox Linked!', `Successfully connected using Analytics Access Token.`, 'badge');
+        pushNotification('Feed Linked!', `Successfully connected using Analytics Access Token.`, 'badge');
         return { success: true };
       } else {
-        // If server returned an explicit API error message (e.g. Upstox rejected token)
+        // If server returned an explicit API error message
         if (data.error && typeof data.error === 'string') {
           return { success: false, error: data.error };
         }
         
-        // Otherwise (e.g. Vercel serverless timeout or HTML error), fallback to saved local token connection
+        // Otherwise, fallback to saved local token connection
         if (trimmed.length >= 15) {
           await refreshUpstoxStatus();
           fetchRealUpstoxLtp();
-          pushNotification('Upstox Session Activated!', 'Connected to live market feed with stored token.', 'badge');
+          pushNotification('Live Session Activated!', 'Connected to live market feed with stored token.', 'badge');
           return { success: true };
         }
         
         return { success: false, error: "Failed to link token. Please check your Access Token format." };
       }
     } catch (e: any) {
-      console.warn("Failed to manually connect Upstox:", e);
+      console.warn("Failed to manually connect feed:", e);
       const trimmed = (token || '').trim();
       if (trimmed.length >= 15) {
         await refreshUpstoxStatus();
-        pushNotification('Upstox Session Activated!', 'Connected to live market feed with stored token.', 'badge');
+        pushNotification('Live Session Activated!', 'Connected to live market feed with stored token.', 'badge');
         return { success: true };
       }
       return { success: false, error: e.message || "Network error occurred." };
@@ -959,7 +959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         url.searchParams.delete('upstox_connected');
         window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
         refreshUpstoxStatus();
-        pushNotification('Upstox Feed Connected!', 'Live Upstox session token saved successfully.', 'badge');
+        pushNotification('Live Feed Connected!', 'Live session token saved successfully.', 'badge');
       }
     } catch (_) {}
   }, [refreshUpstoxStatus]);
@@ -986,7 +986,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('upstox_user_access_token', event.data.token.trim());
         }
         refreshUpstoxStatus();
-        pushNotification('Upstox Linked!', `Successfully connected to Upstox Market Data Feed.`, 'badge');
+        pushNotification('Feed Linked!', `Successfully connected to Live Market Data Feed.`, 'badge');
       }
     };
     window.addEventListener('message', handleMessage);
