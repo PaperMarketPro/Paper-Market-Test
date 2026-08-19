@@ -12,14 +12,14 @@ export const SebiRiskModal: React.FC<SebiRiskModalProps> = ({ isOpen, onConfirm,
   return (
     <AnimatePresence>
       {isOpen && (
-        <div key="sebi-modal-backdrop" className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div key="sebi-modal-backdrop" className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-[#030712]/85">
           <motion.div
             key="sebi-modal-content"
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative w-full max-w-lg bg-white dark:bg-[#0d1222] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-8 text-slate-800 dark:text-gray-100"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="relative w-full max-w-lg bg-white dark:bg-[#0d1222] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-8 text-slate-800 dark:text-gray-100 transform-gpu"
           >
             {/* Header Graphic / Icon */}
             <div className="flex justify-center mb-5">
