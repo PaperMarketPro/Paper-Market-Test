@@ -1219,18 +1219,122 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Always ensure fallback tick generator is active for immediate smooth price movement
     startFallbackSimulation();
 
-    const MAX_WS_RECONNECT_ATTEMPTS = 5;
+    const MAX_WS_RECONNECT_ATTEMPTS = 3;
+    let eventSource: EventSource | null = null;
+    let httpPollingInterval: any = null;
+
+    const startHttpPolling = () => {
+      if (httpPollingInterval) return;
+      console.info("[Feed Engine] Activating HTTP market quote polling fallback...");
+      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
+
+      const pollOnce = async () => {
+        try {
+          const res = await fetch(getApiUrl('/api/market/quote'));
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data)) {
+              lastMsgTime = Date.now();
+              json.data.forEach((tick: any) => {
+                if (tick && tick.symbol) {
+                  lastLiveTicksRef.current[tick.symbol] = Date.now();
+                  pendingTicksRef.current[tick.symbol] = {
+                    ltp: tick.ltp,
+                    change: tick.change,
+                    high: tick.high,
+                    low: tick.low,
+                    isReal: tick.isReal ?? true
+                  };
+                }
+              });
+            }
+          }
+        } catch (_) {}
+      };
+
+      pollOnce();
+      httpPollingInterval = setInterval(pollOnce, 1500);
+    };
+
+    const connectSSE = () => {
+      if (eventSource) {
+        try { eventSource.close(); } catch (_) {}
+      }
+      const sseUrl = getApiUrl('/api/market/stream');
+      console.info("[Feed Engine] Attempting SSE Market Stream fallback:", sseUrl);
+      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTING' }));
+
+      try {
+        eventSource = new EventSource(sseUrl);
+
+        eventSource.onopen = () => {
+          console.info("[Feed Engine] SSE Stream connected successfully.");
+          setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
+        };
+
+        eventSource.onmessage = (event) => {
+          lastMsgTime = Date.now();
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'STATUS') {
+              setUpstoxStatus(prev => ({
+                ...prev,
+                connected: message.connected,
+                user: message.user,
+                isRealUpstox: message.isRealUpstox ?? message.connected,
+                isStale: !!message.isStale,
+                wsConnectionState: 'CONNECTED'
+              }));
+            } else if (message.type === 'SNAPSHOT' && Array.isArray(message.ticks)) {
+              message.ticks.forEach((tick: any) => {
+                if (tick && tick.symbol) {
+                  lastLiveTicksRef.current[tick.symbol] = Date.now();
+                  pendingTicksRef.current[tick.symbol] = {
+                    ltp: tick.ltp,
+                    change: tick.change,
+                    high: tick.high,
+                    low: tick.low,
+                    isReal: tick.isReal ?? true
+                  };
+                }
+              });
+            } else if (message.type === 'TICK') {
+              lastLiveTicksRef.current[message.symbol] = Date.now();
+              pendingTicksRef.current[message.symbol] = {
+                ltp: message.ltp,
+                change: message.change,
+                high: message.high,
+                low: message.low,
+                isReal: message.isReal ?? true
+              };
+            }
+          } catch (e) {
+            console.warn("SSE parse notice:", e);
+          }
+        };
+
+        eventSource.onerror = () => {
+          console.warn("[Feed Engine] SSE Stream error/disconnected. Activating HTTP quote polling...");
+          try { eventSource?.close(); } catch (_) {}
+          eventSource = null;
+          startHttpPolling();
+        };
+      } catch (err) {
+        startHttpPolling();
+      }
+    };
 
     const scheduleReconnect = () => {
       startFallbackSimulation();
       setUpstoxStatus(prev => ({ ...prev, wsConnectionState: reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS ? 'DISCONNECTED' : 'RECONNECTING' }));
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS) {
-        console.info("[Upstox Feed] Running active simulation feed.");
+        console.info("[Upstox Feed] WebSocket limit reached. Switching to Server-Sent Events (SSE) Stream...");
+        connectSSE();
         return;
       }
       reconnectAttempts++;
-      const delay = reconnectAttempts === 1 ? 500 : Math.min(3000, 1000 * reconnectAttempts);
+      const delay = reconnectAttempts === 1 ? 500 : Math.min(2500, 1000 * reconnectAttempts);
       reconnectTimeout = setTimeout(() => {
         connectWS();
       }, delay);
@@ -1365,6 +1469,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ws.onerror = null;
         ws.close();
       }
+      if (eventSource) {
+        try { eventSource.close(); } catch (_) {}
+      }
+      if (httpPollingInterval) clearInterval(httpPollingInterval);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (pingInterval) clearInterval(pingInterval);
       if (fallbackInterval) clearInterval(fallbackInterval);

@@ -907,6 +907,7 @@ interface CachedTick {
 
 const latestTicksCache = new Map<string, CachedTick>();
 const clientSubscriptionsMap = new Map<WS, Set<string>>();
+const sseClients = new Set<any>();
 
 function broadcastToClients(payload: any) {
   if (payload.type === "TICK" && payload.symbol) {
@@ -929,6 +930,17 @@ function broadcastToClients(payload: any) {
       } catch (e) {}
     }
   });
+
+  if (sseClients.size > 0) {
+    const sseFormatted = `data: ${messageStr}\n\n`;
+    sseClients.forEach(res => {
+      try {
+        res.write(sseFormatted);
+      } catch (e) {
+        sseClients.delete(res);
+      }
+    });
+  }
 }
 
 function handleClientSubscription(ws: WS, symbols: string[]) {
@@ -1944,6 +1956,37 @@ app.get("/api/market/quote", (req, res) => {
     return res.status(404).json({ success: false, error: "Symbol not found in cache" });
   }
   return res.json({ success: true, data: Array.from(latestTicksCache.values()) });
+});
+
+// Server-Sent Events (SSE) Stream Endpoint for Vercel & Firewalled Frontends
+app.get("/api/market/stream", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
+
+  const isRealConnected = (!!upstoxAccessToken && !isSimulatedToken(upstoxAccessToken)) || upstoxLinkedPermanently;
+  const snapshotTicks = Array.from(latestTicksCache.values());
+
+  res.write(`data: ${JSON.stringify({
+    type: "STATUS",
+    connected: !!upstoxAccessToken || upstoxLinkedPermanently,
+    isRealUpstox: isRealConnected,
+    isStale: isRealConnected && isIndianMarketOpen() && (Date.now() - lastUpstoxRealTickTime > 30000),
+    user: isRealConnected ? (upstoxConnectedUser || { email: "pro_feed_user@papermarket.local", userName: "Upstox Pro Account" }) : { email: "pro_feed_user@papermarket.local", userName: "Paper Market Live Feed" }
+  })}\n\n`);
+
+  res.write(`data: ${JSON.stringify({ type: "SNAPSHOT", ticks: snapshotTicks })}\n\n`);
+
+  sseClients.add(res);
+
+  req.on("close", () => {
+    sseClients.delete(res);
+  });
 });
 
   // Upstox Integration API Endpoints
