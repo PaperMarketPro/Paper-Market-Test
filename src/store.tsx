@@ -2411,48 +2411,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const livePositions = useMemo(() => {
     if (!allPositions || allPositions.length === 0) return [];
+    let priceMap: Map<string, number> | null = null;
     return allPositions.map(pos => {
       if (pos.status !== 'Open') return pos;
-      let nextPrice = pos.currentPrice;
-      const matchingAsset = instruments.find(i => i.symbol === pos.symbol);
-      if (matchingAsset) {
-        nextPrice = matchingAsset.ltp;
-      } else {
-        const matchingFuture = futures.find(f => f.symbol === pos.symbol);
-        if (matchingFuture) {
-          nextPrice = matchingFuture.ltp;
-        } else if (pos.symbol.includes('CE') || pos.symbol.includes('PE')) {
-          const parts = pos.symbol.split(' ');
-          const strikeStr = parts[parts.length - 2];
-          const typeStr = parts[parts.length - 1];
-          const strike = parseInt(strikeStr);
-          if (!isNaN(strike)) {
-            const underlierName = parts[0];
-            const underlierSymbol = underlierName === 'NIFTY' ? 'NIFTY 50' : underlierName;
-            const underlier = instruments.find(i => i.symbol === underlierSymbol || i.symbol.startsWith(underlierName));
-            const spot = underlier ? underlier.ltp : 24325.85;
-            const strikeStep = (underlierName === 'BANKNIFTY' || underlierName === 'SENSEX' || underlierName === 'FINNIFTY') ? 100 : 50;
-            const distance = strike - spot;
-            
-            if (typeStr === 'CE') {
-              const callIntrinsic = Math.max(0, spot - strike);
-              const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-              const callLtp = Number((callIntrinsic + callTimeValue).toFixed(2));
-              nextPrice = callLtp < 1.0 ? 1.05 : callLtp;
-            } else {
-              const putIntrinsic = Math.max(0, strike - spot);
-              const putTimeValue = (spot * 0.0055) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));
-              const putLtp = Number((putIntrinsic + putTimeValue).toFixed(2));
-              nextPrice = putLtp < 1.0 ? 1.05 : putLtp;
-            }
-          }
-        }
+      if (!priceMap) {
+        priceMap = new Map();
+        instruments.forEach(i => priceMap!.set(i.symbol, i.ltp));
+        futures.forEach(f => priceMap!.set(f.symbol, f.ltp));
       }
-      return typeof nextPrice === 'number' && !isNaN(nextPrice) && Math.abs(nextPrice - pos.currentPrice) > 0.01
-        ? { ...pos, currentPrice: nextPrice }
-        : pos;
+      const matchLtp = priceMap.get(pos.symbol);
+      if (matchLtp !== undefined && Math.abs(matchLtp - pos.currentPrice) > 0.01) {
+        return { ...pos, currentPrice: matchLtp };
+      }
+      return pos;
     });
-  }, [allPositions, instruments, futures, optionChain]);
+  }, [allPositions, instruments, futures]);
 
   const mainContextValue = useMemo<MainAppContextType>(() => ({
     user,
