@@ -784,44 +784,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
               </div>
             </div>
 
-            {/* Strict Market Hours Check Card */}
-            <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
-              <div>
-                <span className="text-xs font-mono text-emerald-500 uppercase tracking-widest block font-bold">NSE / BSE Market Hours Limits</span>
-                <p className="text-[11px] text-gray-400 mt-0.5 font-sans">Enforce realistic Indian stock exchange trading rules to build genuine disciplined habits.</p>
-              </div>
-
-              <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 rounded-xl opacity-90">
-                <div className="space-y-0.5 pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white font-sans">Strict Market Hours</h4>
-                    <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${enforceMarketHours ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15' : 'text-slate-500 dark:text-slate-400 bg-slate-500/10'}`}>
-                      {enforceMarketHours ? 'ENFORCED' : 'DISABLED (24/7 TRADING)'}
-                    </span>
-                  </div>
-                  <p className="text-[9.5px] text-slate-500 dark:text-gray-400 font-sans leading-normal">
-                    Lock transactions outside official IST market hours (9:15 AM - 3:30 PM, Mon-Fri). Toggle off to practice paper trading 24/7.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={toggleEnforceMarketHours}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${enforceMarketHours ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-white/10'}`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${enforceMarketHours ? 'translate-x-5' : 'translate-x-0'}`}
-                  />
-                </button>
-              </div>
-              
-              <div className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed font-sans bg-slate-50 dark:bg-white/2 rounded-xl p-2.5 border border-slate-200/50 dark:border-white/5 flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                <span>
-                  Live Status: <strong>{isMarketOpen ? 'Indian Markets Open' : 'Indian Markets Closed'}</strong> (9:15 AM - 3:30 PM IST)
-                </span>
-              </div>
-            </div>
-
             {/* Reset capital section */}
             <div className="bg-white/2 border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg">
               <div>
