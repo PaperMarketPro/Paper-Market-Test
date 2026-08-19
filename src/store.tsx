@@ -1175,17 +1175,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return changed ? next : prev;
         });
 
-        // 4. Batch update open positions P&L
+        // 4. Batch update open positions P&L with O(1) lookup map
         setPositions(prev => {
           if (!prev || prev.length === 0) return prev;
           let posChanged = false;
+          const priceMap = new Map<string, number>();
+          latestInsts.forEach(i => priceMap.set(i.symbol, i.ltp));
+          latestFuts.forEach(f => priceMap.set(f.symbol, f.ltp));
+
           const next = prev.map(pos => {
             if (pos.status !== 'Open') return pos;
-            const instMatch = latestInsts.find(i => i.symbol === pos.symbol) || latestFuts.find(f => f.symbol === pos.symbol);
-            if (!instMatch) return pos;
-
-            const currentLtp = instMatch.ltp;
-            if (currentLtp === pos.currentPrice) return pos;
+            const currentLtp = priceMap.get(pos.symbol);
+            if (currentLtp === undefined || Math.abs(currentLtp - pos.currentPrice) < 0.01) return pos;
 
             posChanged = true;
             const pnl = pos.direction === 'Long'
