@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, startTransition } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { useMainApp } from '../store';
+import { useMainApp, useMarketData } from '../store';
 import { Position, Order } from '../types';
 import { Layers, CheckCircle2, TrendingUp, TrendingDown, Clock, HelpCircle, Edit3, X, Eye } from 'lucide-react';
 
@@ -14,7 +14,9 @@ interface PositionsListProps {
 }
 
 export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJournalShortcut }) => {
-  const { positions, orders, exitPosition, modifySLTarget, journals, isMarketOpen, enforceMarketHours } = useMainApp();
+  const { positions: basePositions, orders, exitPosition, modifySLTarget, journals, isMarketOpen, enforceMarketHours } = useMainApp();
+  const { livePositions } = useMarketData();
+  const positions = livePositions && livePositions.length > 0 ? livePositions : basePositions;
   const isTradingBlocked = enforceMarketHours && !isMarketOpen;
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'orders'>('open');
 
@@ -67,7 +69,7 @@ export const PositionsList: React.FC<PositionsListProps> = React.memo(({ onJourn
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => startTransition(() => setActiveTab(tab.key as any))}
+            onClick={() => setActiveTab(tab.key as any)}
             className={`pb-3 text-xs sm:text-sm font-semibold transition relative whitespace-nowrap px-1 ${
               activeTab === tab.key ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
             }`}

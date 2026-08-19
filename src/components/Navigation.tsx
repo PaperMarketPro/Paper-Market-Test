@@ -88,9 +88,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
       return;
     }
     setIsDrawerOpen(false);
-    React.startTransition(() => {
-      onNavigate(tab);
-    });
+    onNavigate(tab);
   }, [onNavigate, sebiFnoAccepted]);
 
   const handleConfirmSebi = React.useCallback(() => {

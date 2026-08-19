@@ -1015,10 +1015,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         delete pendingMap[key];
       }
 
-      // Process batch updates as low-priority background transition
-      startTransition(() => {
-        let latestInsts = instrumentsRef.current;
-        let latestFuts = futuresRef.current;
+      let latestInsts = instrumentsRef.current;
+      let latestFuts = futuresRef.current;
 
         // 1. Batch update instruments
         setInstruments(prev => {
@@ -1174,34 +1172,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? next : prev;
         });
-
-        // 4. Batch update open positions P&L with O(1) lookup map
-        setPositions(prev => {
-          if (!prev || prev.length === 0) return prev;
-          let posChanged = false;
-          const priceMap = new Map<string, number>();
-          latestInsts.forEach(i => priceMap.set(i.symbol, i.ltp));
-          latestFuts.forEach(f => priceMap.set(f.symbol, f.ltp));
-
-          const next = prev.map(pos => {
-            if (pos.status !== 'Open') return pos;
-            const currentLtp = priceMap.get(pos.symbol);
-            if (currentLtp === undefined || Math.abs(currentLtp - pos.currentPrice) < 0.01) return pos;
-
-            posChanged = true;
-            const pnl = pos.direction === 'Long'
-              ? (currentLtp - pos.entryPrice) * pos.quantity
-              : (pos.entryPrice - currentLtp) * pos.quantity;
-
-            return {
-              ...pos,
-              currentPrice: currentLtp,
-              unrealizedPnl: Number(pnl.toFixed(2))
-            };
-          });
-          return posChanged ? next : prev;
-        });
-      });
     }, 400);
 
     const startFallbackSimulation = () => {

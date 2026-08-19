@@ -19,8 +19,9 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) => {
-  const { user, positions = [] } = useMainApp();
-  const { instruments = [], futures = [], optionChain = [], setSelectedAssetBySymbol, upstoxStatus } = useMarketData();
+  const { user, positions: basePositions = [] } = useMainApp();
+  const { livePositions, instruments = [], futures = [], optionChain = [], setSelectedAssetBySymbol, upstoxStatus } = useMarketData();
+  const positions = livePositions && livePositions.length > 0 ? livePositions : basePositions;
   const [activeTab, setActiveTab] = useState<'equity' | 'monthly'>('equity');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -240,7 +241,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
         {/* LEFT COLUMN: MAIN ANALYTICS & WATCHLISTS */}
         <div className="lg:col-span-2 space-y-6">
           {/* 1. SEARCH BOX BAR */}
-          <div className="relative font-sans cursor-pointer" onClick={() => startTransition(() => setIsSearchOpen(true))}>
+          <div className="relative font-sans cursor-pointer" onClick={() => setIsSearchOpen(true)}>
             <span className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-sky-400/60" />
             </span>
@@ -374,7 +375,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-xs font-bold text-white uppercase font-mono tracking-wider">Active Positions ({openPositions.length})</h3>
               <button
-                onClick={() => startTransition(() => onNavigate('positions'))}
+                onClick={() => onNavigate('positions')}
                 className="text-[10px] text-blue-600 dark:text-sky-400 hover:text-blue-500 dark:hover:text-sky-300 font-bold font-mono uppercase flex items-center gap-1"
               >
                 Full View
@@ -503,7 +504,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               {/* Action CTAs */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => startTransition(() => onNavigate('journal'))}
+                  onClick={() => onNavigate('journal')}
                   className="flex-1 text-center text-[10px] text-blue-600 dark:text-sky-400 font-bold py-2 bg-sky-500/5 rounded-xl border border-sky-500/10 block uppercase font-mono tracking-wider"
                 >
                   Discipline Journal
@@ -643,7 +644,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                   </div>
                   <button 
                     onClick={() => {
-                      startTransition(() => setIsSearchOpen(false));
+                      setIsSearchOpen(false);
                       setSearchQuery('');
                     }} 
                     className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition cursor-pointer"
@@ -661,7 +662,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     type="text"
                     placeholder="Search e.g. RELIANCE, NIFTY FUT, 24300 CE, PE..."
                     value={searchQuery ?? ''}
-                    onChange={(e) => startTransition(() => setSearchQuery(e.target.value))}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-[#0a0d16] border border-white/10 focus:border-sky-500/20 rounded-2xl pl-11 pr-10 py-3.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200"
                     autoFocus
                   />
@@ -681,7 +682,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => startTransition(() => setSelectedSearchTab(tab))}
+                      onClick={() => setSelectedSearchTab(tab)}
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-bold font-mono uppercase tracking-wider transition cursor-pointer ${
                         selectedSearchTab === tab
                           ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
