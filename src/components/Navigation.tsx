@@ -109,21 +109,35 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
     { key: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ], []);
 
-  const drawerItems = React.useMemo(() => [
-    { key: 'dashboard', label: 'Home', icon: <Home className="w-4 h-4" /> },
-    { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
-    { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
-    { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },
-    { key: 'strategy', label: 'Strategy Builder', icon: <Cpu className="w-4 h-4" /> },
-    { key: 'risk-management', label: 'Risk Management', icon: <Shield className="w-4 h-4" /> },
-    { key: 'academy', label: 'Academy (Learn)', icon: <BookOpen className="w-4 h-4" /> },
-    { key: 'profile', label: 'Subscription / Badges', icon: <Award className="w-4 h-4" /> },
-    { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+  const sidebarGroups = React.useMemo(() => [
+    {
+      title: 'TRADING DESK',
+      items: [
+        { key: 'dashboard', label: 'Home', icon: <Home className="w-4 h-4" /> },
+        { key: 'positions', label: 'Positions & Orders', icon: <Briefcase className="w-4 h-4" /> },
+        { key: 'equity', label: 'Equity Watchlist', icon: <TrendingUp className="w-4 h-4" /> },
+        { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-4 h-4" /> },
+      ]
+    },
+    {
+      title: 'INTELLIGENCE',
+      items: [
+        { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
+        { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
+        { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },
+        { key: 'strategy', label: 'Strategy Builder', icon: <Cpu className="w-4 h-4" /> },
+      ]
+    },
+    {
+      title: 'PORTFOLIO & LEARN',
+      items: [
+        { key: 'risk-management', label: 'Risk Protection', icon: <Shield className="w-4 h-4" /> },
+        { key: 'academy', label: 'Academy', icon: <BookOpen className="w-4 h-4" /> },
+        { key: 'profile', label: 'Subscription & Badges', icon: <Award className="w-4 h-4" /> },
+        { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+      ]
+    }
   ], []);
-
-  const sidebarItems = React.useMemo(() => 
-    drawerItems.filter(item => item.key === 'settings' || !navItems.some(nav => nav.key === item.key)),
-  [drawerItems, navItems]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
@@ -147,25 +161,33 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
             <span className="bg-blue-600/10 dark:bg-sky-500/10 text-blue-600 dark:text-sky-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full">PRO</span>
           </div>
 
-          {/* Nav list */}
-          <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none">
-            {sidebarItems.map(item => {
-              const isActive = currentTab === item.key;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => handleNavClick(item.key)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 border-l-2 border-blue-600 dark:border-sky-500' 
-                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/2'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              );
-            })}
+          {/* Nav list with categorized sections */}
+          <nav className="space-y-5 overflow-y-auto pr-1 flex-1 scrollbar-none">
+            {sidebarGroups.map((group, groupIdx) => (
+              <div key={groupIdx} className="space-y-1">
+                <span className="block px-3 text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-gray-500 font-bold mb-1">
+                  {group.title}
+                </span>
+                {group.items.map(item => {
+                  const isActive = currentTab === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => handleNavClick(item.key)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive 
+                          ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500 shadow-sm' 
+                          : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                      }`}
+                      style={{ touchAction: 'manipulation' }}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
         </div>
 
@@ -376,24 +398,32 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
                 </div>
 
                 {/* Drawer list */}
-                <nav className="space-y-1 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-230px)]">
-                  {drawerItems.map(item => {
-                    const isActive = currentTab === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        onClick={() => handleNavClick(item.key)}
-                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
-                          isActive 
-                            ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500' 
-                            : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        {item.icon}
-                        {item.label}
-                      </button>
-                    );
-                  })}
+                <nav className="space-y-4 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-230px)]">
+                  {sidebarGroups.map((group, groupIdx) => (
+                    <div key={groupIdx} className="space-y-1">
+                      <span className="block px-3 text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-gray-500 font-bold mb-1">
+                        {group.title}
+                      </span>
+                      {group.items.map(item => {
+                        const isActive = currentTab === item.key;
+                        return (
+                          <button
+                            key={item.key}
+                            onClick={() => handleNavClick(item.key)}
+                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                              isActive 
+                                ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500' 
+                                : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                            }`}
+                            style={{ touchAction: 'manipulation' }}
+                          >
+                            {item.icon}
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </nav>
               </div>
 

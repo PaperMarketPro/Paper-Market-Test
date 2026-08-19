@@ -236,21 +236,86 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
   if (!user) return null;
 
   return (
-    <div className="space-y-5 w-full">
+    <div className="space-y-6 w-full">
+      {/* 1. HERO CAPITAL & PERFORMANCE OVERVIEW HEADER */}
+      <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 dark:border-white/5 pb-4">
+          <div>
+            <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
+              Total Virtual Capital
+            </span>
+            <div className="flex items-baseline gap-3 mt-1">
+              <span className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 dark:text-white tracking-tight tabular-numbers">
+                ₹{(user.virtualBalance + openPositionsPnl).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-xl ${
+                openPositionsPnl >= 0 
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+              }`}>
+                {openPositionsPnl >= 0 ? '▲ +' : '▼ '}₹{openPositionsPnl.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              onClick={() => onNavigate('positions')}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer text-center"
+            >
+              Active Positions ({openPositions.length})
+            </button>
+            <button
+              onClick={() => onNavigate('trade')}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 rounded-xl text-xs font-bold transition cursor-pointer text-center"
+            >
+              Execute Order +
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+          <div className="space-y-0.5">
+            <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest block">Available Balance</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-white font-mono tabular-numbers block">
+              ₹{user.virtualBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest block">Unrealized P&L</span>
+            <span className={`text-sm font-bold font-mono tabular-numbers block ${openPositionsPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {openPositionsPnl >= 0 ? '+' : ''}₹{openPositionsPnl.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest block">Realized P&L</span>
+            <span className={`text-sm font-bold font-mono tabular-numbers block ${(user.virtualBalance - user.initialBalance) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {(user.virtualBalance - user.initialBalance) >= 0 ? '+' : ''}₹{(user.virtualBalance - user.initialBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest block">Win Rate</span>
+            <span className="text-sm font-bold text-blue-600 dark:text-sky-400 font-mono tabular-numbers block">
+              {winRate}%
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT COLUMN: MAIN ANALYTICS & WATCHLISTS */}
         <div className="lg:col-span-2 space-y-6">
-          {/* 1. SEARCH BOX BAR */}
+          {/* SEARCH BOX BAR */}
           <div className="relative font-sans cursor-pointer" onClick={() => setIsSearchOpen(true)}>
             <span className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-sky-400/60" />
+              <Search className="h-4 w-4 text-blue-600 dark:text-sky-400" />
             </span>
             <input
               type="text"
               placeholder="Search stocks, FUT/CE/PE, index..."
               value=""
               readOnly
-              className="w-full bg-[#0a0d16] border border-white/5 focus:border-sky-500/20 rounded-2xl pl-10 pr-4 py-3.5 text-xs text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-sky-500/25 transition duration-200 cursor-pointer"
+              className="w-full bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 focus:border-blue-500/30 dark:focus:border-sky-500/20 rounded-2xl pl-10 pr-4 py-3.5 text-xs text-slate-900 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none transition duration-200 cursor-pointer shadow-sm"
             />
           </div>
 
@@ -260,7 +325,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
                 Market Indices
               </span>
-              <span className="text-[9px] font-sans text-gray-500">
+              <span className="text-[9px] font-sans text-slate-500 dark:text-gray-500">
                 Tap to trade derivatives
               </span>
             </div>
@@ -274,29 +339,26 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                       setSelectedAssetBySymbol(idxAsset.symbol);
                       onNavigate('trade');
                     }}
-                    className="bg-[#0b0e14]/60 hover:bg-[#0c1018] border border-white/5 hover:border-sky-500/25 rounded-2xl p-3 transition-all duration-200 cursor-pointer flex flex-col justify-between h-[85px] group relative overflow-hidden"
+                    className="bg-white dark:bg-[#0c1020] hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-200 dark:border-white/5 rounded-2xl p-3 transition-all duration-200 cursor-pointer flex flex-col justify-between h-[85px] group shadow-sm"
                   >
-                    {/* Hover subtle glow accent */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-sky-500/0 group-hover:to-sky-500/5 transition duration-200" />
-                    
-                    <div className="flex justify-between items-start relative z-10 w-full">
+                    <div className="flex justify-between items-start w-full">
                       <div className="space-y-0.5">
-                        <span className="text-[10px] font-mono font-bold text-white tracking-tight block">
+                        <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-white tracking-tight block">
                           {idxAsset.symbol}
                         </span>
-                        <span className="text-[8px] text-gray-500 font-medium block truncate max-w-[70px]">
+                        <span className="text-[8px] text-slate-500 dark:text-gray-500 font-medium block truncate max-w-[70px]">
                           {idxAsset.name.replace('Index', '').replace('NSE', '').trim()}
                         </span>
                       </div>
                       <span className={`text-[8px] font-mono font-bold px-1 py-0.5 rounded ${
-                        isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                        isPositive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                       }`}>
                         {isPositive ? '+' : ''}{idxAsset.change.toFixed(2)}%
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-end mt-1.5 relative z-10 w-full">
-                      <span className="text-xs font-mono font-bold text-white tabular-numbers">
+                    <div className="flex justify-between items-end mt-1.5 w-full">
+                      <span className="text-xs font-mono font-bold text-slate-900 dark:text-white tabular-numbers">
                         ₹{idxAsset.ltp.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                       </span>
                       {renderMiniSparkline(idxAsset.sparkline, isPositive)}
@@ -307,14 +369,13 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
             </div>
           </div>
 
-          {/* 5. SIMULATED PERFORMANCE MATRIX WITH AREA CHART */}
+          {/* SIMULATED PERFORMANCE MATRIX WITH AREA CHART */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
               Simulated Performance Matrix
             </span>
             
-            <div className="bg-[#0b0e14]/60 border border-white/5 rounded-2xl p-4 space-y-3">
-              {/* Custom Area Chart */}
+            <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-4 space-y-3 shadow-sm">
               <div className="relative h-[110px] w-full flex items-end">
                 <svg
                   className="w-full h-full"
@@ -323,19 +384,15 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                 >
                   <defs>
                     <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
                       <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
-                  {/* Grid Lines */}
-                  <line x1="0" y1="40" x2={width} y2="40" stroke="rgba(255,255,255,0.02)" strokeWidth="0.5" />
-                  <line x1="0" y1="80" x2={width} y2="80" stroke="rgba(255,255,255,0.02)" strokeWidth="0.5" />
-                  <line x1="0" y1="120" x2={width} y2="120" stroke="rgba(255,255,255,0.02)" strokeWidth="0.5" />
+                  <line x1="0" y1="40" x2={width} y2="40" stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
+                  <line x1="0" y1="80" x2={width} y2="80" stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
+                  <line x1="0" y1="120" x2={width} y2="120" stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
 
-                  {/* Curve Area */}
                   <path d={areaPoints} fill="url(#equityGrad)" />
-                  
-                  {/* Curve Stroke */}
                   <path
                     d={points}
                     fill="none"
@@ -344,7 +401,6 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     strokeLinecap="round"
                   />
 
-                  {/* Interactive Dots */}
                   {equityData.map((val, idx) => {
                     const x = (idx / (equityData.length - 1)) * width;
                     const y = height - ((val - minEquity) / range) * (height - 30) - 15;
@@ -364,30 +420,30 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                 </svg>
               </div>
               
-              <span className="block text-[10px] text-gray-500 font-sans text-center mt-2 font-medium">
+              <span className="block text-[10px] text-slate-500 dark:text-gray-400 font-sans text-center mt-2 font-medium">
                 Weekly Cumulative Equity Return Curve
               </span>
             </div>
           </div>
 
-          {/* 6. COMPACT ACTIVE POSITIONS LIST */}
-          <div className="bg-[#0b0e14]/60 border border-white/5 rounded-2xl p-4">
+          {/* COMPACT ACTIVE POSITIONS LIST */}
+          <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-4 shadow-sm">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-xs font-bold text-white uppercase font-mono tracking-wider">Active Positions ({openPositions.length})</h3>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase font-mono tracking-wider">Active Positions ({openPositions.length})</h3>
               <button
                 onClick={() => onNavigate('positions')}
-                className="text-[10px] text-blue-600 dark:text-sky-400 hover:text-blue-500 dark:hover:text-sky-300 font-bold font-mono uppercase flex items-center gap-1"
+                className="text-[10px] text-blue-600 dark:text-sky-400 hover:text-blue-500 dark:hover:text-sky-300 font-bold font-mono uppercase flex items-center gap-1 cursor-pointer"
               >
                 Full View
               </button>
             </div>
 
             {openPositions.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 text-xs">
+              <div className="text-center py-6 text-slate-500 dark:text-gray-400 text-xs">
                 No active positions open. Use Watchlists or Trade screen.
               </div>
             ) : (
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
                 {openPositions.map(pos => {
                   const pnlValue = pos.direction === 'Long'
                     ? (pos.currentPrice - pos.entryPrice) * pos.quantity
@@ -397,25 +453,25 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                     <div key={pos.id} className="flex justify-between items-center py-2.5 first:pt-0 last:pb-0">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs text-white">{pos.symbol}</span>
+                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">{pos.symbol}</span>
                           <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                            pos.direction === 'Long' ? 'bg-bull/10 text-bull' : 'bg-bear/10 text-bear'
+                            pos.direction === 'Long' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                           }`}>
                             {pos.direction}
                           </span>
                         </div>
-                        <span className="text-[10px] text-gray-400 tabular-numbers">
+                        <span className="text-[10px] text-slate-500 dark:text-gray-400 tabular-numbers">
                           {pos.quantity} Qty @ ₹{pos.entryPrice.toLocaleString('en-IN')}
                         </span>
                       </div>
 
                       <div className="text-right space-y-0.5">
                         <span className={`block text-xs font-bold tabular-numbers ${
-                          pnlValue >= 0 ? 'text-bull' : 'text-bear'
+                          pnlValue >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                         }`}>
                           {pnlValue >= 0 ? '+' : ''}₹{pnlValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
-                        <span className="block text-[9px] text-gray-500 tabular-numbers">
+                        <span className="block text-[9px] text-slate-500 dark:text-gray-400 tabular-numbers">
                           LTP: ₹{pos.currentPrice.toLocaleString('en-IN')}
                         </span>
                       </div>
@@ -426,34 +482,33 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
             )}
           </div>
 
-          {/* 7. COLLAPSIBLE ADVANCED METRICS DRAWER */}
-          <details className="group bg-[#0b0e14]/40 border border-white/5 rounded-2xl overflow-hidden">
-            <summary className="flex justify-between items-center p-4 text-xs font-semibold text-gray-400 cursor-pointer hover:bg-white/4 select-none">
+          {/* COLLAPSIBLE ADVANCED METRICS DRAWER */}
+          <details className="group bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
+            <summary className="flex justify-between items-center p-4 text-xs font-semibold text-slate-700 dark:text-gray-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 select-none">
               <span className="flex items-center gap-1.5 font-mono uppercase tracking-wider">
                 <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
                 Detailed Ledger Analytics
               </span>
               <span className="text-[9px] text-blue-600 dark:text-sky-400 font-mono uppercase group-open:hidden">Expand</span>
-              <span className="text-[9px] text-gray-500 font-mono uppercase group-open:inline hidden">Collapse</span>
+              <span className="text-[9px] text-slate-500 dark:text-gray-500 font-mono uppercase group-open:inline hidden">Collapse</span>
             </summary>
             
-            <div className="p-4 border-t border-white/5 space-y-5">
-              {/* Secondary Stats Grid */}
+            <div className="p-4 border-t border-slate-200 dark:border-white/5 space-y-5">
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-white/2 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Profit Factor</span>
-                  <span className="block text-sm font-bold text-white tabular-numbers mt-0.5">{profitFactor}</span>
+                <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 p-3 rounded-xl">
+                  <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest">Profit Factor</span>
+                  <span className="block text-sm font-bold text-slate-900 dark:text-white tabular-numbers mt-0.5">{profitFactor}</span>
                 </div>
-                <div className="bg-white/2 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Max Drawdown</span>
-                  <span className="block text-sm font-bold text-white tabular-numbers mt-0.5">2.4%</span>
+                <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 p-3 rounded-xl">
+                  <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest">Max Drawdown</span>
+                  <span className="block text-sm font-bold text-slate-900 dark:text-white tabular-numbers mt-0.5">2.4%</span>
                 </div>
-                <div className="bg-white/2 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Expectancy</span>
-                  <span className="block text-sm font-bold text-white tabular-numbers mt-0.5">+₹142.50</span>
+                <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 p-3 rounded-xl">
+                  <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest">Expectancy</span>
+                  <span className="block text-sm font-bold text-slate-900 dark:text-white tabular-numbers mt-0.5">+₹142.50</span>
                 </div>
-                <div className="bg-white/2 border border-white/5 p-3 rounded-xl">
-                  <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">Discipline Score</span>
+                <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 p-3 rounded-xl">
+                  <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest">Discipline Score</span>
                   <span className="block text-sm font-bold text-blue-600 dark:text-sky-400 mt-0.5">88/100</span>
                 </div>
               </div>
@@ -462,23 +517,23 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               <div className="space-y-2">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
-                  <span className="text-[10px] font-mono text-gray-400 uppercase font-bold tracking-wider">P&L Calendar Heatmap</span>
+                  <span className="text-[10px] font-mono text-slate-600 dark:text-gray-400 uppercase font-bold tracking-wider">P&L Calendar Heatmap</span>
                 </div>
                 <div className="flex flex-wrap gap-1 items-center pb-1">
                   {Array.from({ length: 30 }, (_, idx) => {
-                    let colorClass = 'bg-white/5';
+                    let colorClass = 'bg-slate-200 dark:bg-white/5';
                     let label = 'No Trades';
                     if (idx === 3 || idx === 11 || idx === 18) {
-                      colorClass = 'bg-bear opacity-50';
+                      colorClass = 'bg-rose-500/50';
                       label = '-₹1,200';
                     } else if (idx === 7 || idx === 21) {
-                      colorClass = 'bg-bear';
+                      colorClass = 'bg-rose-600';
                       label = '-₹4,800';
                     } else if (idx === 5 || idx === 14 || idx === 25 || idx === 28) {
-                      colorClass = 'bg-bull opacity-50';
+                      colorClass = 'bg-emerald-500/50';
                       label = '+₹2,100';
                     } else if (idx === 15 || idx === 29) {
-                      colorClass = 'bg-bull';
+                      colorClass = 'bg-emerald-600';
                       label = '+₹8,400';
                     }
 
@@ -486,17 +541,17 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                       <div
                         key={idx}
                         title={`Day ${idx + 1}: ${label}`}
-                        className={`w-[18px] h-[18px] rounded cursor-pointer hover:ring-2 hover:ring-white/20 transition ${colorClass}`}
+                        className={`w-[18px] h-[18px] rounded cursor-pointer hover:ring-2 hover:ring-slate-400 dark:hover:ring-white/20 transition ${colorClass}`}
                       />
                     );
                   })}
                 </div>
-                <div className="flex justify-between items-center text-[9px] text-gray-500 font-mono pt-1">
+                <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-gray-400 font-mono pt-1">
                   <span>Older Days</span>
                   <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-bear rounded-sm" />
-                    <div className="w-2 h-2 bg-white/5 rounded-sm" />
-                    <div className="w-2 h-2 bg-bull rounded-sm" />
+                    <div className="w-2 h-2 bg-rose-600 rounded-sm" />
+                    <div className="w-2 h-2 bg-slate-200 dark:bg-white/5 rounded-sm" />
+                    <div className="w-2 h-2 bg-emerald-600 rounded-sm" />
                   </div>
                 </div>
               </div>
@@ -505,13 +560,13 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               <div className="flex gap-2">
                 <button
                   onClick={() => onNavigate('journal')}
-                  className="flex-1 text-center text-[10px] text-blue-600 dark:text-sky-400 font-bold py-2 bg-sky-500/5 rounded-xl border border-sky-500/10 block uppercase font-mono tracking-wider"
+                  className="flex-1 text-center text-[10px] text-blue-600 dark:text-sky-400 font-bold py-2 bg-blue-500/10 dark:bg-sky-500/10 rounded-xl border border-blue-500/20 dark:border-sky-500/20 block uppercase font-mono tracking-wider cursor-pointer"
                 >
                   Discipline Journal
                 </button>
                 <button
                   onClick={handleRefresh}
-                  className={`px-3 bg-white/5 rounded-xl border border-white/5 text-gray-400 hover:text-white transition flex items-center justify-center ${
+                  className={`px-3 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center cursor-pointer ${
                     isRefreshing ? 'animate-spin' : ''
                   }`}
                 >
@@ -522,12 +577,11 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
           </details>
         </div>
 
-        {/* RIGHT COLUMN: LEVEL & CAPITAL CARDS */}
+        {/* RIGHT COLUMN: LEVEL & RISK SCORES */}
         <div className="space-y-6">
-          {/* 2. DYNAMIC LEVEL XP CARD */}
-          <div className="bg-[#0b0e14]/60 border border-white/5 rounded-2xl p-4 flex items-center gap-4">
-            {/* Left Circular Meter */}
-            <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-sky-500/5 border border-sky-500/10 shrink-0">
+          {/* DYNAMIC LEVEL XP CARD */}
+          <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+            <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-blue-500/10 dark:bg-sky-500/10 border border-blue-500/20 dark:border-sky-500/20 shrink-0">
               <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-sky-400">{user.level}</span>
               <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full transform -rotate-90">
                 <circle
@@ -544,79 +598,46 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               </svg>
             </div>
 
-            {/* Right Info blocks */}
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center justify-between text-[10px] font-mono">
                 <span className="text-blue-600 dark:text-sky-400 font-bold tracking-wider uppercase">Option Apprentice</span>
-                <span className="text-gray-400 font-medium">{user.xp % 300} / 300 XP</span>
+                <span className="text-slate-500 dark:text-gray-400 font-medium">{user.xp % 300} / 300 XP</span>
               </div>
               
-              {/* Progress bar track */}
-              <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
                 <div 
-                  className="bg-sky-500 h-full rounded-full transition-all duration-500" 
+                  className="bg-blue-600 dark:bg-sky-500 h-full rounded-full transition-all duration-500" 
                   style={{ width: `${Math.min(100, ((user.xp % 300) / 300) * 100)}%` }} 
                 />
               </div>
               
-              <span className="block text-[9px] text-gray-500 font-sans">
+              <span className="block text-[9px] text-slate-500 dark:text-gray-400 font-sans">
                 Trade or study in Academy to level up
               </span>
             </div>
           </div>
 
-          {/* 3. TOTAL VIRTUAL CAPITAL CARD */}
-          <div className="bg-[#0b0e14]/60 border border-sky-500/5 rounded-2xl p-5 space-y-4">
-            <div>
-              <span className="text-[10px] font-mono text-blue-600 dark:text-sky-400 uppercase tracking-widest block font-bold">
-                Total Virtual Capital
-              </span>
-              <span className="text-3xl font-display font-extrabold text-white tracking-tight block mt-1 tabular-numbers">
-                ₹{(user.virtualBalance + openPositionsPnl).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3">
-              <div className="space-y-0.5">
-                <span className="text-[9px] text-gray-500 block uppercase font-mono">Unrealized P&L (Live)</span>
-                <span className={`text-xs font-bold font-mono block tabular-numbers ${
-                  openPositionsPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  {openPositionsPnl >= 0 ? '+' : ''}₹{openPositionsPnl.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-[9px] text-gray-500 block uppercase font-mono">Realized P&L</span>
-                <span className={`text-xs font-bold font-mono block tabular-numbers ${
-                  (user.virtualBalance - user.initialBalance) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  {(user.virtualBalance - user.initialBalance) >= 0 ? '+' : ''}₹{(user.virtualBalance - user.initialBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. METRICS ROW GRID (WIN RATE & RISK SCORE) */}
+          {/* METRICS ROW GRID (WIN RATE & RISK SCORE) */}
           <div className="grid grid-cols-2 gap-3">
             {/* Win Rate Card */}
-            <div className="bg-[#0b0e14]/60 border border-white/5 p-4 rounded-2xl flex flex-col justify-between h-[90px]">
+            <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 p-4 rounded-2xl flex flex-col justify-between h-[90px] shadow-sm">
               <div>
-                <span className="text-[9px] font-mono text-gray-400 uppercase tracking-widest block font-bold">Win Rate</span>
-                <span className="text-xl font-bold text-white tabular-numbers mt-1 block">{winRate}.0%</span>
+                <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest block font-bold">Win Rate</span>
+                <span className="text-xl font-bold text-slate-900 dark:text-white tabular-numbers mt-1 block">{winRate}.0%</span>
               </div>
-              <div className="flex items-center gap-1 text-[9px] text-red-400 font-mono">
+              <div className="flex items-center gap-1 text-[9px] text-rose-600 dark:text-rose-400 font-mono">
                 <span className="text-xs">📉</span>
                 <span>Challenged</span>
               </div>
             </div>
 
             {/* Risk Score Card */}
-            <div className="bg-[#0b0e14]/60 border border-white/5 p-4 rounded-2xl flex flex-col justify-between h-[90px]">
+            <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 p-4 rounded-2xl flex flex-col justify-between h-[90px] shadow-sm">
               <div>
-                <span className="text-[9px] font-mono text-gray-400 uppercase tracking-widest block font-bold">Risk Score</span>
-                <span className="text-xl font-bold text-white tabular-numbers mt-1 block">100/100</span>
+                <span className="text-[9px] font-mono text-slate-500 dark:text-gray-400 uppercase tracking-widest block font-bold">Risk Score</span>
+                <span className="text-xl font-bold text-slate-900 dark:text-white tabular-numbers mt-1 block">100/100</span>
               </div>
-              <div className="flex items-center gap-1 text-[9px] text-emerald-400 font-mono">
+              <div className="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400 font-mono">
                 <span className="text-xs">📈</span>
                 <span>Low Risk</span>
               </div>
