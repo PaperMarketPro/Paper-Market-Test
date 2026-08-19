@@ -103,15 +103,15 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
 
   if (!user) return null;
 
-  const navItems = [
+  const navItems = React.useMemo(() => [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },
     { key: 'positions', label: 'Positions', icon: <Briefcase className="w-5 h-5" /> },
     { key: 'equity', label: 'Equity', icon: <TrendingUp className="w-5 h-5" /> },
     { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { key: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
-  ];
+  ], []);
 
-  const drawerItems = [
+  const drawerItems = React.useMemo(() => [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-4 h-4" /> },
     { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
     { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
@@ -121,9 +121,11 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
     { key: 'academy', label: 'Academy (Learn)', icon: <BookOpen className="w-4 h-4" /> },
     { key: 'profile', label: 'Subscription / Badges', icon: <Award className="w-4 h-4" /> },
     { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
-  ];
+  ], []);
 
-  const sidebarItems = drawerItems.filter(item => item.key === 'settings' || !navItems.some(nav => nav.key === item.key));
+  const sidebarItems = React.useMemo(() => 
+    drawerItems.filter(item => item.key === 'settings' || !navItems.some(nav => nav.key === item.key)),
+  [drawerItems, navItems]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
@@ -341,8 +343,9 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               onClick={() => setIsDrawerOpen(false)}
-              className="fixed inset-0 bg-black/60 "
+              className="fixed inset-0 bg-black/60 z-50 cursor-pointer"
             />
 
             {/* Drawer Sliding body */}
@@ -350,8 +353,8 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-80 max-w-[85vw] bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/10 h-full p-5 flex flex-col justify-between shadow-2xl overflow-y-auto"
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-80 max-w-[85vw] bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/10 h-full p-5 flex flex-col justify-between shadow-2xl overflow-y-auto transform-gpu z-50"
             >
               <div className="space-y-5">
                 <div className="flex justify-between items-center">
