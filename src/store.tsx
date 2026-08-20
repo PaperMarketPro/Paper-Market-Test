@@ -1240,6 +1240,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         eventSource.onopen = () => {
           console.info("[Feed Engine] SSE Stream connected successfully.");
+          if (fallbackInterval) { clearInterval(fallbackInterval); fallbackInterval = null; }
+          if (httpPollingInterval) { clearInterval(httpPollingInterval); httpPollingInterval = null; }
           setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
         };
 
@@ -1329,6 +1331,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ws.onopen = () => {
         reconnectAttempts = 0;
         lastMsgTime = Date.now();
+        if (fallbackInterval) { clearInterval(fallbackInterval); fallbackInterval = null; }
+        if (httpPollingInterval) { clearInterval(httpPollingInterval); httpPollingInterval = null; }
         setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
 
         if (token) {
@@ -1631,7 +1635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type,
       isRead: false
     };
-    setNotifications(prev => [newNotif, ...prev]);
+    setNotifications(prev => [newNotif, ...prev].slice(0, 50));
   }, []);
 
   // XP & Level-up system helper
@@ -1772,7 +1776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString()
     };
 
-    setOrders(prev => [newOrder, ...prev]);
+    setOrders(prev => [newOrder, ...prev].slice(0, 100));
 
     // If Market, execute immediately and modify positions list
     if (orderData.type === 'Market') {
@@ -1855,7 +1859,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       if (closedPos) {
-        setClosedHistory(prevHistory => [closedPos!, ...prevHistory]);
+        setClosedHistory(prevHistory => [closedPos!, ...prevHistory].slice(0, 100));
         addXP(50);
       }
 
@@ -1958,7 +1962,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString()
     };
 
-    setOrders(prev => [closeOrder, ...prev]);
+    setOrders(prev => [closeOrder, ...prev].slice(0, 100));
 
     // Update Virtual Balance
     const exitValue = exitPrice * qty;
@@ -1993,7 +1997,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       realizedPnl: Number(realizedPnl.toFixed(2)),
       closedTimestamp: new Date().toISOString()
     };
-    setClosedHistory(prev => [closedPos, ...prev]);
+    setClosedHistory(prev => [closedPos, ...prev].slice(0, 100));
 
     // Challenge check
     const tradeChallenge = challenges.find(ch => ch.category === 'Trade' && !ch.isCompleted);

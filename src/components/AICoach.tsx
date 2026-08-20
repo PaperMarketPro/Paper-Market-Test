@@ -36,7 +36,15 @@ export const AICoach: React.FC = React.memo(() => {
     updateLLMConfig
   } = useMainApp();
 
-  const [activeTab, setActiveTab] = useState<'chat' | 'teach' | 'scorecard'>('chat');
+  const trainingIntervalRef = useRef<any>(null);
+  const analysisIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (trainingIntervalRef.current) clearInterval(trainingIntervalRef.current);
+      if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
+    };
+  }, []);
 
   // LLM Config state from user profile or default values
   const currentLlmConfig = user?.llmConfig || {
@@ -88,10 +96,14 @@ export const AICoach: React.FC = React.memo(() => {
     ];
 
     let currentStep = 0;
-    const interval = setInterval(() => {
+    if (trainingIntervalRef.current) clearInterval(trainingIntervalRef.current);
+    trainingIntervalRef.current = setInterval(() => {
       setTrainingProgress(p => {
         if (p >= 100) {
-          clearInterval(interval);
+          if (trainingIntervalRef.current) {
+            clearInterval(trainingIntervalRef.current);
+            trainingIntervalRef.current = null;
+          }
           setIsTrainingRunning(false);
           setTrainingStatus('Training Completed successfully!');
           
@@ -180,10 +192,14 @@ export const AICoach: React.FC = React.memo(() => {
     ];
 
     let statusIndex = 0;
-    const interval = setInterval(() => {
+    if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
+    analysisIntervalRef.current = setInterval(() => {
       setAnalysisProgress(p => {
         if (p >= 100) {
-          clearInterval(interval);
+          if (analysisIntervalRef.current) {
+            clearInterval(analysisIntervalRef.current);
+            analysisIntervalRef.current = null;
+          }
           return 100;
         }
         if (statusIndex < statuses.length) {

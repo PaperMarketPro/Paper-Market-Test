@@ -2390,6 +2390,12 @@ const StockChartBase: React.FC<StockChartProps> = ({
       return;
     }
 
+    // Skip if chart element is currently hidden from layout
+    if (containerRef.current && containerRef.current.offsetParent === null) {
+      previousAssetPrice.current = currentLtp;
+      return;
+    }
+
     // Skip if price hasn't changed (uses Object.is for robust equality including NaN comparison)
     if (Object.is(currentLtp, previousAssetPrice.current)) {
       return;
