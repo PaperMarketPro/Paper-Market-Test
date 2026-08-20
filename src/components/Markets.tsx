@@ -13,35 +13,6 @@ import { StockChart } from './StockChart';
 import { getWeeklyExpiriesForUnderlier } from '../derivativesUtils';
 import { SebiRiskModal } from './SebiRiskModal';
 
-const Sparkline = React.memo<{ pts?: number[]; isPositive: boolean }>(({ pts, isPositive }) => {
-  if (!pts || pts.length === 0) return null;
-  let minV = pts[0];
-  let maxV = pts[0];
-  for (let i = 1; i < pts.length; i++) {
-    if (pts[i] < minV) minV = pts[i];
-    if (pts[i] > maxV) maxV = pts[i];
-  }
-  const range = maxV - minV || 1;
-  const n = pts.length - 1 || 1;
-  const pathD = pts.map((val, idx) => {
-    const x = (idx / n) * 80;
-    const y = 30 - ((val - minV) / range) * 28;
-    return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }).join(' ');
-
-  return (
-    <svg className="w-full h-full" viewBox="0 0 80 32">
-      <path
-        d={pathD}
-        fill="none"
-        stroke={isPositive ? '#10b981' : '#ef4444'}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-});
-
 const getDynamicOptionChain = (indexSymbol: string, spot: number) => {
   let strikeStep = 50;
   if (indexSymbol === 'BANKNIFTY' || indexSymbol === 'SENSEX' || indexSymbol === 'FINNIFTY') {
@@ -418,7 +389,31 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
 
                     {/* Inline SVG Sparkline graph */}
                     <div className="w-20 h-8 hidden sm:block">
-                      <Sparkline pts={inst.sparkline} isPositive={isChangePositive} />
+                      <svg className="w-full h-full" viewBox="0 0 80 32">
+                        <path
+                          d={(() => {
+                            const pts = inst.sparkline;
+                            if (!pts || pts.length === 0) return '';
+                            let minV = pts[0];
+                            let maxV = pts[0];
+                            for (let i = 1; i < pts.length; i++) {
+                              if (pts[i] < minV) minV = pts[i];
+                              if (pts[i] > maxV) maxV = pts[i];
+                            }
+                            const range = maxV - minV || 1;
+                            const n = pts.length - 1 || 1;
+                            return pts.map((val, idx) => {
+                              const x = (idx / n) * 80;
+                              const y = 30 - ((val - minV) / range) * 28;
+                              return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                            }).join(' ');
+                          })()}
+                          fill="none"
+                          stroke={isChangePositive ? '#10b981' : '#ef4444'}
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
                     </div>
 
                     {/* Price and Change */}
@@ -649,7 +644,31 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
 
                         {/* Sparkline Graph */}
                         <div className="w-20 h-8 hidden sm:block">
-                          <Sparkline pts={inst.sparkline} isPositive={isChangePositive} />
+                          <svg className="w-full h-full" viewBox="0 0 80 32">
+                            <path
+                              d={(() => {
+                                const pts = inst.sparkline;
+                                if (!pts || pts.length === 0) return '';
+                                let minV = pts[0];
+                                let maxV = pts[0];
+                                for (let i = 1; i < pts.length; i++) {
+                                  if (pts[i] < minV) minV = pts[i];
+                                  if (pts[i] > maxV) maxV = pts[i];
+                                }
+                                const range = maxV - minV || 1;
+                                const n = pts.length - 1 || 1;
+                                return pts.map((val, idx) => {
+                                  const x = (idx / n) * 80;
+                                  const y = 30 - ((val - minV) / range) * 28;
+                                  return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                                }).join(' ');
+                              })()}
+                              fill="none"
+                              stroke={isChangePositive ? '#10b981' : '#ef4444'}
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            />
+                          </svg>
                         </div>
 
                         {/* Price & Change */}
