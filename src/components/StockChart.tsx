@@ -2041,6 +2041,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
 
   // Store candles in local state so we can let the last one tick in real-time
   const [candles, setCandles] = useState<Candle[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
   const previousAssetPrice = useRef<number>(activeAsset.ltp);
   const previousAssetSymbol = useRef<string>(activeAsset.symbol);
 
@@ -2527,7 +2528,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
   const isPositive = activeChange >= 0;
 
   return (
-    <div className="bg-[#0b0e14] border border-white/5 rounded-2xl p-4 md:p-5 space-y-4 shadow-xl">
+    <div ref={containerRef} className="bg-[#0b0e14] border border-white/5 rounded-2xl p-4 md:p-5 space-y-4 shadow-xl">
       {/* Top Header - Asset details & Chart engine controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-white/5">
         <div className="flex items-center gap-3">

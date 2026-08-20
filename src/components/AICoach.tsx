@@ -36,6 +36,7 @@ export const AICoach: React.FC = React.memo(() => {
     updateLLMConfig
   } = useMainApp();
 
+  const [activeTab, setActiveTab] = useState<'chat' | 'teach' | 'scorecard'>('chat');
   const trainingIntervalRef = useRef<any>(null);
   const analysisIntervalRef = useRef<any>(null);
 

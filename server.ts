@@ -1870,7 +1870,7 @@ app.use((req, res, next) => {
     }
   }
 
-  if (req.url && !req.url.startsWith("/api") && req.url.startsWith("/")) {
+  if ((req as any).isVercelApi && req.url && !req.url.startsWith("/api") && req.url.startsWith("/")) {
     req.url = "/api" + req.url;
   }
   next();
