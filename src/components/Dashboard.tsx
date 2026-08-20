@@ -87,8 +87,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       // 3 & 4. Option Chain Contracts (Dynamic Multi-Underlier & Multi-Expiry)
       ...['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'SBIN', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS'].flatMap(underlier => {
         const underlierInst = (instruments || []).find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
-        const rawSpot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
-        const spot = Math.round(rawSpot / 5) * 5;
+        const spot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
         let strikeStep = 50;
         if (underlier === 'BANKNIFTY') {
           strikeStep = 100;
