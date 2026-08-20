@@ -20,6 +20,25 @@ import { Analytics } from './components/Analytics';
 import { RiskManagement } from './components/RiskManagement';
 import { Position } from './types';
 
+interface TabPanelProps {
+  active: boolean;
+  children: React.ReactNode;
+}
+
+const TabPanel = React.memo<TabPanelProps>(({ active, children }) => {
+  return (
+    <div style={{ display: active ? 'block' : 'none' }}>
+      {children}
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  // If the tab was inactive and remains inactive, completely skip re-rendering
+  if (!prevProps.active && !nextProps.active) {
+    return true;
+  }
+  return false;
+});
+
 function MainAppCoordinator() {
   const { user, isAuthLoading, logoutUser } = useMainApp();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
@@ -91,72 +110,72 @@ function MainAppCoordinator() {
   return (
     <Navigation currentTab={currentTab} onNavigate={handleNavigate}>
       {visitedTabs.has('dashboard') && (
-        <div style={{ display: currentTab === 'dashboard' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'dashboard'}>
           <Dashboard onNavigate={handleNavigate} />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('equity') && (
-        <div style={{ display: currentTab === 'equity' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'equity'}>
           <Markets mode="equity" onNavigate={handleNavigate} />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('fno') && (
-        <div style={{ display: currentTab === 'fno' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'fno'}>
           <Markets mode="fno" onNavigate={handleNavigate} />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('trade') && (
-        <div style={{ display: currentTab === 'trade' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'trade'}>
           <TradeScreen onSuccess={handleTradeSuccess} />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('positions') && (
-        <div style={{ display: currentTab === 'positions' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'positions'}>
           <PositionsList onJournalShortcut={handleJournalShortcut} />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('analytics') && (
-        <div style={{ display: currentTab === 'analytics' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'analytics'}>
           <Analytics />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('journal') && (
-        <div style={{ display: currentTab === 'journal' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'journal'}>
           <Journal
             preselectedPosition={journalPosition}
             onClearPreselected={handleClearPreselected}
           />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('ai-coach') && (
-        <div style={{ display: currentTab === 'ai-coach' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'ai-coach'}>
           <AICoach />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('strategy') && (
-        <div style={{ display: currentTab === 'strategy' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'strategy'}>
           <StrategyBuilder />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('risk-management') && (
-        <div style={{ display: currentTab === 'risk-management' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'risk-management'}>
           <RiskManagement />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('academy') && (
-        <div style={{ display: currentTab === 'academy' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'academy'}>
           <Academy />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('profile') && (
-        <div style={{ display: currentTab === 'profile' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'profile'}>
           <Profile onLogout={handleLogout} initialSubTab="stats" />
-        </div>
+        </TabPanel>
       )}
       {visitedTabs.has('settings') && (
-        <div style={{ display: currentTab === 'settings' ? 'block' : 'none' }}>
+        <TabPanel active={currentTab === 'settings'}>
           <Profile onLogout={handleLogout} initialSubTab="settings" />
-        </div>
+        </TabPanel>
       )}
     </Navigation>
   );

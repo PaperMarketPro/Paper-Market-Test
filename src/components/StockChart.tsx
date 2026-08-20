@@ -42,6 +42,23 @@ interface Candle {
   supertrendDirection?: 'up' | 'down';
 }
 
+const TickerItem = React.memo<{ symbol: string; ltp: number; change: number }>(({ symbol, ltp, change }) => {
+  const isPositive = change >= 0;
+  return (
+    <div className="inline-flex items-center space-x-2 px-5 border-r border-slate-200 dark:border-white/5 text-[11px] hover:bg-slate-200/50 dark:hover:bg-white/5 transition cursor-pointer">
+      <span className="font-bold text-slate-800 dark:text-gray-200 font-display uppercase">
+        {symbol}
+      </span>
+      <span className="text-slate-600 dark:text-gray-400 font-mono">
+        ₹{ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+      </span>
+      <span className={`font-mono font-bold flex items-center gap-0.5 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+        {isPositive ? '▲' : '▼'}{change.toFixed(2)}%
+      </span>
+    </div>
+  );
+});
+
 /**
  * Native Ticker Tape Widget
  * Renders a rolling ribbon of live prices for major Indian market assets.
@@ -60,25 +77,14 @@ export const NativeTickerTape: React.FC = React.memo(() => {
     <div className="w-full bg-slate-100/90 dark:bg-[#07090e]/85 border-b border-slate-200 dark:border-white/5 py-1.5 z-40 relative overflow-hidden select-none">
       <div className="flex w-max whitespace-nowrap animate-marquee">
         {/* Triple the list to ensure a seamless looping scroll animation */}
-        {[...majorInstruments, ...majorInstruments, ...majorInstruments].map((inst, index) => {
-          const isPositive = inst.change >= 0;
-          return (
-            <div 
-              key={`${inst.symbol}-${index}`} 
-              className="inline-flex items-center space-x-2 px-5 border-r border-slate-200 dark:border-white/5 text-[11px] hover:bg-slate-200/50 dark:hover:bg-white/5 transition cursor-pointer"
-            >
-              <span className="font-bold text-slate-800 dark:text-gray-200 font-display uppercase">
-                {inst.symbol}
-              </span>
-              <span className="text-slate-600 dark:text-gray-400 font-mono">
-                ₹{inst.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </span>
-              <span className={`font-mono font-bold flex items-center gap-0.5 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                {isPositive ? '▲' : '▼'}{inst.change.toFixed(2)}%
-              </span>
-            </div>
-          );
-        })}
+        {[...majorInstruments, ...majorInstruments, ...majorInstruments].map((inst, index) => (
+          <TickerItem
+            key={`${inst.symbol}-${index}`}
+            symbol={inst.symbol}
+            ltp={inst.ltp}
+            change={inst.change}
+          />
+        ))}
       </div>
     </div>
   );
