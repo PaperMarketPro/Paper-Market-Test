@@ -785,7 +785,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers['X-Upstox-Access-Token'] = savedToken;
       }
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const res = await fetch(getApiUrl('/api/integrations/upstox/ltp'), { headers, signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
@@ -1313,7 +1313,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }, delay);
     };
 
+    const isVercelHost = typeof window !== 'undefined' && (
+      window.location.hostname.includes('vercel.app') ||
+      window.location.hostname.includes('vercel')
+    );
+
     const connectWS = () => {
+      if (isVercelHost) {
+        startHttpPolling();
+        return;
+      }
       setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTING' }));
       const baseWsUrl = getWsUrl();
       const token = localStorage.getItem('upstox_user_access_token');
@@ -1436,7 +1445,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 3000);
 
     startFallbackSimulation();
-    connectWS();
+    if (isVercelHost) {
+      console.info("[Feed Engine] Vercel environment detected — activating fast HTTP quote polling.");
+      startHttpPolling();
+    } else {
+      connectWS();
+    }
 
     return () => {
       if (ws) {
