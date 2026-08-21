@@ -79,17 +79,12 @@ import { getApps, getApp } from "firebase-admin/app";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
 
 let db: Firestore | null = null;
-const isVercelWithoutCredentials = !!process.env.VERCEL && !process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.FIREBASE_SERVICE_ACCOUNT;
-if (!isVercelWithoutCredentials) {
-  try {
-    const firebaseApp = getApps().length ? getApp() : admin.initializeApp({ projectId: "phonic-transit-7wfkz" });
-    db = getFirestore(firebaseApp, "ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
-    console.log("[FIREBASE-ADMIN] Initialized targeting: ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
-  } catch (err: any) {
-    console.warn("[FIREBASE-ADMIN] Local or mock environment initialization: ", err.message);
-  }
-} else {
-  console.log("[FIREBASE-ADMIN] Running in Vercel Serverless environment without GCP credentials. Bypassing Firestore Admin SDK to ensure 0ms response latency.");
+try {
+  const firebaseApp = getApps().length ? getApp() : admin.initializeApp({ projectId: "phonic-transit-7wfkz" });
+  db = getFirestore(firebaseApp, "ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
+  console.log("[FIREBASE-ADMIN] Initialized targeting: ai-studio-papermarketpro-a4c451cc-beae-433b-b0ec-ae18cdd3511b");
+} catch (err: any) {
+  console.warn("[FIREBASE-ADMIN] Local or mock environment initialization: ", err.message);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number = 1200): Promise<T> {
@@ -1986,11 +1981,6 @@ app.get("/api/market/stream", (req, res) => {
   })}\n\n`);
 
   res.write(`data: ${JSON.stringify({ type: "SNAPSHOT", ticks: snapshotTicks })}\n\n`);
-
-  if ((req as any).isVercelApi || process.env.VERCEL) {
-    res.end();
-    return;
-  }
 
   sseClients.add(res);
 

@@ -2282,7 +2282,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
           throw new Error("Options use simulated history");
         }
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
         const res = await fetch(getApiUrl(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`), { headers, signal: controller.signal });
         clearTimeout(timeoutId);
         if (!res.ok) throw new Error("Network error loading candles");
