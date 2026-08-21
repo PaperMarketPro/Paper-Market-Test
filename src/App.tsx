@@ -52,9 +52,7 @@ function MainAppCoordinator() {
       next.add(tab);
       return next;
     });
-    startTransition(() => {
-      setCurrentTab(tab);
-    });
+    setCurrentTab(tab);
   }, []);
 
   React.useEffect(() => {
