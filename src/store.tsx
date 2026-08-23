@@ -777,7 +777,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   }, []);
 
+  const isFetchingLtpRef = useRef(false);
+  const isRefreshingStatusRef = useRef(false);
+
   const fetchRealUpstoxLtp = useCallback(async () => {
+    if (isFetchingLtpRef.current) return;
+    isFetchingLtpRef.current = true;
     try {
       const savedToken = getStoredUpstoxToken();
       const headers: Record<string, string> = {};
@@ -785,7 +790,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers['X-Upstox-Access-Token'] = savedToken;
       }
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(getApiUrl('/api/integrations/upstox/ltp'), { headers, signal: controller.signal });
       clearTimeout(timeoutId);
       if (res.ok) {
@@ -808,17 +813,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (err) {
       console.warn("[Upstox LTP Synchronizer] Error fetching LTP:", err);
+    } finally {
+      isFetchingLtpRef.current = false;
     }
   }, [getStoredUpstoxToken]);
 
   const refreshUpstoxStatus = useCallback(async () => {
+    if (isRefreshingStatusRef.current) return;
+    isRefreshingStatusRef.current = true;
     try {
       const savedToken = getStoredUpstoxToken();
       const headers: Record<string, string> = {};
       if (savedToken) {
         headers['X-Upstox-Access-Token'] = savedToken;
       }
-      const res = await fetch(getApiUrl(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`), { headers });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(getApiUrl(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`), { headers, signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const text = await res.text();
         let data: any = {};
@@ -853,6 +865,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (e) {
       console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
+    } finally {
+      isRefreshingStatusRef.current = false;
     }
 
     // Fallback: If user saved a token in localStorage or cookie, keep session connected locally
@@ -1199,9 +1213,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.info("[Feed Engine] Activating HTTP market quote polling fallback...");
       setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
 
+      let isPolling = false;
       const pollOnce = async () => {
+        if (isPolling) return;
+        isPolling = true;
         try {
-          const res = await fetch(getApiUrl('/api/market/quote'));
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const res = await fetch(getApiUrl('/api/market/quote'), { signal: controller.signal });
+          clearTimeout(timeoutId);
           if (res.ok) {
             const json = await res.json();
             if (json.success && Array.isArray(json.data)) {
@@ -1220,7 +1240,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               });
             }
           }
-        } catch (_) {}
+        } catch (_) {} finally {
+          isPolling = false;
+        }
       };
 
       pollOnce();
