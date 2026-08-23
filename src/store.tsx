@@ -1246,7 +1246,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       pollOnce();
-      httpPollingInterval = setInterval(pollOnce, 1500);
+      const isVercelHost = typeof window !== 'undefined' && (
+        window.location.hostname.includes('vercel.app') ||
+        window.location.hostname.includes('vercel')
+      );
+      httpPollingInterval = setInterval(pollOnce, isVercelHost ? 3000 : 1500);
     };
 
     const connectSSE = () => {
