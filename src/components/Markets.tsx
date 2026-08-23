@@ -238,16 +238,12 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
   }, []);
 
   const handleAssetTap = React.useCallback((inst: Instrument) => {
-    startTransition(() => {
-      setExpandedAsset(prev => prev?.symbol === inst.symbol ? null : inst);
-    });
+    setExpandedAsset(prev => prev?.symbol === inst.symbol ? null : inst);
   }, []);
 
   const handleQuickTrade = React.useCallback((symbol: string) => {
-    startTransition(() => {
-      setSelectedAssetBySymbol(symbol);
-      onNavigate('trade');
-    });
+    setSelectedAssetBySymbol(symbol);
+    onNavigate('trade');
   }, [setSelectedAssetBySymbol, onNavigate]);
 
   return (
@@ -265,9 +261,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 if (tab.key === 'options' && !sebiFnoAccepted) {
                   setShowSebiModal(true);
                 } else {
-                  startTransition(() => {
-                    setActiveTab(tab.key as any);
-                  });
+                  setActiveTab(tab.key as any);
                 }
               }}
               className={`pb-3 text-sm font-semibold transition relative ${
@@ -798,7 +792,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     <button
                       key={idxObj.symbol}
                       type="button"
-                      onClick={() => startTransition(() => setSelectedOptionIndex(idxObj.symbol))}
+                      onClick={() => setSelectedOptionIndex(idxObj.symbol)}
                       className={`px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition border ${
                         selectedOptionIndex === idxObj.symbol
                           ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/15'
@@ -949,7 +943,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                     {expiries.map(exp => (
                       <button
                         key={exp}
-                        onClick={() => startTransition(() => setSelectedExpiry(exp))}
+                        onClick={() => setSelectedExpiry(exp)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                           selectedExpiry === exp ? 'bg-blue-600 dark:bg-sky-500 text-white dark:text-black' : 'bg-white/5 text-gray-400 hover:text-white'
                         }`}

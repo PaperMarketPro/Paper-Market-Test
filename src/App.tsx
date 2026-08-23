@@ -26,17 +26,16 @@ interface TabPanelProps {
 }
 
 const TabPanel = React.memo<TabPanelProps>(({ active, children }) => {
+  const lastActiveChildrenRef = React.useRef(children);
+  if (active) {
+    lastActiveChildrenRef.current = children;
+  }
+
   return (
     <div style={{ display: active ? 'block' : 'none' }}>
-      {children}
+      {active ? children : lastActiveChildrenRef.current}
     </div>
   );
-}, (prevProps, nextProps) => {
-  // If the tab was inactive and remains inactive, completely skip re-rendering
-  if (!prevProps.active && !nextProps.active) {
-    return true;
-  }
-  return false;
 });
 
 function MainAppCoordinator() {

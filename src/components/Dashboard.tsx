@@ -759,7 +759,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
                             type="button"
                             onClick={() => {
                               setSelectedAssetBySymbol(asset.symbol);
-                              startTransition(() => setIsSearchOpen(false));
+                              setIsSearchOpen(false);
                               onNavigate('trade');
                             }}
                             className="opacity-90 group-hover:opacity-100 bg-sky-600 hover:bg-sky-500 text-white font-mono font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
