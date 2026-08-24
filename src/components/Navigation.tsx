@@ -302,11 +302,12 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
         </header>
 
         {/* Top Header Row for mobile/tablet grids */}
-        <header className="md:hidden flex justify-between items-center bg-white dark:bg-[#0c1020]/90  px-4 py-3.5 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
+        <header className="md:hidden flex justify-between items-center bg-white dark:bg-[#0c1020]/90 px-3.5 py-3 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="p-1.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
+              className="p-2 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
+              aria-label="Open Navigation Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -316,13 +317,20 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
           </div>
 
           <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+            {/* Mobile Virtual Capital Badge */}
+            <div className="flex flex-col items-end bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-2.5 py-1 shadow-sm">
+              <span className="text-[7px] text-slate-500 dark:text-gray-400 uppercase tracking-wider font-mono font-bold">Capital</span>
+              <span className="text-[11px] font-bold text-slate-950 dark:text-white font-mono leading-none">
+                ₹{(user.virtualBalance / 1000).toFixed(0)}k
+              </span>
+            </div>
             {/* Streak Indicator */}
-            <div className="flex items-center gap-1 bg-amber-500/10 px-2.5 py-1.5 rounded-xl border border-amber-500/15 text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
-              🔥 {user.streak} Days
+            <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-xl border border-amber-500/15 text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
+              🔥 {user.streak}d
             </div>
             {/* Level indicator */}
-            <div className="bg-blue-500/10 dark:bg-sky-500/10 border border-blue-500/15 dark:border-sky-500/15 text-[10px] font-bold text-blue-700 dark:text-sky-400 px-2.5 py-1.5 rounded-xl font-mono shadow-sm whitespace-nowrap shrink-0">
-              Lvl {user.level}
+            <div className="bg-blue-500/10 dark:bg-sky-500/10 border border-blue-500/15 dark:border-sky-500/15 text-[10px] font-bold text-blue-700 dark:text-sky-400 px-2 py-1 rounded-xl font-mono shadow-sm whitespace-nowrap shrink-0">
+              L{user.level}
             </div>
           </div>
         </header>
@@ -448,7 +456,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
       </AnimatePresence>
 
       <SebiRiskModal
-        isOpen={showSebiModal || !sebiFnoAccepted}
+        isOpen={showSebiModal}
         onConfirm={handleConfirmSebi}
       />
     </div>
