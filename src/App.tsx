@@ -26,11 +26,14 @@ interface TabPanelProps {
 }
 
 const TabPanel = React.memo<TabPanelProps>(({ active, children }) => {
-  if (!active) return null;
+  const lastActiveChildrenRef = React.useRef(children);
+  if (active) {
+    lastActiveChildrenRef.current = children;
+  }
 
   return (
-    <div>
-      {children}
+    <div style={{ display: active ? 'block' : 'none' }}>
+      {active ? children : lastActiveChildrenRef.current}
     </div>
   );
 });
