@@ -220,12 +220,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved === null ? false : saved === 'true';
   });
 
-  // SEBI Mandatory F&O Risk Disclosure State (per-session regulatory check)
+  // SEBI Mandatory F&O Risk Disclosure State (Once per day on first open)
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [sebiFnoAccepted, setSebiFnoAccepted] = useState<boolean>(() => {
     try {
-      // Clear legacy permanent localStorage flag to ensure mandatory compliance
-      localStorage.removeItem('sebi_fno_risk_accepted');
-      return sessionStorage.getItem('sebi_fno_risk_accepted') === 'true';
+      const savedDate = localStorage.getItem('sebi_fno_risk_accepted_date');
+      const today = getTodayDateStr();
+      return savedDate === today;
     } catch (_) {
       return false;
     }
@@ -234,7 +242,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const confirmSebiRiskDisclosure = useCallback(() => {
     setSebiFnoAccepted(true);
     try {
-      sessionStorage.setItem('sebi_fno_risk_accepted', 'true');
+      const today = getTodayDateStr();
+      localStorage.setItem('sebi_fno_risk_accepted_date', today);
     } catch (_) {}
   }, []);
 

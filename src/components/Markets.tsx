@@ -1171,7 +1171,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
       </AnimatePresence>
 
       <SebiRiskModal
-        isOpen={showSebiModal || (!sebiFnoAccepted && mode !== 'fno' && activeTab === 'options')}
+        isOpen={showSebiModal}
         onConfirm={() => {
           confirmSebiRiskDisclosure();
           setShowSebiModal(false);

@@ -94,9 +94,11 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
   const handleConfirmSebi = React.useCallback(() => {
     confirmSebiRiskDisclosure();
     setShowSebiModal(false);
-    const target = pendingTab || 'fno';
+    const target = pendingTab;
     setPendingTab(null);
-    onNavigate(target);
+    if (target) {
+      onNavigate(target);
+    }
   }, [confirmSebiRiskDisclosure, pendingTab, onNavigate]);
 
   if (!user) return null;
@@ -446,7 +448,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
       </AnimatePresence>
 
       <SebiRiskModal
-        isOpen={showSebiModal || (currentTab === 'fno' && !sebiFnoAccepted)}
+        isOpen={showSebiModal || !sebiFnoAccepted}
         onConfirm={handleConfirmSebi}
       />
     </div>
