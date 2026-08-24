@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMainApp } from '../store';
-import { Course, Lesson, VideoTimestamp } from '../types';
+import { Course, Lesson } from '../types';
 import { AILessonStudio } from './AILessonStudio';
 import { 
   GraduationCap, 
@@ -14,22 +14,14 @@ import {
   Clock, 
   Lock, 
   CheckCircle2, 
-  ChevronRight, 
   X, 
-  Play, 
   ArrowRight, 
   Award, 
   Info, 
   Search, 
   Globe, 
-  Video, 
-  ListVideo, 
   Sparkles, 
-  Languages,
-  RotateCcw,
-  Volume2,
-  Check,
-  ExternalLink
+  Check
 } from 'lucide-react';
 
 export const Academy: React.FC = React.memo(() => {
@@ -39,7 +31,6 @@ export const Academy: React.FC = React.memo(() => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [lessonLang, setLessonLang] = useState<'Hindi' | 'English'>('English');
-  const [playerMode, setPlayerMode] = useState<'ai' | 'youtube'>('ai');
   
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,9 +46,6 @@ export const Academy: React.FC = React.memo(() => {
 
   // Certificate award state
   const [showCertificate, setShowCertificate] = useState(false);
-
-  // Video Timestamp ref/seek state
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Filtered courses
   const filteredCourses = useMemo(() => {
@@ -77,11 +65,10 @@ export const Academy: React.FC = React.memo(() => {
 
   const handleLessonTap = (lesson: Lesson) => {
     if (lesson.isPremium && !user.isPro) {
-      alert("This is a Premium PRO Video Lesson. Please upgrade your subscription to unlock all advanced video masterclasses.");
+      alert("This is a Premium PRO Masterclass Lesson. Please upgrade your subscription to unlock all advanced masterclass modules.");
       return;
     }
     setActiveLesson(lesson);
-    setPlayerMode('ai');
     setLessonLang(lesson.contentHindi ? 'Hindi' : 'English');
   };
 
@@ -138,12 +125,6 @@ export const Academy: React.FC = React.memo(() => {
 
   const closeQuiz = () => {
     setShowQuiz(false);
-  };
-
-  const seekVideoToTimestamp = (ts: VideoTimestamp) => {
-    if (activeLesson?.youtubeId && iframeRef.current) {
-      iframeRef.current.src = `https://www.youtube.com/embed/${activeLesson.youtubeId}?autoplay=1&start=${ts.seconds}&enablejsapi=1`;
-    }
   };
 
   return (
@@ -240,7 +221,7 @@ export const Academy: React.FC = React.memo(() => {
             {/* Course Progress */}
             <div className="space-y-1.5 pt-2 border-t border-white/5">
               <div className="flex justify-between items-center text-xs text-gray-400 font-mono">
-                <span>Completed Video Lessons</span>
+                <span>Course Progress</span>
                 <span className="font-bold text-sky-400 tabular-numbers">{selectedCourse.progress}% Completed</span>
               </div>
               <div className="h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
@@ -253,9 +234,9 @@ export const Academy: React.FC = React.memo(() => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <ListVideo className="w-4 h-4 text-sky-400" /> Course Playlist & Video Lessons
+                <BookOpen className="w-4 h-4 text-sky-400" /> Course Curriculum & Modules
               </h3>
-              <span className="text-xs text-gray-400 font-mono">{selectedCourse.lessons.length} Video Lessons</span>
+              <span className="text-xs text-gray-400 font-mono">{selectedCourse.lessons.length} Modules</span>
             </div>
 
             <div className="space-y-2">
@@ -287,11 +268,9 @@ export const Academy: React.FC = React.memo(() => {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-white">{lesson.title}</span>
-                          {lesson.youtubeId && (
-                            <span className="bg-red-500/10 text-red-400 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-1 border border-red-500/20">
-                              <Video className="w-2.5 h-2.5" /> VIDEO
-                            </span>
-                          )}
+                          <span className="bg-sky-500/10 text-sky-400 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-1 border border-sky-500/20">
+                            <Sparkles className="w-2.5 h-2.5" /> INTERACTIVE
+                          </span>
                         </div>
                         <span className="text-[11px] text-gray-400 font-mono block">{lesson.duration}</span>
                       </div>
@@ -303,8 +282,8 @@ export const Academy: React.FC = React.memo(() => {
                           <Lock className="w-3.5 h-3.5" /> Unlock PRO
                         </span>
                       ) : (
-                        <button className="bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition border border-sky-500/30">
-                          <Play className="w-3.5 h-3.5 fill-current" /> Watch Video
+                        <button className="bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 hover:text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-sky-500/30">
+                          <Sparkles className="w-3.5 h-3.5 text-sky-300" /> Start Module
                         </button>
                       )}
                     </div>
@@ -335,23 +314,23 @@ export const Academy: React.FC = React.memo(() => {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-sky-500/20 flex items-center gap-1">
-                    <Video className="w-3 h-3 text-sky-400" /> Video Learning Center
+                    <GraduationCap className="w-3 h-3 text-sky-400" /> Interactive Masterclass Academy
                   </span>
                   <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-amber-500/20">
-                    Masterclass Series
+                    Official Courses
                   </span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Trading Academy</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Paper Market Trading Academy</h1>
                 <p className="text-xs sm:text-sm text-gray-300 font-sans">
-                  Learn Stock Market, Options Trading, Price Action & Technical Analysis through structured video masterclasses.
+                  Master Stock Market, Options Trading, Price Action & Risk Management through native interactive masterclasses with chart simulators, voiceovers, position calculators, and quizzes.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 shrink-0 bg-white/5 p-3 rounded-xl border border-white/10">
                 <GraduationCap className="w-8 h-8 text-sky-400 shrink-0" />
                 <div className="text-left">
-                  <span className="text-[10px] text-gray-400 uppercase font-mono block">Courses Available</span>
-                  <span className="text-base font-bold text-white">{courses.length} Video Masterclasses</span>
+                  <span className="text-[10px] text-gray-400 uppercase font-mono block">Available Courses</span>
+                  <span className="text-base font-bold text-white">{courses.length} Masterclasses</span>
                 </div>
               </div>
             </div>
@@ -425,7 +404,6 @@ export const Academy: React.FC = React.memo(() => {
           {/* Courses Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredCourses.map(course => {
-              const videoCount = course.lessons.filter(l => l.youtubeId || l.videoUrl).length;
               return (
                 <div
                   key={course.id}
@@ -444,11 +422,9 @@ export const Academy: React.FC = React.memo(() => {
                             🇮🇳 हिंदी
                           </span>
                         )}
-                        {videoCount > 0 && (
-                          <span className="bg-red-500/10 text-red-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-red-500/20 flex items-center gap-1">
-                            <Video className="w-2.5 h-2.5" /> Video Course
-                          </span>
-                        )}
+                        <span className="bg-sky-500/10 text-sky-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-sky-500/20 flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5" /> Masterclass
+                        </span>
                       </div>
 
                       {course.isPremium && !user.isPro && (
@@ -473,7 +449,7 @@ export const Academy: React.FC = React.memo(() => {
                   <div className="space-y-2 pt-3 border-t border-white/5">
                     <div className="flex justify-between items-center text-[11px] text-gray-400 font-mono">
                       <span className="flex items-center gap-1">
-                        <BookOpen className="w-3.5 h-3.5 text-sky-400" /> {course.lessons.length} lessons ({videoCount} videos)
+                        <BookOpen className="w-3.5 h-3.5 text-sky-400" /> {course.lessons.length} interactive modules
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-sky-400" /> {course.duration}
@@ -511,7 +487,7 @@ export const Academy: React.FC = React.memo(() => {
         </div>
       )}
 
-      {/* Interactive Video & Lesson Player Modal */}
+      {/* Interactive Lesson Studio Player Modal */}
       <AnimatePresence>
         {activeLesson && selectedCourse && (
           <div className="fixed inset-0 bg-[#0b0e14]/95 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -535,99 +511,13 @@ export const Academy: React.FC = React.memo(() => {
                 </button>
               </div>
 
-              {/* Mode Selector Tabs */}
-              <div className="flex items-center gap-2 bg-[#0b0e14] p-1.5 rounded-xl border border-white/10 text-xs font-medium">
-                <button
-                  onClick={() => setPlayerMode('ai')}
-                  className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition ${
-                    playerMode === 'ai'
-                      ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold shadow-md'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4 text-sky-300" />
-                  <span>🤖 AI Interactive Studio & Voiceover</span>
-                </button>
-                <button
-                  onClick={() => setPlayerMode('youtube')}
-                  className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition ${
-                    playerMode === 'youtube'
-                      ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold shadow-md'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Video className="w-4 h-4 text-red-300" />
-                  <span>🎥 YouTube Video Masterclass</span>
-                </button>
-              </div>
-
-              {/* Player Body depending on mode */}
-              {playerMode === 'ai' ? (
-                <AILessonStudio
-                  lesson={activeLesson}
-                  course={selectedCourse}
-                  lang={lessonLang}
-                  onCompleteLesson={handleMarkComplete}
-                />
-              ) : activeLesson.youtubeId ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2 bg-[#0b0e14] px-3 py-2 rounded-xl border border-white/5 text-xs">
-                    <span className="text-gray-400 font-mono text-[11px] flex items-center gap-1.5">
-                      <Video className="w-3.5 h-3.5 text-red-500" /> Embedded HD Video
-                    </span>
-                    <a
-                      href={activeLesson.videoUrl || `https://www.youtube.com/watch?v=${activeLesson.youtubeId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white px-3 py-1 rounded-lg font-bold text-[11px] transition flex items-center gap-1.5 border border-red-500/30"
-                    >
-                      <span>Watch directly on YouTube</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-
-                  <div className="bg-sky-500/10 p-2.5 rounded-xl border border-sky-500/20 text-[11px] text-sky-200 flex items-center justify-between gap-2 font-mono">
-                    <span>💡 If YouTube iframe displays "Unavailable" due to browser domain policies, watch directly on YouTube or use AI Interactive Studio above.</span>
-                    <button onClick={() => setPlayerMode('ai')} className="underline font-bold hover:text-white shrink-0">Switch to AI Studio</button>
-                  </div>
-                  <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-white/10 shadow-xl">
-                    <iframe
-                      ref={iframeRef}
-                      src={`https://www.youtube.com/embed/${activeLesson.youtubeId}?autoplay=1&enablejsapi=1&rel=0`}
-                      title={activeLesson.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full border-0"
-                    />
-                  </div>
-
-                  {/* Video Timestamps Bar */}
-                  {activeLesson.timestamps && activeLesson.timestamps.length > 0 && (
-                    <div className="space-y-1.5 bg-[#0b0e14] p-3 rounded-xl border border-white/5">
-                      <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider block flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-sky-400" /> Key Chapter Timestamps
-                      </span>
-                      <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1">
-                        {activeLesson.timestamps.map((ts, i) => (
-                          <button
-                            key={i}
-                            onClick={() => seekVideoToTimestamp(ts)}
-                            className="bg-white/5 hover:bg-sky-600/30 text-gray-300 hover:text-sky-300 px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap transition border border-white/10 flex items-center gap-1.5"
-                          >
-                            <span className="text-sky-400 font-bold">{ts.time}</span>
-                            <span className="text-gray-300 font-sans">{ts.title}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-[#0b0e14] p-6 rounded-xl border border-white/10 text-center space-y-2">
-                  <Video className="w-8 h-8 text-sky-400 mx-auto" />
-                  <p className="text-xs text-gray-300">Detailed text & interactive explanation provided for this module.</p>
-                </div>
-              )}
+              {/* Interactive AI Lesson Studio Component */}
+              <AILessonStudio
+                lesson={activeLesson}
+                course={selectedCourse}
+                lang={lessonLang}
+                onCompleteLesson={handleMarkComplete}
+              />
 
               {/* Language Switcher for Notes */}
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
