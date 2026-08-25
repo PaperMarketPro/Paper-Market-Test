@@ -802,7 +802,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const timeoutId = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(getApiUrl('/api/integrations/upstox/ltp'), { headers, signal: controller.signal });
       clearTimeout(timeoutId);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && !contentType.includes('text/html')) {
         const text = await res.text();
         let data: any = {};
         try { data = JSON.parse(text); } catch (_) {}
@@ -840,7 +841,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const timeoutId = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(getApiUrl(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`), { headers, signal: controller.signal });
       clearTimeout(timeoutId);
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && !contentType.includes('text/html')) {
         const text = await res.text();
         let data: any = {};
         try { data = JSON.parse(text); } catch (_) {}
@@ -1026,7 +1028,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let reconnectAttempts = 0;
     let lastMsgTime = Date.now();
 
-    // Process pending ticks every 100ms to keep UI snappy, responsive and smooth
+    // Process pending ticks every 400ms for smooth UI rendering without high CPU overhead
     batchInterval = setInterval(() => {
       const pendingMap = pendingTicksRef.current;
       const keys = Object.keys(pendingMap);
@@ -1195,7 +1197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return changed ? next : prev;
         });
-    }, 100);
+    }, 400);
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
@@ -1231,7 +1233,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const timeoutId = setTimeout(() => controller.abort(), 2500);
           const res = await fetch(getApiUrl('/api/market/quote'), { signal: controller.signal });
           clearTimeout(timeoutId);
-          if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (res.ok && !contentType.includes('text/html')) {
             const json = await res.json();
             if (json.success && Array.isArray(json.data)) {
               lastMsgTime = Date.now();
@@ -1248,6 +1251,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
               });
             }
+          } else if (contentType.includes('text/html')) {
+            // Static client host detected (e.g. Vercel static deployment without backend proxy)
+            if (httpPollingInterval) {
+              clearInterval(httpPollingInterval);
+              httpPollingInterval = null;
+            }
           }
         } catch (_) {} finally {
           isPolling = false;
@@ -1255,11 +1264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       pollOnce();
-      const isVercelHost = typeof window !== 'undefined' && (
-        window.location.hostname.includes('vercel.app') ||
-        window.location.hostname.includes('vercel')
-      );
-      httpPollingInterval = setInterval(pollOnce, isVercelHost ? 3000 : 1500);
+      httpPollingInterval = setInterval(pollOnce, 4000);
     };
 
     const connectSSE = () => {
