@@ -654,7 +654,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               initial={{ scale: 0.95, opacity: 0, y: -20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: -20 }}
-              className="bg-[#11141c] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+              className="bg-[#11141c] border border-white/10 rounded-2xl w-full max-w-2xl shadow-lg overflow-hidden flex flex-col max-h-[85vh]"
             >
               {/* Modal Header */}
               <div className="p-5 border-b border-white/5 space-y-4">

@@ -203,7 +203,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
           {/* Position Size Calculator Panel */}
           <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-5 space-y-4 shadow-sm">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-sky-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-sky-400" />
               <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase font-mono tracking-wider">📐 Sizing & Risk Protection Planner</h4>
             </div>
             

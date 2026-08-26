@@ -532,12 +532,12 @@ export const Journal: React.FC<JournalProps> = React.memo(({ preselectedPosition
       {/* 3. Stepped Journal Wizard Modal with AI Generator integration */}
       <AnimatePresence>
         {showWizard && (
-          <div className="fixed inset-0 bg-[#0b0e14]/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-4 overflow-y-auto">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#11141c] border border-white/10 rounded-2xl w-full max-w-xl p-6 space-y-6 shadow-2xl my-8 overflow-hidden"
+              className="bg-[#11141c] border border-white/10 rounded-2xl w-full max-w-xl p-6 space-y-6 shadow-lg my-8 overflow-hidden"
             >
               {/* Header */}
               <div className="flex justify-between items-center">

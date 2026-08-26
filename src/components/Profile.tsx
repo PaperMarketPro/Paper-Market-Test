@@ -513,12 +513,12 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
       {/* Slide-up Checkout Sheet */}
       <AnimatePresence>
         {showCheckout && (
-          <div className="fixed inset-0 bg-[#0b0e14]/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-end sm:items-center justify-center p-4">
             <motion.div
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
-              className="bg-[#11141c] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl"
+              className="bg-[#11141c] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-lg"
             >
               <div className="flex justify-between items-center">
                 <h3 className="text-base font-bold text-white flex items-center gap-1.5">

@@ -230,7 +230,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
             >
               <Bell className="w-4 h-4" />
               {unreadNotifCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </button>
 

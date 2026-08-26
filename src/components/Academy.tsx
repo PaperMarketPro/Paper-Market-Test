@@ -132,12 +132,12 @@ export const Academy: React.FC = React.memo(() => {
       {/* Certificate Award Overlay */}
       <AnimatePresence>
         {showCertificate && selectedCourse && (
-          <div className="fixed inset-0 bg-[#0b0e14]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-gradient-to-tr from-[#171b26] to-[#11141c] border border-sky-500/30 rounded-2xl p-6 text-center space-y-4 max-w-md shadow-2xl relative overflow-hidden"
+              className="bg-gradient-to-tr from-[#171b26] to-[#11141c] border border-sky-500/30 rounded-2xl p-6 text-center space-y-4 max-w-md shadow-lg relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 p-4 opacity-5">
                 <GraduationCap className="w-32 h-32 text-white" />
@@ -490,12 +490,12 @@ export const Academy: React.FC = React.memo(() => {
       {/* Interactive Lesson Studio Player Modal */}
       <AnimatePresence>
         {activeLesson && selectedCourse && (
-          <div className="fixed inset-0 bg-[#0b0e14]/95 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-3xl p-4 sm:p-6 space-y-5 shadow-2xl relative my-6 max-h-[92vh] overflow-y-auto"
+              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-3xl p-4 sm:p-6 space-y-5 shadow-lg relative my-6 max-h-[92vh] overflow-y-auto"
             >
               {/* Top Modal Header */}
               <div className="flex justify-between items-start border-b border-white/10 pb-3 gap-2">
@@ -599,12 +599,12 @@ export const Academy: React.FC = React.memo(() => {
       {/* Course Evaluation Quiz Modal */}
       <AnimatePresence>
         {showQuiz && selectedCourse?.quiz && (
-          <div className="fixed inset-0 bg-[#0b0e14]/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-2xl"
+              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-lg"
             >
               <div className="flex justify-between items-center border-b border-white/10 pb-3">
                 <div>

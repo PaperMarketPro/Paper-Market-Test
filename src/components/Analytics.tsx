@@ -507,7 +507,7 @@ export const Analytics: React.FC = React.memo(() => {
                       const balanceVal = payload[0].value as number;
                       const changeVal = ((balanceVal - (user?.initialBalance || 500000.00)) / (user?.initialBalance || 500000.00)) * 100;
                       return (
-                        <div className="bg-slate-900/90 dark:bg-[#090c16]/95 border border-white/10 backdrop-blur-md p-3 rounded-xl shadow-xl space-y-1">
+                        <div className="bg-slate-900/95 dark:bg-[#090c16]/98 border border-white/10 p-3 rounded-xl shadow-lg space-y-1">
                           <p className="text-[10px] font-bold text-gray-500 uppercase font-mono">{data.name}</p>
                           <p className="text-xs font-extrabold text-white font-mono">₹{balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                           <div className="flex items-center gap-2 pt-1 text-[10px]">

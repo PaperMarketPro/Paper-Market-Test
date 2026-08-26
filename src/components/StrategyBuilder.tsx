@@ -498,7 +498,7 @@ export const StrategyBuilder: React.FC = React.memo(() => {
             return (
               <div key={s.id} className="bg-[#11141c] border border-white/5 rounded-2xl p-5 space-y-4 shadow-lg relative overflow-hidden">
                 {isRunInProgress && (
-                  <div className="absolute inset-0 bg-[#0b0e14]/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-white p-4">
+                  <div className="absolute inset-0 bg-[#0b0e14]/95 z-10 flex flex-col items-center justify-center text-white p-4">
                     <div className="w-8 h-8 border-2 border-sky-500/20 border-t-sky-500 rounded-full animate-spin mb-3" />
                     <p className="text-xs font-mono font-bold animate-pulse text-sky-400">CONNECTING TO GEMINI walk 12M SIMULATION BACKTESTER...</p>
                     <span className="text-[10px] text-gray-500 mt-1">Generating 365 daily candles and calculating technical vectors...</span>
