@@ -226,25 +226,25 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
 
   return (
     <div 
-      className="w-full rounded-xl overflow-hidden bg-[#07090e]/40 p-4 border border-white/5 flex flex-col justify-between" 
-      style={{ height: `${height}px` }}
+      className="w-full rounded-xl overflow-hidden bg-[#07090e]/60 p-3.5 border border-white/10 flex flex-col justify-between" 
+      style={{ minHeight: `${height}px` }}
     >
       {/* Visual Gauge Header */}
       <div className="text-center">
-        <span className="text-[9px] text-gray-500 uppercase tracking-widest block mb-1">Composite Technical Outlook</span>
-        <span className={`text-sm font-extrabold tracking-tight ${metrics.color}`}>
+        <span className="text-[9px] text-gray-400 uppercase tracking-widest block mb-0.5 font-mono">Composite Outlook</span>
+        <span className={`text-xs sm:text-sm font-extrabold tracking-tight ${metrics.color}`}>
           {metrics.label}
         </span>
       </div>
 
-      {/* Speedometer Gauge Arc (SVG) */}
-      <div className="relative flex justify-center items-end h-16 mt-2">
+      {/* Speedometer Gauge Arc (SVG) & Score */}
+      <div className="flex flex-col items-center justify-center py-1">
         <svg className="w-28 h-14 overflow-visible" viewBox="0 0 100 50">
           {/* Background Arc */}
           <path
             d="M 10 50 A 40 40 0 0 1 90 50"
             fill="none"
-            stroke="rgba(255,255,255,0.05)"
+            stroke="rgba(255,255,255,0.08)"
             strokeWidth="8"
             strokeLinecap="round"
           />
@@ -254,21 +254,21 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
             fill="none"
             stroke="#ef4444"
             strokeWidth="8"
-            opacity="0.1"
+            opacity="0.2"
           />
           <path
             d="M 35 15 A 40 40 0 0 1 65 15"
             fill="none"
             stroke="#f59e0b"
             strokeWidth="8"
-            opacity="0.1"
+            opacity="0.2"
           />
           <path
             d="M 65 15 A 40 40 0 0 1 90 50"
             fill="none"
             stroke="#10b981"
             strokeWidth="8"
-            opacity="0.1"
+            opacity="0.2"
           />
           {/* Value Arc Accent (Drawn dynamically based on value) */}
           <path
@@ -300,29 +300,29 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
           />
         </svg>
 
-        {/* Dynamic score label overlay */}
-        <div className="absolute bottom-0 text-[10px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+        {/* Dynamic score label badge */}
+        <div className="mt-1 text-[10px] font-mono text-gray-200 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10 font-bold shadow-sm">
           Score: {metrics.score > 0 ? '+' : ''}{metrics.score}
         </div>
       </div>
 
       {/* Breakdown Metrics */}
-      <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono mt-3 border-t border-white/5 pt-3">
-        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
-          <span className="text-gray-500">EMA (8):</span>
-          <span className={metrics.emaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}>{metrics.emaStatus}</span>
+      <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono mt-2 border-t border-white/10 pt-2.5">
+        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">EMA (8):</span>
+          <span className={`font-bold truncate ${metrics.emaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.emaStatus}</span>
         </div>
-        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
-          <span className="text-gray-500">SMA (15):</span>
-          <span className={metrics.smaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}>{metrics.smaStatus}</span>
+        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">SMA (15):</span>
+          <span className={`font-bold truncate ${metrics.smaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.smaStatus}</span>
         </div>
-        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
-          <span className="text-gray-500">Bollinger:</span>
-          <span className={metrics.bbStatus.includes('Bullish') || metrics.bbStatus.includes('Overbought') ? 'text-emerald-400' : 'text-rose-400'}>{metrics.bbStatus}</span>
+        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">Bollinger:</span>
+          <span className={`font-bold truncate ${metrics.bbStatus.includes('Bullish') || metrics.bbStatus.includes('Overbought') ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.bbStatus}</span>
         </div>
-        <div className="flex justify-between items-center bg-white/[0.01] px-1.5 py-1 rounded border border-white/5">
-          <span className="text-gray-500">Momentum:</span>
-          <span className={metrics.momentumStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}>{metrics.momentumStatus}</span>
+        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">Momentum:</span>
+          <span className={`font-bold truncate ${metrics.momentumStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.momentumStatus}</span>
         </div>
       </div>
     </div>
