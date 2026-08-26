@@ -1,0 +1,843 @@
+  const computeIndicators = useCallback((rawCandles: Candle[], inPlace = false): Candle[] => {
+    if (rawCandles.length === 0) return [];
+    
+    // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
+    const data = inPlace ? rawCandles : rawCandles.map(c => ({ ...c }));
+
+    // 1. EMA (Period dynamic)
+    const k = 2 / (emaPeriod + 1);
+    let emaVal = data[0].close;
+    data[0].ema = Number(emaVal.toFixed(2));
+
+    for (let i = 1; i < data.length; i++) {
+      emaVal = data[i].close * k + emaVal * (1 - k);
+      data[i].ema = Number(emaVal.toFixed(2));
+    }
+
+    // 2. SMA (Period dynamic)
+    for (let i = 0; i < data.length; i++) {
+      if (i < smaPeriod - 1) {
+        data[i].sma = data[i].close; // fallback
+      } else {
+        let sum = 0;
+        for (let j = 0; j < smaPeriod; j++) {
+          sum += data[i - j].close;
+        }
+        data[i].sma = Number((sum / smaPeriod).toFixed(2));
+      }
+    }
+
+    // 3. Bollinger Bands (Period dynamic, StdDev 2)
+    const stdDevMultiplier = 2;
+    for (let i = 0; i < data.length; i++) {
+      if (i < bbPeriod - 1) {
+        data[i].bbBasis = data[i].close;
+        data[i].bbUpper = data[i].close;
+        data[i].bbLower = data[i].close;
+      } else {
+        let sum = 0;
+        for (let j = 0; j < bbPeriod; j++) {
+          sum += data[i - j].close;
+        }
+        const basis = sum / bbPeriod;
+        data[i].bbBasis = Number(basis.toFixed(2));
+
+        let varianceSum = 0;
+        for (let j = 0; j < bbPeriod; j++) {
+          varianceSum += Math.pow(data[i - j].close - basis, 2);
+        }
+        const stdDev = Math.sqrt(varianceSum / bbPeriod);
+
+        data[i].bbUpper = Number((basis + stdDevMultiplier * stdDev).toFixed(2));
+        data[i].bbLower = Number((basis - stdDevMultiplier * stdDev).toFixed(2));
+      }
+    }
+
+    // 4. EMA 50
+    const k50 = 2 / (50 + 1);
+    let emaVal50 = data[0].close;
+    data[0].ema50 = Number(emaVal50.toFixed(2));
+    for (let i = 1; i < data.length; i++) {
+      emaVal50 = data[i].close * k50 + emaVal50 * (1 - k50);
+      data[i].ema50 = Number(emaVal50.toFixed(2));
+    }
+
+    // 5. EMA 200
+    const k200 = 2 / (200 + 1);
+    let emaVal200 = data[0].close;
+    data[0].ema200 = Number(emaVal200.toFixed(2));
+    for (let i = 1; i < data.length; i++) {
+      emaVal200 = data[i].close * k200 + emaVal200 * (1 - k200);
+      data[i].ema200 = Number(emaVal200.toFixed(2));
+    }
+
+    // 6. VWAP (Cumulative Volume Weighted Average Price)
+    let cumulativeTypicalPriceVolume = 0;
+    let cumulativeVolume = 0;
+    for (let i = 0; i < data.length; i++) {
+      const typicalPrice = (data[i].high + data[i].low + data[i].close) / 3;
+      cumulativeTypicalPriceVolume += typicalPrice * data[i].volume;
+      cumulativeVolume += data[i].volume;
+      data[i].vwap = Number((cumulativeVolume === 0 ? typicalPrice : cumulativeTypicalPriceVolume / cumulativeVolume).toFixed(2));
+    }
+
+    // 7. Supertrend (ATR Period: 10, ATR Multiplier: 3)
+    const stPeriod = 10;
+    const stMultiplier = 3;
+    if (data.length >= stPeriod) {
+      const tr: number[] = [];
+      const atr: number[] = [];
+
+      // Calculate True Range
+      for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+          tr.push(data[i].high - data[i].low);
+        } else {
+          const prevClose = data[i - 1].close;
+          const t1 = data[i].high - data[i].low;
+          const t2 = Math.abs(data[i].high - prevClose);
+          const t3 = Math.abs(data[i].low - prevClose);
+          tr.push(Math.max(t1, t2, t3));
+        }
+      }
+
+      // Calculate ATR
+      let trSum = 0;
+      for (let i = 0; i < stPeriod; i++) {
+        trSum += tr[i];
+      }
+      let currentAtr = trSum / stPeriod;
+      atr[stPeriod - 1] = currentAtr;
+
+      for (let i = stPeriod; i < data.length; i++) {
+        currentAtr = (atr[i - 1] * (stPeriod - 1) + tr[i]) / stPeriod;
+        atr.push(currentAtr);
+      }
+
+      // Compute Supertrend Bands
+      let prevUpperBand = 0;
+      let prevLowerBand = 0;
+      let prevSupertrend = 0;
+
+      for (let i = 0; i < data.length; i++) {
+        if (i < stPeriod) {
+          data[i].supertrend = data[i].close;
+          data[i].supertrendDirection = 'up';
+          continue;
+        }
+
+        const hl2 = (data[i].high + data[i].low) / 2;
+        const currentAtrVal = atr[i];
+
+        const basicUpperBand = hl2 + stMultiplier * currentAtrVal;
+        const basicLowerBand = hl2 - stMultiplier * currentAtrVal;
+
+        let finalUpperBand = basicUpperBand;
+        let finalLowerBand = basicLowerBand;
+
+        const prevClose = data[i - 1].close;
+        if (basicUpperBand < prevUpperBand || prevClose > prevUpperBand) {
+          finalUpperBand = basicUpperBand;
+        } else {
+          finalUpperBand = prevUpperBand;
+        }
+
+        if (basicLowerBand > prevLowerBand || prevClose < prevLowerBand) {
+          finalLowerBand = basicLowerBand;
+        } else {
+          finalLowerBand = prevLowerBand;
+        }
+
+        let supertrendVal = 0;
+        let direction: 'up' | 'down' = 'up';
+
+        if (i === stPeriod) {
+          supertrendVal = data[i].close > finalUpperBand ? finalLowerBand : finalUpperBand;
+          direction = data[i].close > finalUpperBand ? 'up' : 'down';
+        } else {
+          if (prevSupertrend === prevUpperBand) {
+            if (data[i].close > finalUpperBand) {
+              supertrendVal = finalLowerBand;
+              direction = 'up';
+            } else {
+              supertrendVal = finalUpperBand;
+              direction = 'down';
+            }
+          } else {
+            if (data[i].close < finalLowerBand) {
+              supertrendVal = finalUpperBand;
+              direction = 'down';
+            } else {
+              supertrendVal = finalLowerBand;
+              direction = 'up';
+            }
+          }
+        }
+
+        data[i].supertrend = Number(supertrendVal.toFixed(2));
+        data[i].supertrendDirection = direction;
+
+        prevUpperBand = finalUpperBand;
+        prevLowerBand = finalLowerBand;
+        prevSupertrend = supertrendVal;
+      }
+    } else {
+      // Fallback if not enough data
+      for (let i = 0; i < data.length; i++) {
+        data[i].supertrend = data[i].close;
+        data[i].supertrendDirection = 'up';
+      }
+    }
+
+    return data;
+  }, [emaPeriod, smaPeriod, bbPeriod]);
+
+  // Listen for Escape key to exit fullscreen expanded view
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsExpanded(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isExpanded]);
+
+  // Generate or fetch historical baseline candles when symbol or timeframe changes
+  useEffect(() => {
+    let isMounted = true;
+    const symbol = activeAsset.symbol;
+    const ltp = activeAsset.ltp;
+
+    const loadCandles = async () => {
+      try {
+        const savedToken = localStorage.getItem('upstox_user_access_token');
+        const headers: Record<string, string> = {};
+        if (savedToken && savedToken.trim().length > 15) {
+          headers['X-Upstox-Access-Token'] = savedToken.trim();
+        }
+        if (symbol.includes(' CE') || symbol.includes(' PE')) {
+          throw new Error("Options use simulated history");
+        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(getApiUrl(`/api/integrations/upstox/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}`), { headers, signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error("Network error loading candles");
+        const candlesText = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(candlesText); } catch (_) {}
+        if (data.success && data.candles && data.candles.length > 0) {
+          if (isMounted) {
+            setCandles(computeIndicators(data.candles));
+            previousAssetPrice.current = ltp;
+            previousAssetSymbol.current = symbol;
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn("Using simulation fallback for candle history:", err);
+      }
+
+      // Generate fallback baseline candles if not connected or API fails
+      if (!isMounted) return;
+
+      const timeframeConfig: Record<'1m' | '5m' | '15m' | '1h' | '1D', { seedOffset: number; varianceMultiplier: number }> = {
+        '1m': { seedOffset: 120, varianceMultiplier: 0.001 },
+        '5m': { seedOffset: 340, varianceMultiplier: 0.002 },
+        '15m': { seedOffset: 560, varianceMultiplier: 0.0045 },
+        '1h': { seedOffset: 780, varianceMultiplier: 0.008 },
+        '1D': { seedOffset: 990, varianceMultiplier: 0.018 },
+      };
+
+      const config = timeframeConfig[timeframe] || { seedOffset: 0, varianceMultiplier: 0.003 };
+
+      let seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + config.seedOffset;
+      const random = () => {
+        const x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+      };
+
+      const count = 35;
+      const generatedCandles: Candle[] = [];
+      const variance = ltp * config.varianceMultiplier;
+
+      const now = new Date();
+      let currentClose = ltp;
+
+      for (let i = count - 1; i >= 0; i--) {
+        const step = (random() - 0.5) * variance;
+        const close = Number(currentClose.toFixed(2));
+        let open = Number((currentClose - step).toFixed(2));
+
+        if (open < ltp * 0.7) open = Number((ltp * 0.7).toFixed(2));
+        if (open > ltp * 1.3) open = Number((ltp * 1.3).toFixed(2));
+
+        const high = Number((Math.max(open, close) + random() * (variance * 0.4)).toFixed(2));
+        const low = Number((Math.min(open, close) - random() * (variance * 0.4)).toFixed(2));
+        const volume = Math.round(100000 + random() * 800000);
+
+        let timeStr = '';
+        if (timeframe === '1D') {
+          const d = new Date(now);
+          d.setDate(d.getDate() - (count - 1 - i));
+          timeStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        } else {
+          const m = new Date(now);
+          const minsToSubtract = (count - 1 - i) * (timeframe === '1m' ? 1 : timeframe === '5m' ? 5 : timeframe === '15m' ? 15 : 60);
+          m.setMinutes(m.getMinutes() - minsToSubtract);
+          timeStr = m.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
+        generatedCandles.unshift({
+          time: timeStr,
+          open,
+          high,
+          low,
+          close,
+          volume
+        });
+
+        currentClose = open;
+      }
+
+      setCandles(computeIndicators(generatedCandles));
+      previousAssetPrice.current = ltp;
+      previousAssetSymbol.current = symbol;
+    };
+
+    loadCandles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeAsset.symbol, timeframe, computeIndicators]);
+
+  // Handle live ticking prices from the store
+  useEffect(() => {
+    const currentLtp = activeAsset.ltp;
+    
+    // Ignore invalid or missing prices
+    if (typeof currentLtp !== 'number' || isNaN(currentLtp)) {
+      return;
+    }
+
+    // If the active asset symbol changed, sync refs and skip updating old candles
+    if (activeAsset.symbol !== previousAssetSymbol.current) {
+      previousAssetSymbol.current = activeAsset.symbol;
+      previousAssetPrice.current = currentLtp;
+      return;
+    }
+
+    // Skip if price hasn't changed (uses Object.is for robust equality including NaN comparison)
+    if (Object.is(currentLtp, previousAssetPrice.current)) {
+      return;
+    }
+
+    previousAssetPrice.current = currentLtp;
+
+    startTransition(() => {
+      setCandles(prev => {
+        if (prev.length === 0) return prev;
+        const lastCandle = prev[prev.length - 1];
+        if (lastCandle && lastCandle.close === currentLtp && currentLtp <= lastCandle.high && currentLtp >= lastCandle.low) {
+          return prev;
+        }
+        const updated = [...prev];
+        const updatedLast = { ...lastCandle };
+        
+        // Update the live last candle metrics
+        updatedLast.close = currentLtp;
+        if (currentLtp > updatedLast.high) updatedLast.high = currentLtp;
+        if (currentLtp < updatedLast.low) updatedLast.low = currentLtp;
+        
+        // Update volume slightly for the tick
+        updatedLast.volume = updatedLast.volume + Math.round(Math.random() * 500);
+
+        updated[updated.length - 1] = updatedLast;
+        
+        // Re-compute indicators so lines follow live ticks flawlessly
+        return computeIndicators(updated, true);
+      });
+    });
+  }, [activeAsset.ltp, activeAsset.symbol, computeIndicators]);
+
+  // Min and Max prices for nice Y-Axis auto fitting
+  const { minPrice, maxPrice } = useMemo(() => {
+    if (candles.length === 0) return { minPrice: 0, maxPrice: 100 };
+    
+    let min = Infinity;
+    let max = -Infinity;
+
+    candles.forEach(c => {
+      let lowest = c.low;
+      let highest = c.high;
+
+      if (showBB && c.bbLower && c.bbLower < lowest) lowest = c.bbLower;
+      if (showBB && c.bbUpper && c.bbUpper > highest) highest = c.bbUpper;
+      if (showEMA && c.ema && c.ema < lowest) lowest = c.ema;
+      if (showEMA && c.ema && c.ema > highest) highest = c.ema;
+      if (showSMA && c.sma && c.sma < lowest) lowest = c.sma;
+      if (showSMA && c.sma && c.sma > highest) highest = c.sma;
+      if (showEma50_200 && c.ema50 && c.ema50 < lowest) lowest = c.ema50;
+      if (showEma50_200 && c.ema50 && c.ema50 > highest) highest = c.ema50;
+      if (showEma50_200 && c.ema200 && c.ema200 < lowest) lowest = c.ema200;
+      if (showEma50_200 && c.ema200 && c.ema200 > highest) highest = c.ema200;
+      if (showVWAP && c.vwap && c.vwap < lowest) lowest = c.vwap;
+      if (showVWAP && c.vwap && c.vwap > highest) highest = c.vwap;
+      if (showSupertrend && c.supertrend && c.supertrend < lowest) lowest = c.supertrend;
+      if (showSupertrend && c.supertrend && c.supertrend > highest) highest = c.supertrend;
+
+      if (lowest < min) min = lowest;
+      if (highest > max) max = highest;
+    });
+
+    const padding = (max - min) * 0.05 || 1;
+    return {
+      minPrice: Math.floor(min - padding),
+      maxPrice: Math.ceil(max + padding)
+    };
+  }, [candles, showEMA, showSMA, showBB, showSupertrend, showVWAP, showEma50_200]);
+
+  // Render dynamic Candlestick using SVG inside Recharts ComposedChart
+  const CustomCandleShape = (props: any) => {
+    const { x, width, payload, yAxis } = props;
+    if (!payload || payload.open === undefined) return null;
+
+    const { open, close, high, low } = payload;
+    const isGreen = close >= open;
+    const strokeColor = isGreen ? '#10b981' : '#ef4444';
+    const fillColor = isGreen ? '#10b981' : '#ef4444';
+
+    const cx = x + width / 2;
+
+    // Compute the uniform scale factor for the whole chart using Y-axis dimensions if available
+    const chartHeight = yAxis?.height ?? (height - 40);
+    const chartY = yAxis?.y ?? 10;
+    const pxPerUnit = chartHeight / (maxPrice - minPrice || 1);
+
+    const getY = (val: number) => {
+      return chartY + chartHeight - (val - minPrice) * pxPerUnit;
+    };
+
+    const yOpen = getY(open);
+    const yClose = getY(close);
+    const yHigh = getY(high);
+    const yLow = getY(low);
+
+    const candleTopY = Math.min(yOpen, yClose);
+    const candleBottomY = Math.max(yOpen, yClose);
+    const candleHeight = Math.max(Math.abs(yOpen - yClose), 1.5);
+
+    return (
+      <g>
+        {/* Wick */}
+        <line 
+          x1={cx} 
+          y1={yHigh} 
+          x2={cx} 
+          y2={yLow} 
+          stroke={strokeColor} 
+          strokeWidth={1.5} 
+          strokeLinecap="round"
+        />
+        {/* Body */}
+        <rect 
+          x={x} 
+          y={candleTopY} 
+          width={width} 
+          height={candleHeight} 
+          fill={fillColor} 
+          stroke={strokeColor}
+          strokeWidth={0.5}
+          rx={1} 
+        />
+      </g>
+    );
+  };
+
+  const activeChange = activeAsset.change;
+  const isPositive = activeChange >= 0;
+
+  return (
+    <div ref={containerRef} className="bg-[#0b0e14] border border-white/5 rounded-2xl p-4 md:p-5 space-y-4 shadow-xl">
+      {/* Top Header - Asset details & Chart engine controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl shrink-0 ${isPositive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+            <Activity className={`w-5 h-5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'} animate-pulse`} />
+          </div>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-sm font-bold text-white tracking-tight font-display">{activeAsset.symbol}</h3>
+              <span className="text-[10px] font-mono text-gray-500">{activeAsset.name}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-base font-bold text-white font-mono leading-none">
+                ₹{activeAsset.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+              <span className={`text-xs font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isPositive ? '+' : ''}{activeChange.toFixed(2)}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Toolbar Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Timeframe selector */}
+          <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+            {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition-all border-0 bg-transparent cursor-pointer ${
+                  timeframe === tf 
+                    ? 'bg-sky-500 text-white shadow-md' 
+                    : 'text-gray-500 hover:text-white'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart Type Selector */}
+          <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+            <button
+              onClick={() => setChartType('candle')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                chartType === 'candle' 
+                  ? 'bg-sky-500 text-white shadow-md' 
+                  : 'text-gray-500 hover:text-white'
+              }`}
+            >
+              Candles
+            </button>
+            <button
+              onClick={() => setChartType('area')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                chartType === 'area' 
+                  ? 'bg-sky-500 text-white shadow-md' 
+                  : 'text-gray-500 hover:text-white'
+              }`}
+            >
+              Area
+            </button>
+          </div>
+
+          {/* Immersive Fullscreen Button */}
+          <button
+            onClick={() => setIsExpanded(true)}
+            title="Open Immersive Fullscreen Drawing Terminal"
+            className="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-[#07090e] border border-white/10 text-sky-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-1 cursor-pointer"
+          >
+            <Maximize2 className="w-3.5 h-3.5" /> Maximize
+          </button>
+        </div>
+      </div>
+
+      {/* Grid Layout for Active Chart Terminal and Technical Gauge Tools */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
+        {/* Main Chart viewport container */}
+        <div className={`col-span-1 ${showControls ? 'xl:col-span-3' : 'xl:col-span-4'} relative`} style={{ height: `${height}px` }}>
+          <TradingViewChart theme={theme} 
+            symbol={activeAsset.symbol} 
+            timeframe={timeframe} 
+            candles={candles}
+            chartType={chartType}
+            showEMA={showEMA}
+            showSMA={showSMA}
+            showBB={showBB}
+            showVolume={showVolume}
+            isPositive={isPositive}
+            emaPeriod={emaPeriod}
+            smaPeriod={smaPeriod}
+            bbPeriod={bbPeriod}
+            showSupertrend={showSupertrend}
+            showVWAP={showVWAP}
+            showEma50_200={showEma50_200}
+          />
+        </div>
+
+        {/* Right side tools panel - Technical Analysis Gauge Indicator (Only visible if showControls is active) */}
+        {showControls && (
+          <div className="col-span-1 flex flex-col gap-3 h-full">
+            <div className="flex items-center justify-between text-xs font-mono text-gray-400 px-1">
+              <span className="flex items-center gap-1 uppercase tracking-widest text-[9px] font-bold">
+                <BarChart2 className="w-3.5 h-3.5 text-blue-500" /> Technical Gauges
+              </span>
+              <span className="bg-blue-500/10 text-blue-400 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase">
+                15m Feed
+              </span>
+            </div>
+
+            {/* Native Dynamic Analysis Gauge */}
+            <NativeTechnicalGauge candles={candles} activeAsset={activeAsset} height={height - 20} />
+          </div>
+        )}
+      </div>
+
+      {/* Control panel & Indicators Toggles */}
+      {showControls && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5 text-[10px] text-gray-400">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-gray-500 uppercase tracking-widest flex items-center gap-1 mr-1">
+              <Layers className="w-3.5 h-3.5" /> Indicators:
+            </span>
+
+            {/* EMA Control Button with custom input */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition border-solid ${
+              showEMA 
+                ? 'bg-sky-500/10 border-sky-500/20 text-sky-400 shadow-md' 
+                : 'bg-[#07090e] border-white/5 text-gray-400'
+            }`}>
+              <button
+                onClick={() => setShowEMA(!showEMA)}
+                className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showEMA ? 'bg-sky-400' : 'bg-gray-600'}`} />
+                <span>EMA</span>
+              </button>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={emaPeriod ?? 8}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 2 && val <= 200) setEmaPeriod(val);
+                }}
+                className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-sky-500 py-0"
+                title="EMA Period (2 to 200)"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+
+            {/* SMA Control Button with custom input */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition border-solid ${
+              showSMA 
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 shadow-md' 
+                : 'bg-[#07090e] border-white/5 text-gray-400'
+            }`}>
+              <button
+                onClick={() => setShowSMA(!showSMA)}
+                className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showSMA ? 'bg-amber-500' : 'bg-gray-600'}`} />
+                <span>SMA</span>
+              </button>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={smaPeriod ?? 15}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 2 && val <= 200) setSmaPeriod(val);
+                }}
+                className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-amber-500 py-0"
+                title="SMA Period (2 to 200)"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Bollinger Bands Control Button with custom input */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border transition border-solid ${
+              showBB 
+                ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 shadow-md' 
+                : 'bg-[#07090e] border-white/5 text-gray-400'
+            }`}>
+              <button
+                onClick={() => setShowBB(!showBB)}
+                className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showBB ? 'bg-purple-500' : 'bg-gray-600'}`} />
+                <span>BB</span>
+              </button>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={bbPeriod ?? 20}
+                onChange={e => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val) && val >= 2 && val <= 200) setBbPeriod(val);
+                }}
+                className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-purple-500 py-0"
+                title="Bollinger Bands Period (2 to 200)"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+
+            <button
+              onClick={() => setShowSupertrend(!showSupertrend)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showSupertrend 
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showSupertrend ? 'bg-amber-400' : 'bg-gray-600'}`} />
+              Supertrend (10,3)
+            </button>
+
+            <button
+              onClick={() => setShowVWAP(!showVWAP)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showVWAP 
+                  ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showVWAP ? 'bg-cyan-400' : 'bg-gray-600'}`} />
+              VWAP
+            </button>
+
+            <button
+              onClick={() => setShowEma50_200(!showEma50_200)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showEma50_200 
+                  ? 'bg-pink-500/10 border-pink-500/20 text-pink-400 font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showEma50_200 ? 'bg-pink-400' : 'bg-gray-600'}`} />
+              EMA 50 & 200
+            </button>
+
+            <button
+              onClick={() => setShowVolume(!showVolume)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer border-solid ${
+                showVolume 
+                  ? 'bg-white/10 border-white/20 text-white font-bold shadow-md' 
+                  : 'bg-[#07090e] border-white/5 hover:text-white'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${showVolume ? 'bg-white' : 'bg-gray-600'}`} />
+              Volume Overlay
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-gray-500 font-sans">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Interactive TradingView chart with advanced custom drawing indicators.</span>
+          </div>
+        </div>
+      )}
+
+      {/* Immersive Fullscreen Modal Overlay */}
+      {isExpanded && (
+        <div className="fixed inset-0 z-50 bg-[#060913] flex flex-col p-4 md:p-6 space-y-4 overflow-y-auto md:overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between shrink-0 gap-4 bg-[#090c13] p-4 rounded-2xl border border-white/5 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl shrink-0 ${isPositive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                <Activity className={`w-5 h-5 ${isPositive ? 'text-emerald-400' : 'text-rose-400'} animate-pulse`} />
+              </div>
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-base font-bold text-white font-display leading-none">{activeAsset.symbol}</h3>
+                  <span className="text-xs text-gray-400">{activeAsset.name}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm font-bold text-white font-mono leading-none">
+                    ₹{activeAsset.ltp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className={`text-xs font-mono font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isPositive ? '+' : ''}{activeChange.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Timeframe Selector in expanded view */}
+              <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+                {(['1m', '5m', '15m', '1h', '1D'] as const).map(tf => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold font-mono transition-all border-0 bg-transparent cursor-pointer ${
+                      timeframe === tf 
+                        ? 'bg-sky-500 text-white shadow-md' 
+                        : 'text-gray-500 hover:text-white'
+                    }`}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chart Type Selector in expanded view */}
+              <div className="flex items-center bg-[#07090e] border border-white/5 p-1 rounded-xl">
+                <button
+                  onClick={() => setChartType('candle')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                    chartType === 'candle' 
+                      ? 'bg-sky-500 text-white shadow-md' 
+                      : 'text-gray-500 hover:text-white'
+                    }`}
+                >
+                  Candles
+                </button>
+                <button
+                  onClick={() => setChartType('area')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border-0 bg-transparent cursor-pointer ${
+                    chartType === 'area' 
+                      ? 'bg-sky-500 text-white shadow-md' 
+                      : 'text-gray-500 hover:text-white'
+                  }`}
+                >
+                  Area
+                </button>
+              </div>
+
+              {/* Minimize Chart Button */}
+              <button 
+                onClick={() => setIsExpanded(false)}
+                title="Minimize / Exit Fullscreen (Esc)"
+                className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-rose-950/20 animate-none"
+              >
+                <Minimize2 className="w-4 h-4 text-rose-400 animate-pulse" />
+                <span>Minimize Chart</span>
+                <span className="hidden xl:inline text-[10px] text-rose-400/50 ml-1 font-mono">ESC</span>
+              </button>
+            </div>
+          </div>
+          
+          {/* Main Fullscreen workspace */}
+          <div className="flex-1 min-h-0 bg-[#090c13] rounded-2xl border border-white/5 overflow-hidden">
+            <TradingViewChart theme={theme} 
+              symbol={activeAsset.symbol} 
+              timeframe={timeframe} 
+              candles={candles}
+              chartType={chartType}
+              showEMA={showEMA}
+              showSMA={showSMA}
+              showBB={showBB}
+              showVolume={showVolume}
+              isPositive={isPositive}
+              isExpanded={true}
+              onCloseExpanded={() => setIsExpanded(false)}
+              showSupertrend={showSupertrend}
+              showVWAP={showVWAP}
+              showEma50_200={showEma50_200}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const StockChart = React.memo(StockChartBase, (prevProps, nextProps) => {
+  if (prevProps.height !== nextProps.height) return false;
+  if (prevProps.showControls !== nextProps.showControls) return false;
+  if (prevProps.asset?.symbol !== nextProps.asset?.symbol) return false;
+  if (prevProps.asset?.ltp !== nextProps.asset?.ltp) return false;
+  if (prevProps.asset?.sparkline?.length !== nextProps.asset?.sparkline?.length) return false;
+  return true;
+});

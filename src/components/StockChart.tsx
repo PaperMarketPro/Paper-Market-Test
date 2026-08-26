@@ -330,8 +330,21 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
 });
 
 // Helper to enrich candles with continuous sequential Unix timestamps for lightweight-charts
+let baseTimeCache: Record<string, number> = {};
+let lastLengthCache: Record<string, number> = {};
+
 const enrichCandlesWithTimestamps = (rawCandles: Candle[], tf: string) => {
-  const now = Math.floor(Date.now() / 1000);
+  const n = rawCandles.length;
+  if (n === 0) return [];
+  
+  // Use a stable base time for a given timeframe and length to prevent shifting all candles forward every render
+  const cacheKey = tf;
+  if (!baseTimeCache[cacheKey] || lastLengthCache[cacheKey] !== n) {
+    baseTimeCache[cacheKey] = Math.floor(Date.now() / 1000);
+    lastLengthCache[cacheKey] = n;
+  }
+  const stableNow = baseTimeCache[cacheKey];
+
   const intervalSeconds = {
     '1m': 60,
     '5m': 300,
@@ -340,9 +353,8 @@ const enrichCandlesWithTimestamps = (rawCandles: Candle[], tf: string) => {
     '1D': 86400
   }[tf] || 300;
 
-  const n = rawCandles.length;
   return rawCandles.map((candle, idx) => {
-    const timestamp = now - (n - 1 - idx) * intervalSeconds;
+    const timestamp = stableNow - (n - 1 - idx) * intervalSeconds;
     return {
       ...candle,
       timestamp
@@ -2062,6 +2074,65 @@ const StockChartBase: React.FC<StockChartProps> = ({
     
     // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
     const data = inPlace ? rawCandles : rawCandles.map(c => ({ ...c }));
+
+    if (inPlace && data.length > 0) {
+      // O(1) update for the live tick
+      const i = data.length - 1;
+      const prev = data[i - 1];
+      const current = data[i];
+
+      if (prev) {
+        // EMA
+        const k = 2 / (emaPeriod + 1);
+        const prevEma = prev.ema !== undefined ? prev.ema : prev.close;
+        current.ema = Number((current.close * k + prevEma * (1 - k)).toFixed(2));
+
+        // SMA
+        if (i < smaPeriod - 1) {
+          current.sma = current.close;
+        } else {
+          let sum = 0;
+          for (let j = 0; j < smaPeriod; j++) sum += data[i - j].close;
+          current.sma = Number((sum / smaPeriod).toFixed(2));
+        }
+
+        // Bollinger Bands
+        if (i < bbPeriod - 1) {
+          current.bbBasis = current.close;
+          current.bbUpper = current.close;
+          current.bbLower = current.close;
+        } else {
+          let sum = 0;
+          for (let j = 0; j < bbPeriod; j++) sum += data[i - j].close;
+          const basis = sum / bbPeriod;
+          current.bbBasis = Number(basis.toFixed(2));
+          let varianceSum = 0;
+          for (let j = 0; j < bbPeriod; j++) varianceSum += Math.pow(data[i - j].close - basis, 2);
+          const stdDev = Math.sqrt(varianceSum / bbPeriod);
+          current.bbUpper = Number((basis + 2 * stdDev).toFixed(2));
+          current.bbLower = Number((basis - 2 * stdDev).toFixed(2));
+        }
+
+        // EMA 50
+        const k50 = 2 / (50 + 1);
+        const prevEma50 = prev.ema50 !== undefined ? prev.ema50 : prev.close;
+        current.ema50 = Number((current.close * k50 + prevEma50 * (1 - k50)).toFixed(2));
+
+        // EMA 200
+        const k200 = 2 / (200 + 1);
+        const prevEma200 = prev.ema200 !== undefined ? prev.ema200 : prev.close;
+        current.ema200 = Number((current.close * k200 + prevEma200 * (1 - k200)).toFixed(2));
+
+        // VWAP approximation for live tick (skipping full cumulative recalculation for performance)
+        const typicalPrice = (current.high + current.low + current.close) / 3;
+        current.vwap = current.vwap !== undefined ? current.vwap : Number(typicalPrice.toFixed(2));
+
+        // Supertrend carry-over
+        current.supertrend = current.supertrend !== undefined ? current.supertrend : prev.supertrend;
+        current.supertrendDirection = current.supertrendDirection !== undefined ? current.supertrendDirection : prev.supertrendDirection;
+      }
+      return data;
+    }
 
     // 1. EMA (Period dynamic)
     const k = 2 / (emaPeriod + 1);

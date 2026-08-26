@@ -20,13 +20,38 @@ import { Analytics } from './components/Analytics';
 import { RiskManagement } from './components/RiskManagement';
 import { Position } from './types';
 
+interface TabPanelProps {
+  active: boolean;
+  children: React.ReactNode;
+}
+
+const TabPanel = React.memo<TabPanelProps>(({ active, children }) => {
+  const lastActiveChildrenRef = React.useRef(children);
+  if (active) {
+    lastActiveChildrenRef.current = children;
+  }
+
+  return (
+    <div style={{ display: active ? 'block' : 'none' }}>
+      {active ? children : lastActiveChildrenRef.current}
+    </div>
+  );
+});
+
 function MainAppCoordinator() {
   const { user, isAuthLoading, logoutUser } = useMainApp();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['dashboard']));
   const [journalPosition, setJournalPosition] = useState<Position | null>(null);
 
   const handleNavigate = useCallback((tab: string) => {
     startTransition(() => {
+      setVisitedTabs(prev => {
+        if (prev.has(tab)) return prev;
+        const next = new Set(prev);
+        next.add(tab);
+        return next;
+      });
       setCurrentTab(tab);
     });
   }, []);
@@ -85,24 +110,74 @@ function MainAppCoordinator() {
 
   return (
     <Navigation currentTab={currentTab} onNavigate={handleNavigate}>
-      {currentTab === 'dashboard' && <Dashboard onNavigate={handleNavigate} />}
-      {currentTab === 'equity' && <Markets mode="equity" onNavigate={handleNavigate} />}
-      {currentTab === 'fno' && <Markets mode="fno" onNavigate={handleNavigate} />}
-      {currentTab === 'trade' && <TradeScreen onSuccess={handleTradeSuccess} />}
-      {currentTab === 'positions' && <PositionsList onJournalShortcut={handleJournalShortcut} />}
-      {currentTab === 'analytics' && <Analytics />}
-      {currentTab === 'journal' && (
-        <Journal
-          preselectedPosition={journalPosition}
-          onClearPreselected={handleClearPreselected}
-        />
+      {visitedTabs.has('dashboard') && (
+        <TabPanel active={currentTab === 'dashboard'}>
+          <Dashboard onNavigate={handleNavigate} />
+        </TabPanel>
       )}
-      {currentTab === 'ai-coach' && <AICoach />}
-      {currentTab === 'strategy' && <StrategyBuilder />}
-      {currentTab === 'risk-management' && <RiskManagement />}
-      {currentTab === 'academy' && <Academy />}
-      {currentTab === 'profile' && <Profile onLogout={handleLogout} initialSubTab="stats" />}
-      {currentTab === 'settings' && <Profile onLogout={handleLogout} initialSubTab="settings" />}
+      {visitedTabs.has('equity') && (
+        <TabPanel active={currentTab === 'equity'}>
+          <Markets mode="equity" onNavigate={handleNavigate} />
+        </TabPanel>
+      )}
+      {visitedTabs.has('fno') && (
+        <TabPanel active={currentTab === 'fno'}>
+          <Markets mode="fno" onNavigate={handleNavigate} />
+        </TabPanel>
+      )}
+      {visitedTabs.has('trade') && (
+        <TabPanel active={currentTab === 'trade'}>
+          <TradeScreen onSuccess={handleTradeSuccess} />
+        </TabPanel>
+      )}
+      {visitedTabs.has('positions') && (
+        <TabPanel active={currentTab === 'positions'}>
+          <PositionsList onJournalShortcut={handleJournalShortcut} />
+        </TabPanel>
+      )}
+      {visitedTabs.has('analytics') && (
+        <TabPanel active={currentTab === 'analytics'}>
+          <Analytics />
+        </TabPanel>
+      )}
+      {visitedTabs.has('journal') && (
+        <TabPanel active={currentTab === 'journal'}>
+          <Journal
+            preselectedPosition={journalPosition}
+            onClearPreselected={handleClearPreselected}
+          />
+        </TabPanel>
+      )}
+      {visitedTabs.has('ai-coach') && (
+        <TabPanel active={currentTab === 'ai-coach'}>
+          <AICoach />
+        </TabPanel>
+      )}
+      {visitedTabs.has('strategy') && (
+        <TabPanel active={currentTab === 'strategy'}>
+          <StrategyBuilder />
+        </TabPanel>
+      )}
+      {visitedTabs.has('risk-management') && (
+        <TabPanel active={currentTab === 'risk-management'}>
+          <RiskManagement />
+        </TabPanel>
+      )}
+      {visitedTabs.has('academy') && (
+        <TabPanel active={currentTab === 'academy'}>
+          <Academy />
+        </TabPanel>
+      )}
+      {visitedTabs.has('profile') && (
+        <TabPanel active={currentTab === 'profile'}>
+          <Profile onLogout={handleLogout} initialSubTab="stats" />
+        </TabPanel>
+      )}
+      {visitedTabs.has('settings') && (
+        <TabPanel active={currentTab === 'settings'}>
+          <Profile onLogout={handleLogout} initialSubTab="settings" />
+        </TabPanel>
+      )}
     </Navigation>
   );
 }

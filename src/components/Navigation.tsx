@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { useMainApp, useUpstoxStatus } from '../store';
 import { BrandLogo } from './BrandLogo';
-import { NativeTickerTape } from './StockChart';
 import { SebiRiskModal } from './SebiRiskModal';
 
 interface NavigationProps {
@@ -55,7 +54,7 @@ const MarketFeedBadge: React.FC<{ onNavigate: (tab: string) => void }> = React.m
   } else {
     badgeStyle = isMarketOpen ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/5 dark:text-gray-500';
     dotStyle = isMarketOpen ? 'bg-emerald-500' : 'bg-slate-400';
-    labelText = isMarketOpen ? 'NSE / BSE LIVE' : 'MKT CLOSED';
+    labelText = isMarketOpen ? 'LIVE' : 'CLOSED';
   }
 
   return (
@@ -210,7 +209,6 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
 
       {/* 2. Responsive Content Container */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#060913]">
-        <NativeTickerTape />
         {/* Top Header Row for desktop viewports */}
         <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
           {/* Left section: Tab label and sub-label (visible on large viewports) */}
@@ -255,11 +253,8 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
             })}
           </nav>
 
-          {/* Right section: Live Feed Badge, Balance, notifications, level indicators */}
+          {/* Right section: Balance, notifications, level indicators */}
           <div className="flex items-center gap-3">
-            {/* Market Status Pill */}
-            <MarketFeedBadge onNavigate={handleNavClick} />
-
             {/* Live Virtual Capital Badge */}
             <div className="flex flex-col items-end bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-3.5 py-1 shadow-sm">
               <span className="text-[8px] text-slate-500 dark:text-gray-500 uppercase tracking-widest font-mono font-bold">Virtual Capital</span>

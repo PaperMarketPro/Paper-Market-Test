@@ -1,0 +1,194 @@
+  const computeIndicators = useCallback((rawCandles: Candle[], inPlace = false): Candle[] => {
+    if (rawCandles.length === 0) return [];
+    
+    // Create shallow copies of candle objects to bypass read-only property errors from frozen react states
+    const data = inPlace ? rawCandles : rawCandles.map(c => ({ ...c }));
+
+    // 1. EMA (Period dynamic)
+    const k = 2 / (emaPeriod + 1);
+    let emaVal = data[0].close;
+    data[0].ema = Number(emaVal.toFixed(2));
+
+    for (let i = 1; i < data.length; i++) {
+      emaVal = data[i].close * k + emaVal * (1 - k);
+      data[i].ema = Number(emaVal.toFixed(2));
+    }
+
+    // 2. SMA (Period dynamic)
+    for (let i = 0; i < data.length; i++) {
+      if (i < smaPeriod - 1) {
+        data[i].sma = data[i].close; // fallback
+      } else {
+        let sum = 0;
+        for (let j = 0; j < smaPeriod; j++) {
+          sum += data[i - j].close;
+        }
+        data[i].sma = Number((sum / smaPeriod).toFixed(2));
+      }
+    }
+
+    // 3. Bollinger Bands (Period dynamic, StdDev 2)
+    const stdDevMultiplier = 2;
+    for (let i = 0; i < data.length; i++) {
+      if (i < bbPeriod - 1) {
+        data[i].bbBasis = data[i].close;
+        data[i].bbUpper = data[i].close;
+        data[i].bbLower = data[i].close;
+      } else {
+        let sum = 0;
+        for (let j = 0; j < bbPeriod; j++) {
+          sum += data[i - j].close;
+        }
+        const basis = sum / bbPeriod;
+        data[i].bbBasis = Number(basis.toFixed(2));
+
+        let varianceSum = 0;
+        for (let j = 0; j < bbPeriod; j++) {
+          varianceSum += Math.pow(data[i - j].close - basis, 2);
+        }
+        const stdDev = Math.sqrt(varianceSum / bbPeriod);
+
+        data[i].bbUpper = Number((basis + stdDevMultiplier * stdDev).toFixed(2));
+        data[i].bbLower = Number((basis - stdDevMultiplier * stdDev).toFixed(2));
+      }
+    }
+
+    // 4. EMA 50
+    const k50 = 2 / (50 + 1);
+    let emaVal50 = data[0].close;
+    data[0].ema50 = Number(emaVal50.toFixed(2));
+    for (let i = 1; i < data.length; i++) {
+      emaVal50 = data[i].close * k50 + emaVal50 * (1 - k50);
+      data[i].ema50 = Number(emaVal50.toFixed(2));
+    }
+
+    // 5. EMA 200
+    const k200 = 2 / (200 + 1);
+    let emaVal200 = data[0].close;
+    data[0].ema200 = Number(emaVal200.toFixed(2));
+    for (let i = 1; i < data.length; i++) {
+      emaVal200 = data[i].close * k200 + emaVal200 * (1 - k200);
+      data[i].ema200 = Number(emaVal200.toFixed(2));
+    }
+
+    // 6. VWAP (Cumulative Volume Weighted Average Price)
+    let cumulativeTypicalPriceVolume = 0;
+    let cumulativeVolume = 0;
+    for (let i = 0; i < data.length; i++) {
+      const typicalPrice = (data[i].high + data[i].low + data[i].close) / 3;
+      cumulativeTypicalPriceVolume += typicalPrice * data[i].volume;
+      cumulativeVolume += data[i].volume;
+      data[i].vwap = Number((cumulativeVolume === 0 ? typicalPrice : cumulativeTypicalPriceVolume / cumulativeVolume).toFixed(2));
+    }
+
+    // 7. Supertrend (ATR Period: 10, ATR Multiplier: 3)
+    const stPeriod = 10;
+    const stMultiplier = 3;
+    if (data.length >= stPeriod) {
+      const tr: number[] = [];
+      const atr: number[] = [];
+
+      // Calculate True Range
+      for (let i = 0; i < data.length; i++) {
+        if (i === 0) {
+          tr.push(data[i].high - data[i].low);
+        } else {
+          const prevClose = data[i - 1].close;
+          const t1 = data[i].high - data[i].low;
+          const t2 = Math.abs(data[i].high - prevClose);
+          const t3 = Math.abs(data[i].low - prevClose);
+          tr.push(Math.max(t1, t2, t3));
+        }
+      }
+
+      // Calculate ATR
+      let trSum = 0;
+      for (let i = 0; i < stPeriod; i++) {
+        trSum += tr[i];
+      }
+      let currentAtr = trSum / stPeriod;
+      atr[stPeriod - 1] = currentAtr;
+
+      for (let i = stPeriod; i < data.length; i++) {
+        currentAtr = (atr[i - 1] * (stPeriod - 1) + tr[i]) / stPeriod;
+        atr.push(currentAtr);
+      }
+
+      // Compute Supertrend Bands
+      let prevUpperBand = 0;
+      let prevLowerBand = 0;
+      let prevSupertrend = 0;
+
+      for (let i = 0; i < data.length; i++) {
+        if (i < stPeriod) {
+          data[i].supertrend = data[i].close;
+          data[i].supertrendDirection = 'up';
+          continue;
+        }
+
+        const hl2 = (data[i].high + data[i].low) / 2;
+        const currentAtrVal = atr[i];
+
+        const basicUpperBand = hl2 + stMultiplier * currentAtrVal;
+        const basicLowerBand = hl2 - stMultiplier * currentAtrVal;
+
+        let finalUpperBand = basicUpperBand;
+        let finalLowerBand = basicLowerBand;
+
+        const prevClose = data[i - 1].close;
+        if (basicUpperBand < prevUpperBand || prevClose > prevUpperBand) {
+          finalUpperBand = basicUpperBand;
+        } else {
+          finalUpperBand = prevUpperBand;
+        }
+
+        if (basicLowerBand > prevLowerBand || prevClose < prevLowerBand) {
+          finalLowerBand = basicLowerBand;
+        } else {
+          finalLowerBand = prevLowerBand;
+        }
+
+        let supertrendVal = 0;
+        let direction: 'up' | 'down' = 'up';
+
+        if (i === stPeriod) {
+          supertrendVal = data[i].close > finalUpperBand ? finalLowerBand : finalUpperBand;
+          direction = data[i].close > finalUpperBand ? 'up' : 'down';
+        } else {
+          if (prevSupertrend === prevUpperBand) {
+            if (data[i].close > finalUpperBand) {
+              supertrendVal = finalLowerBand;
+              direction = 'up';
+            } else {
+              supertrendVal = finalUpperBand;
+              direction = 'down';
+            }
+          } else {
+            if (data[i].close < finalLowerBand) {
+              supertrendVal = finalUpperBand;
+              direction = 'down';
+            } else {
+              supertrendVal = finalLowerBand;
+              direction = 'up';
+            }
+          }
+        }
+
+        data[i].supertrend = Number(supertrendVal.toFixed(2));
+        data[i].supertrendDirection = direction;
+
+        prevUpperBand = finalUpperBand;
+        prevLowerBand = finalLowerBand;
+        prevSupertrend = supertrendVal;
+      }
+    } else {
+      // Fallback if not enough data
+      for (let i = 0; i < data.length; i++) {
+        data[i].supertrend = data[i].close;
+        data[i].supertrendDirection = 'up';
+      }
+    }
+
+    return data;
+  }, [emaPeriod, smaPeriod, bbPeriod]);
+
