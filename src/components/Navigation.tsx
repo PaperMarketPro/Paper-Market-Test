@@ -20,57 +20,6 @@ interface NavigationProps {
   children: React.ReactNode;
 }
 
-const MarketFeedBadge: React.FC<{ onNavigate: (tab: string) => void }> = React.memo(({ onNavigate }) => {
-  const { upstoxStatus } = useUpstoxStatus();
-  const { isMarketOpen } = useMainApp();
-
-  const wsState = upstoxStatus.wsConnectionState || (upstoxStatus.connected ? 'CONNECTED' : 'DISCONNECTED');
-  const isStale = !!upstoxStatus.isStale;
-
-  let badgeStyle = 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-white/5 dark:border-white/5 dark:text-gray-300';
-  let dotStyle = 'bg-slate-400';
-  let labelText = 'MKT FEED: OFF';
-
-  if (wsState === 'CONNECTING') {
-    badgeStyle = 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400';
-    dotStyle = 'bg-blue-500 animate-pulse';
-    labelText = 'FEED: CONNECTING...';
-  } else if (wsState === 'RECONNECTING') {
-    badgeStyle = 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400';
-    dotStyle = 'bg-amber-500 animate-pulse';
-    labelText = 'FEED: RECONNECTING...';
-  } else if (wsState === 'DISCONNECTED') {
-    badgeStyle = 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400';
-    dotStyle = 'bg-rose-500';
-    labelText = 'FEED: DISCONNECTED';
-  } else if (isStale) {
-    badgeStyle = 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400';
-    dotStyle = 'bg-yellow-500 animate-ping';
-    labelText = 'FEED: STALE DATA';
-  } else if (upstoxStatus.isRealUpstox) {
-    badgeStyle = isMarketOpen ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400';
-    dotStyle = isMarketOpen ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500';
-    labelText = isMarketOpen ? 'PRO FEED: ACTIVE' : 'PRO FEED: CLOSED';
-  } else {
-    badgeStyle = isMarketOpen ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/5 dark:text-gray-500';
-    dotStyle = isMarketOpen ? 'bg-emerald-500' : 'bg-slate-400';
-    labelText = isMarketOpen ? 'LIVE' : 'CLOSED';
-  }
-
-  return (
-    <div 
-      onClick={() => onNavigate('profile')}
-      className={`cursor-pointer flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold font-mono transition-all shadow-sm hover:scale-[1.02] ${badgeStyle}`}
-      title={`Live Market Feed State: ${wsState}${isStale ? ' (Stale ticks)' : ''}`}
-    >
-      <span className={`w-2 h-2 rounded-full ${dotStyle}`} />
-      <span className="hidden sm:inline font-mono text-[10px] uppercase font-bold">
-        {labelText}
-      </span>
-    </div>
-  );
-});
-
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
   const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, sebiFnoAccepted, confirmSebiRiskDisclosure } = useMainApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
