@@ -92,7 +92,7 @@ if (!isVercelWithoutCredentials) {
   console.log("[FIREBASE-ADMIN] Running in Vercel Serverless environment without GCP credentials. Bypassing Firestore Admin SDK to ensure 0ms response latency.");
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number = 1200): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number = 3000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
@@ -182,11 +182,11 @@ async function saveUpstoxAutoRenewConfig(config: UpstoxAutoRenewConfig) {
     await withTimeout(db.collection("config").doc("upstox_autorenew").set({
       ...config,
       updatedAt: new Date().toISOString()
-    }), 1200);
+    }), 3000);
     console.log("[FIRESTORE] Saved auto-renew config to Firestore.");
   } catch (err: any) {
-    if (err.message?.includes("PERMISSION_DENIED") || err.code === 7) {
-      console.log("[FIRESTORE] Firestore permissions not configured for config collection (normal for sandbox). Saved to local file cache.");
+    if (err.message?.includes("PERMISSION_DENIED") || err.code === 7 || err.message?.includes("timed out")) {
+      console.log("[FIRESTORE] Firestore permissions not configured or operation timed out (normal for sandbox). Saved to local file cache.");
     } else {
       console.warn("[FIRESTORE] Failed to save auto-renew config to Firestore:", err.message);
     }
@@ -208,7 +208,7 @@ async function loadUpstoxAutoRenewConfig(): Promise<UpstoxAutoRenewConfig | null
 
   if (!db) return null;
   try {
-    const doc = await withTimeout(db.collection("config").doc("upstox_autorenew").get(), 1200);
+    const doc = await withTimeout(db.collection("config").doc("upstox_autorenew").get(), 3000);
     if (doc.exists) {
       const data = doc.data() as UpstoxAutoRenewConfig;
       if (data && data.apiKey) {
@@ -220,8 +220,8 @@ async function loadUpstoxAutoRenewConfig(): Promise<UpstoxAutoRenewConfig | null
       }
     }
   } catch (err: any) {
-    if (err.message?.includes("PERMISSION_DENIED") || err.code === 7) {
-      console.log("[FIRESTORE] Firestore permissions not configured for config collection (normal for sandbox). Using local file cache instead.");
+    if (err.message?.includes("PERMISSION_DENIED") || err.code === 7 || err.message?.includes("timed out")) {
+      console.log("[FIRESTORE] Auto-renew config document not found in Firestore or query timed out (normal for sandbox/first boot). Using local configuration.");
     } else {
       console.warn("[FIRESTORE] Failed to load auto-renew config from Firestore:", err.message);
     }
@@ -725,11 +725,11 @@ async function saveUpstoxTokenToFirestore(token: string, user: any) {
       user,
       upstoxLinkedPermanently: true,
       updatedAt: new Date().toISOString()
-    }), 1200);
+    }), 3000);
     console.log("[FIRESTORE] Saved Upstox credentials to database successfully.");
   } catch (error: any) {
-    if (error.message?.includes("PERMISSION_DENIED") || error.code === 7) {
-      console.log("[FIRESTORE] Optional Firestore persistence note: Permissions not configured for config collection (normal for sandbox). Relying on local cache file.");
+    if (error.message?.includes("PERMISSION_DENIED") || error.code === 7 || error.message?.includes("timed out")) {
+      console.log("[FIRESTORE] Optional Firestore persistence note: Permissions not configured or operation timed out (normal for sandbox). Relying on local cache file.");
     } else {
       console.warn("[FIRESTORE] Optional Firestore persistence note:", error.message);
     }
@@ -756,7 +756,7 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
   if (!db) return null;
   try {
     const configDocRef = db.collection("config").doc("upstox");
-    const docSnap = await withTimeout(configDocRef.get(), 1200);
+    const docSnap = await withTimeout(configDocRef.get(), 3000);
     if (docSnap.exists) {
       const data = docSnap.data();
       if (data && (data.accessToken || data.upstoxLinkedPermanently)) {
@@ -768,8 +768,8 @@ async function loadUpstoxTokenFromFirestore(): Promise<{ accessToken: string; us
       }
     }
   } catch (error: any) {
-    if (error.message?.includes("PERMISSION_DENIED") || error.code === 7) {
-      console.log("[FIRESTORE] Optional Firestore retrieval note: Permissions not configured for config collection (normal for sandbox). Relying on local cache file.");
+    if (error.message?.includes("PERMISSION_DENIED") || error.code === 7 || error.message?.includes("timed out")) {
+      console.log("[FIRESTORE] Optional Firestore retrieval note: Permissions not configured or operation timed out (normal for sandbox). Relying on local cache file.");
     } else {
       console.warn("[FIRESTORE] Optional Firestore retrieval note:", error.message);
     }
@@ -800,11 +800,11 @@ async function clearUpstoxTokenInFirestore() {
       user: null,
       upstoxLinkedPermanently: false,
       updatedAt: new Date().toISOString()
-    }), 1200);
+    }), 3000);
     console.log("[FIRESTORE] Cleared Upstox credentials in database.");
   } catch (error: any) {
-    if (error.message?.includes("PERMISSION_DENIED") || error.code === 7) {
-      console.log("[FIRESTORE] Optional Firestore clearing note: Permissions not configured for config collection (normal for sandbox). Relying on local cache file.");
+    if (error.message?.includes("PERMISSION_DENIED") || error.code === 7 || error.message?.includes("timed out")) {
+      console.log("[FIRESTORE] Optional Firestore clearing note: Permissions not configured or operation timed out (normal for sandbox). Relying on local cache file.");
     } else {
       console.warn("[FIRESTORE] Optional Firestore clearing note:", error.message);
     }
