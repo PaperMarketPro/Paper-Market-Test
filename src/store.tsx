@@ -790,107 +790,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isRefreshingStatusRef = useRef(false);
 
   const fetchRealUpstoxLtp = useCallback(async () => {
-    if (isFetchingLtpRef.current) return;
-    isFetchingLtpRef.current = true;
-    try {
-      const savedToken = getStoredUpstoxToken();
-      const headers: Record<string, string> = {};
-      if (savedToken) {
-        headers['X-Upstox-Access-Token'] = savedToken;
-      }
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(getApiUrl('/api/integrations/upstox/ltp'), { headers, signal: controller.signal });
-      clearTimeout(timeoutId);
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && !contentType.includes('text/html')) {
-        const text = await res.text();
-        let data: any = {};
-        try { data = JSON.parse(text); } catch (_) {}
-        if (data.success && data.prices) {
-          Object.keys(data.prices).forEach(sym => {
-            const price = data.prices[sym];
-            if (price && price > 0) {
-              pendingTicksRef.current[sym] = {
-                ltp: price,
-                isReal: !data.fallback,
-                isSim: !!data.fallback
-              };
-              lastLiveTicksRef.current[sym] = Date.now();
-            }
-          });
-        }
-      }
-    } catch (err) {
-      console.warn("[Upstox LTP Synchronizer] Error fetching LTP:", err);
-    } finally {
-      isFetchingLtpRef.current = false;
-    }
-  }, [getStoredUpstoxToken]);
+    // Demo price engine operates locally in memory with zero external API calls
+    return;
+  }, []);
 
   const refreshUpstoxStatus = useCallback(async () => {
-    if (isRefreshingStatusRef.current) return;
-    isRefreshingStatusRef.current = true;
-    try {
-      const savedToken = getStoredUpstoxToken();
-      const headers: Record<string, string> = {};
-      if (savedToken) {
-        headers['X-Upstox-Access-Token'] = savedToken;
-      }
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(getApiUrl(`/api/integrations/upstox/status?origin=${encodeURIComponent(window.location.origin)}`), { headers, signal: controller.signal });
-      clearTimeout(timeoutId);
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && !contentType.includes('text/html')) {
-        const text = await res.text();
-        let data: any = {};
-        try { data = JSON.parse(text); } catch (_) {}
-        if (data && data.connected !== undefined) {
-          setUpstoxStatus(prev => {
-            if (
-              prev.connected === data.connected &&
-              prev.wsConnected === data.wsConnected &&
-              prev.isRealUpstox === data.isRealUpstox &&
-              prev.isStale === !!data.isStale &&
-              JSON.stringify(prev.user) === JSON.stringify(data.user) &&
-              JSON.stringify(prev.config) === JSON.stringify(data.config)
-            ) {
-              return prev;
-            }
-            return {
-              ...prev,
-              connected: data.connected,
-              wsConnected: data.wsConnected,
-              user: data.user,
-              config: data.config,
-              isRealUpstox: data.isRealUpstox,
-              isStale: !!data.isStale
-            };
-          });
-          if (data.connected) {
-            fetchRealUpstoxLtp();
-          }
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to refresh Upstox status (expected during boot, offline, or restart):", e);
-    } finally {
-      isRefreshingStatusRef.current = false;
-    }
-
-    // Fallback: If user saved a token in localStorage or cookie, keep session connected locally
-    const savedToken = getStoredUpstoxToken();
-    if (savedToken) {
-      setUpstoxStatus(prev => ({
-        ...prev,
-        connected: true,
-        isRealUpstox: true,
-        user: prev.user || { email: "pro_feed_user@papermarket.local", userName: "Live Market Session", userId: "PRO_USER" }
-      }));
-    }
-  }, [fetchRealUpstoxLtp, getStoredUpstoxToken]);
+    setUpstoxStatus(prev => ({
+      ...prev,
+      connected: true,
+      wsConnected: true,
+      isRealUpstox: false,
+      wsConnectionState: 'CONNECTED',
+      isStale: false,
+      user: { email: "demo@papermarket.pro", userName: "Demo Market Feed", userId: "DEMO_FEED" }
+    }));
+  }, []);
 
   const disconnectUpstox = async () => {
     try {
@@ -1201,304 +1115,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const startFallbackSimulation = () => {
       if (fallbackInterval) return;
+      setUpstoxStatus(prev => ({
+        ...prev,
+        connected: true,
+        wsConnected: true,
+        isRealUpstox: false,
+        wsConnectionState: 'CONNECTED',
+        isStale: false,
+        user: { email: "demo@papermarket.pro", userName: "Demo Market Feed", userId: "DEMO_FEED" }
+      }));
       fallbackInterval = setInterval(() => {
-        const now = Date.now();
         instrumentsRef.current.forEach(inst => {
-          const lastLiveTime = lastLiveTicksRef.current[inst.symbol] || 0;
-          if (now - lastLiveTime > 2000) {
-            pendingTicksRef.current[inst.symbol] = { isSim: true };
-          }
+          pendingTicksRef.current[inst.symbol] = { isSim: true };
         });
-      }, 3000);
+      }, 1500);
     };
-
-    // Always ensure fallback tick generator is active for immediate smooth price movement
-    startFallbackSimulation();
-
-    const MAX_WS_RECONNECT_ATTEMPTS = 3;
-    let eventSource: EventSource | null = null;
-    let httpPollingInterval: any = null;
-
-    const startHttpPolling = () => {
-      if (httpPollingInterval) return;
-      console.info("[Feed Engine] Activating HTTP market quote polling fallback...");
-      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
-
-      let isPolling = false;
-      const pollOnce = async () => {
-        if (isPolling) return;
-        isPolling = true;
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2500);
-          const res = await fetch(getApiUrl('/api/market/quote'), { signal: controller.signal });
-          clearTimeout(timeoutId);
-          const contentType = res.headers.get('content-type') || '';
-          if (res.ok && !contentType.includes('text/html')) {
-            const json = await res.json();
-            if (json.success && Array.isArray(json.data)) {
-              lastMsgTime = Date.now();
-              json.data.forEach((tick: any) => {
-                if (tick && tick.symbol) {
-                  lastLiveTicksRef.current[tick.symbol] = Date.now();
-                  pendingTicksRef.current[tick.symbol] = {
-                    ltp: tick.ltp,
-                    change: tick.change,
-                    high: tick.high,
-                    low: tick.low,
-                    isReal: tick.isReal ?? true
-                  };
-                }
-              });
-            }
-          } else if (contentType.includes('text/html')) {
-            // Static client host detected (e.g. Vercel static deployment without backend proxy)
-            if (httpPollingInterval) {
-              clearInterval(httpPollingInterval);
-              httpPollingInterval = null;
-            }
-          }
-        } catch (_) {} finally {
-          isPolling = false;
-        }
-      };
-
-      pollOnce();
-      httpPollingInterval = setInterval(pollOnce, 4000);
-    };
-
-    const connectSSE = () => {
-      if (eventSource) {
-        try { eventSource.close(); } catch (_) {}
-      }
-      const sseUrl = getApiUrl('/api/market/stream');
-      console.info("[Feed Engine] Attempting SSE Market Stream fallback:", sseUrl);
-      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTING' }));
-
-      try {
-        eventSource = new EventSource(sseUrl);
-
-        eventSource.onopen = () => {
-          console.info("[Feed Engine] SSE Stream connected successfully.");
-          if (fallbackInterval) { clearInterval(fallbackInterval); fallbackInterval = null; }
-          if (httpPollingInterval) { clearInterval(httpPollingInterval); httpPollingInterval = null; }
-          setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
-        };
-
-        eventSource.onmessage = (event) => {
-          lastMsgTime = Date.now();
-          try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'STATUS') {
-              setUpstoxStatus(prev => ({
-                ...prev,
-                connected: message.connected,
-                user: message.user,
-                isRealUpstox: message.isRealUpstox ?? message.connected,
-                isStale: !!message.isStale,
-                wsConnectionState: 'CONNECTED'
-              }));
-            } else if (message.type === 'SNAPSHOT' && Array.isArray(message.ticks)) {
-              message.ticks.forEach((tick: any) => {
-                if (tick && tick.symbol) {
-                  lastLiveTicksRef.current[tick.symbol] = Date.now();
-                  pendingTicksRef.current[tick.symbol] = {
-                    ltp: tick.ltp,
-                    change: tick.change,
-                    high: tick.high,
-                    low: tick.low,
-                    isReal: tick.isReal ?? true
-                  };
-                }
-              });
-            } else if (message.type === 'TICK') {
-              lastLiveTicksRef.current[message.symbol] = Date.now();
-              pendingTicksRef.current[message.symbol] = {
-                ltp: message.ltp,
-                change: message.change,
-                high: message.high,
-                low: message.low,
-                isReal: message.isReal ?? true
-              };
-            }
-          } catch (e) {
-            console.warn("SSE parse notice:", e);
-          }
-        };
-
-        eventSource.onerror = () => {
-          console.warn("[Feed Engine] SSE Stream error/disconnected. Activating HTTP quote polling...");
-          try { eventSource?.close(); } catch (_) {}
-          eventSource = null;
-          startHttpPolling();
-        };
-      } catch (err) {
-        startHttpPolling();
-      }
-    };
-
-    const scheduleReconnect = () => {
-      startFallbackSimulation();
-      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS ? 'DISCONNECTED' : 'RECONNECTING' }));
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (reconnectAttempts >= MAX_WS_RECONNECT_ATTEMPTS) {
-        console.info("[Upstox Feed] WebSocket limit reached. Switching to Server-Sent Events (SSE) Stream...");
-        connectSSE();
-        return;
-      }
-      reconnectAttempts++;
-      const delay = reconnectAttempts === 1 ? 500 : Math.min(2500, 1000 * reconnectAttempts);
-      reconnectTimeout = setTimeout(() => {
-        connectWS();
-      }, delay);
-    };
-
-    const isVercelHost = typeof window !== 'undefined' && (
-      window.location.hostname.includes('vercel.app') ||
-      window.location.hostname.includes('vercel')
-    );
-
-    const connectWS = () => {
-      if (isVercelHost) {
-        startHttpPolling();
-        return;
-      }
-      setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTING' }));
-      const baseWsUrl = getWsUrl();
-      const token = localStorage.getItem('upstox_user_access_token');
-      const wsUrl = token 
-        ? `${baseWsUrl}${baseWsUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
-        : baseWsUrl;
-      
-      try {
-        ws = new WebSocket(wsUrl);
-      } catch (err) {
-        scheduleReconnect();
-        return;
-      }
-
-      ws.onopen = () => {
-        reconnectAttempts = 0;
-        lastMsgTime = Date.now();
-        if (fallbackInterval) { clearInterval(fallbackInterval); fallbackInterval = null; }
-        if (httpPollingInterval) { clearInterval(httpPollingInterval); httpPollingInterval = null; }
-        setUpstoxStatus(prev => ({ ...prev, wsConnectionState: 'CONNECTED', wsConnected: true, isStale: false }));
-
-        if (token) {
-          try {
-            ws?.send(JSON.stringify({ type: 'INIT_TOKEN', token }));
-          } catch (_) {}
-        }
-
-        // Dynamically subscribe to all watchlist / market instruments
-        const currentSymbols = instrumentsRef.current.map(i => i.symbol);
-        if (currentSymbols.length > 0) {
-          try {
-            ws?.send(JSON.stringify({ type: 'SUBSCRIBE', symbols: currentSymbols }));
-          } catch (_) {}
-        }
-      };
-
-      ws.onmessage = (event) => {
-        lastMsgTime = Date.now();
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === 'PONG') {
-            return;
-          }
-          if (message.type === 'STATUS') {
-            setUpstoxStatus(prev => {
-              const newIsReal = message.isRealUpstox ?? message.connected;
-              const newIsStale = !!message.isStale;
-              if (
-                prev.connected === message.connected &&
-                prev.user?.email === message.user?.email &&
-                prev.isRealUpstox === newIsReal &&
-                prev.isStale === newIsStale &&
-                prev.wsConnectionState === 'CONNECTED'
-              ) return prev;
-              return {
-                ...prev,
-                connected: message.connected,
-                user: message.user,
-                isRealUpstox: newIsReal,
-                isStale: newIsStale,
-                wsConnectionState: 'CONNECTED'
-              };
-            });
-          } else if (message.type === 'SNAPSHOT' && Array.isArray(message.ticks)) {
-            message.ticks.forEach((tick: any) => {
-              if (tick && tick.symbol) {
-                lastLiveTicksRef.current[tick.symbol] = Date.now();
-                pendingTicksRef.current[tick.symbol] = {
-                  ltp: tick.ltp,
-                  change: tick.change,
-                  high: tick.high,
-                  low: tick.low,
-                  isReal: tick.isReal ?? true
-                };
-              }
-            });
-          } else if (message.type === 'TICK') {
-            lastLiveTicksRef.current[message.symbol] = Date.now();
-            pendingTicksRef.current[message.symbol] = {
-              ltp: message.ltp,
-              change: message.change,
-              high: message.high,
-              low: message.low,
-              isReal: true
-            };
-          } else if (message.type === 'SIM_TICK') {
-            lastLiveTicksRef.current[message.symbol] = Date.now();
-            pendingTicksRef.current[message.symbol] = { isSim: true };
-          }
-        } catch (e) {
-          console.warn("Client WS parse error:", e);
-        }
-      };
-
-      ws.onclose = () => {
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        try {
-          ws?.close();
-        } catch (_) {}
-      };
-    };
-
-    // Client heartbeat ping loop every 3 seconds
-    pingInterval = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.send(JSON.stringify({ type: 'PING' }));
-        } catch (_) {}
-      }
-      // If connected but no messages for >15 seconds, force reconnect
-      if (ws && ws.readyState === WebSocket.OPEN && Date.now() - lastMsgTime > 15000) {
-        console.warn("Client WS link quiet for >15s, initiating immediate sub-second reconnect...");
-        try {
-          ws.close();
-        } catch (_) {}
-      }
-    }, 3000);
 
     startFallbackSimulation();
-    connectWS();
 
     return () => {
-      if (ws) {
-        ws.onclose = null;
-        ws.onerror = null;
-        ws.close();
-      }
-      if (eventSource) {
-        try { eventSource.close(); } catch (_) {}
-      }
-      if (httpPollingInterval) clearInterval(httpPollingInterval);
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (pingInterval) clearInterval(pingInterval);
       if (fallbackInterval) clearInterval(fallbackInterval);
       if (batchInterval) clearInterval(batchInterval);
     };
