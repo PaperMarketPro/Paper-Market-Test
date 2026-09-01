@@ -299,12 +299,6 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                 <span>SEBI Risk Disclosure</span>
               </button>
             )}
-            <div className="flex items-center gap-2 text-[10px] font-mono px-3 py-1.5 rounded-xl border bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold self-start sm:self-center shadow-sm">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              <span>REAL-TIME LIVE STREAM</span>
-            </div>
           </div>
         </div>
       )}
@@ -689,7 +683,7 @@ export const Markets: React.FC<MarketsProps> = React.memo(({ onNavigate, mode })
                             {/* Real-time Ticker Chart */}
                             <div className="space-y-1">
                               <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest block flex items-center gap-1">
-                                <Activity className="w-3.5 h-3.5 text-sky-400 animate-pulse" /> Real-Time Live Chart (3s ticks)
+                                <Activity className="w-3.5 h-3.5 text-sky-400" /> Price Chart
                               </span>
                               <div className="h-28 w-full bg-black/20 rounded-xl p-2.5 border border-white/5">
                                 <AreaChart width={140} height={40} data={inst.sparkline.map((val, i) => ({ Tick: `T${i}`, Price: val }))}>
