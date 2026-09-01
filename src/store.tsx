@@ -1091,14 +1091,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         // 2. Batch update futures
+        const tickKeys = Object.keys(ticksToProcess);
         setFutures(prev => {
           let changed = false;
           const next = prev.map(inst => {
             let matchedSymbol: string | null = null;
             let matchedTick: any = null;
 
-            const keysToProcess = Object.keys(ticksToProcess);
-            for (const sym of keysToProcess) {
+            for (const sym of tickKeys) {
               if (inst.symbol.startsWith(sym) || 
                   (sym === 'NIFTY 50' && inst.symbol.startsWith('NIFTY')) ||
                   (sym === 'BANKNIFTY' && inst.symbol.startsWith('BANKNIFTY'))) {
