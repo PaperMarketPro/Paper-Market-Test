@@ -767,6 +767,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     upstoxStatusRef.current = upstoxStatus;
   }, [upstoxStatus]);
 
+  const selectedAssetSymbolRef = useRef(selectedAssetSymbol);
+  useEffect(() => {
+    selectedAssetSymbolRef.current = selectedAssetSymbol;
+  }, [selectedAssetSymbol]);
+
   const pendingTicksRef = useRef<Record<string, { ltp?: number; change?: number; high?: number; low?: number; isSim?: boolean; isReal?: boolean }>>({});
   const lastLiveTicksRef = useRef<Record<string, number>>({});
 
@@ -1125,10 +1130,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user: { email: "demo@papermarket.pro", userName: "Demo Market Feed", userId: "DEMO_FEED" }
       }));
       fallbackInterval = setInterval(() => {
-        instrumentsRef.current.forEach(inst => {
-          pendingTicksRef.current[inst.symbol] = { isSim: true };
-        });
-      }, 1500);
+        const all = instrumentsRef.current;
+        if (!all || all.length === 0) return;
+
+        // 1. Always tick benchmark/top active instruments (first 25 in list)
+        const activeCount = Math.min(25, all.length);
+        for (let i = 0; i < activeCount; i++) {
+          pendingTicksRef.current[all[i].symbol] = { isSim: true };
+        }
+
+        // 2. Always tick currently selected asset if set
+        if (selectedAssetSymbolRef.current) {
+          pendingTicksRef.current[selectedAssetSymbolRef.current] = { isSim: true };
+        }
+
+        // 3. Tick 10 random stocks from the remaining 1000+ instruments
+        if (all.length > activeCount) {
+          for (let r = 0; r < 10; r++) {
+            const idx = activeCount + Math.floor(Math.random() * (all.length - activeCount));
+            pendingTicksRef.current[all[idx].symbol] = { isSim: true };
+          }
+        }
+      }, 2000);
     };
 
     startFallbackSimulation();
