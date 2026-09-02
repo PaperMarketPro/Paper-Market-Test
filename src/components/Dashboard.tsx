@@ -64,12 +64,19 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSearchTab, setSelectedSearchTab] = useState<'All' | 'Stocks' | 'Futures' | 'Options'>('All');
 
-  // Compile full-segment searchable assets dynamically
+  // Compile full-segment searchable assets dynamically only when search modal is opened
+  const instrumentsRef = React.useRef(instruments);
+  instrumentsRef.current = instruments;
+  const futuresRef = React.useRef(futures);
+  futuresRef.current = futures;
+
   const searchableAssets = React.useMemo(() => {
     if (!isSearchOpen) return [];
+    const currentInst = instrumentsRef.current || [];
+    const currentFut = futuresRef.current || [];
     return [
       // 1. Stocks and Indices
-      ...(instruments || []).map(inst => ({
+      ...currentInst.map(inst => ({
         symbol: inst.symbol,
         name: inst.name,
         ltp: inst.ltp,
@@ -77,7 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
         type: 'Stock' as const,
       })),
       // 2. Futures Contracts
-      ...(futures || []).map(fut => ({
+      ...currentFut.map(fut => ({
         symbol: fut.symbol,
         name: fut.name,
         ltp: fut.ltp,
@@ -86,7 +93,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       })),
       // 3 & 4. Option Chain Contracts (Dynamic Multi-Underlier & Multi-Expiry)
       ...['NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'SBIN', 'HDFCBANK', 'ICICIBANK', 'TATAMOTORS'].flatMap(underlier => {
-        const underlierInst = (instruments || []).find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
+        const underlierInst = currentInst.find(i => i.symbol === (underlier === 'NIFTY' ? 'NIFTY 50' : underlier));
         const spot = underlierInst ? underlierInst.ltp : (underlier === 'BANKNIFTY' ? 52410.50 : 2980.40);
         let strikeStep = 50;
         if (underlier === 'BANKNIFTY') {
@@ -146,7 +153,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
         );
       })
     ];
-  }, [isSearchOpen, instruments, futures]);
+  }, [isSearchOpen]);
 
   // Apply tab filters
   const tabFiltered = React.useMemo(() => {
