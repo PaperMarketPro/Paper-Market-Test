@@ -114,8 +114,6 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
     });
   }, []);
 
-  if (!user) return null;
-
   const handleOrderSubmission = React.useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(false);
@@ -138,6 +136,8 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
       onSuccess();
     }
   }, [addOrder, selectedAsset.symbol, direction, orderType, qty, limitPrice, triggerPrice, stopLoss, target, onSuccess]);
+
+  if (!user) return null;
 
   // Mock TradingView-style candlestick coordinates for SVG
   const candleCount = 12;

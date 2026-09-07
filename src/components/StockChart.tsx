@@ -519,9 +519,9 @@ export const TradingViewChart: React.FC<{
   isPositive: boolean;
   isExpanded?: boolean;
   onCloseExpanded?: () => void;
-  emaPeriod: number;
-  smaPeriod: number;
-  bbPeriod: number;
+  emaPeriod?: number;
+  smaPeriod?: number;
+  bbPeriod?: number;
   showSupertrend: boolean;
   showVWAP: boolean;
   showEma50_200: boolean;
@@ -538,9 +538,9 @@ export const TradingViewChart: React.FC<{
   isPositive,
   isExpanded,
   onCloseExpanded,
-  emaPeriod,
-  smaPeriod,
-  bbPeriod,
+  emaPeriod = 20,
+  smaPeriod = 50,
+  bbPeriod = 20,
   showSupertrend,
   showVWAP,
   showEma50_200,
@@ -2955,6 +2955,9 @@ const StockChartBase: React.FC<StockChartProps> = ({
               showSupertrend={showSupertrend}
               showVWAP={showVWAP}
               showEma50_200={showEma50_200}
+              emaPeriod={emaPeriod}
+              smaPeriod={smaPeriod}
+              bbPeriod={bbPeriod}
             />
           </div>
         </div>

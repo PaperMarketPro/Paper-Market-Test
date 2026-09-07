@@ -547,10 +547,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           name: 'EMA 20 crossover',
           description: 'Buy when 5 EMA crosses above 20 EMA on the 15-minute timeframe.',
           entryConditions: [
-            { id: 'cond-1', indicator: 'EMA', params: '5', operator: 'crosses above', compareWith: 'indicator', compareIndicator: 'EMA 20' }
+            { id: 'cond-1', indicator: 'EMA' as const, params: '5', operator: 'crosses above' as const, compareWith: 'indicator' as const, compareIndicator: 'EMA 20' }
           ],
           exitConditions: [
-            { id: 'cond-2', indicator: 'EMA', params: '5', operator: 'crosses below', compareWith: 'indicator', compareIndicator: 'EMA 20' }
+            { id: 'cond-2', indicator: 'EMA' as const, params: '5', operator: 'crosses below' as const, compareWith: 'indicator' as const, compareIndicator: 'EMA 20' }
           ],
           isActive: true,
           isAutoTradeActive: false,
@@ -562,7 +562,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             equityCurve: [500000, 502100, 501200, 506000, 505400, 509100]
           }
         }
-      ],
+      ] as Strategy[],
       cognitiveRules: [
         { id: 'cog-1', trigger: "I lose 2 trades in a row", action: "Stop trading, lock screen for 30 minutes, and complete deep breathing", isActive: true, createdAt: new Date().toISOString() },
         { id: 'cog-2', trigger: "I experience intense FOMO as stock moves up 3%", action: "Force-close browser tab and write feelings in Trading Journal", isActive: true, createdAt: new Date().toISOString() }
@@ -576,10 +576,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           title: 'Welcome to Paper Market Pro!',
           body: 'Your secure paper ledger is initialized on Firestore. Learn and practice risk-free.',
           timestamp: new Date().toISOString(),
-          type: 'badge',
+          type: 'badge' as const,
           isRead: false
         }
-      ]
+      ] as AppNotification[]
     };
 
     try {
@@ -1076,8 +1076,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setOptionChain(prev => {
           let changed = false;
           const next = prev.map(item => {
-            const underlierSymbol = item.underlier === 'NIFTY' ? 'NIFTY 50' : item.underlier;
-            const tick = ticksToProcess[underlierSymbol];
+            const tick = ticksToProcess['NIFTY 50'] || ticksToProcess['NIFTY'];
             if (!tick) return item;
 
             let callLtp = item.calls.ltp;
@@ -1087,10 +1086,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               callLtp = randomWalk(item.calls.ltp, item.calls.ltp * 0.95, item.calls.ltp * 1.05, 0.002);
               putLtp = randomWalk(item.puts.ltp, item.puts.ltp * 0.95, item.puts.ltp * 1.05, 0.002);
             } else if (tick.ltp !== undefined) {
-              const strike = item.strikePrice;
+              const strike = item.strike;
               const spot = tick.ltp;
               const distance = strike - spot;
-              const strikeStep = (item.underlier === 'BANKNIFTY' || item.underlier === 'SENSEX' || item.underlier === 'FINNIFTY') ? 100 : 50;
+              const strikeStep = 50;
 
               const callIntrinsic = Math.max(0, spot - strike);
               const callTimeValue = (spot * 0.006) * Math.exp(-Math.pow(distance / (strikeStep * 2.5), 2));

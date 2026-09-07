@@ -120,12 +120,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  props: ErrorBoundaryProps;
-  state: ErrorBoundaryState;
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.props = props;
     this.state = {
       hasError: false,
       error: null,

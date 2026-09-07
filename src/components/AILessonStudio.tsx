@@ -607,7 +607,7 @@ export const AILessonStudio: React.FC<AILessonStudioProps> = ({
           )}
 
           {/* 3. POSITION SIZING TOOL */}
-          {(course.category === 'Psychology' || course.category === 'Technical Analysis') && (
+          {(course.category === 'Psychology' || course.category === 'Basics') && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
               <div className="bg-[#11141f] p-3.5 rounded-xl border border-white/10 space-y-2.5">
                 <span className="font-bold text-white block">Risk Inputs:</span>

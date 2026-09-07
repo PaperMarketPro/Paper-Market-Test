@@ -49,8 +49,6 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
     }
   }, [confirmSebiRiskDisclosure, pendingTab, onNavigate]);
 
-  if (!user) return null;
-
   const navItems = React.useMemo(() => [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },
     { key: 'positions', label: 'Positions', icon: <Briefcase className="w-5 h-5" /> },
@@ -88,6 +86,8 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
       ]
     }
   ], []);
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
@@ -195,7 +195,7 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
                       : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {React.cloneElement(item.icon as React.ReactElement, { className: 'w-3.5 h-3.5 shrink-0' })}
+                  {React.cloneElement(item.icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 shrink-0' })}
                   <span className="truncate">{item.label}</span>
                 </button>
               );

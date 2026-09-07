@@ -33,8 +33,6 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
     setActiveSubTab(prev => prev === initialSubTab ? prev : initialSubTab);
   }, [initialSubTab]);
 
-  if (!user) return null;
-
   // Subscription state
   const [showCheckout, setShowCheckout] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
@@ -42,6 +40,8 @@ export const Profile: React.FC<ProfileProps> = React.memo(({ onLogout, initialSu
 
   // Settings state
   const [resetVal, setResetVal] = useState<number>(500000);
+
+  if (!user) return null;
 
   // Dynamic Icon mapping for badges
   const getBadgeIcon = (iconName: string) => {
