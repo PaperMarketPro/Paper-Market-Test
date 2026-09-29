@@ -19,7 +19,6 @@ import {
   Award, 
   Info, 
   Search, 
-  Globe, 
   Sparkles, 
   Check
 } from 'lucide-react';
@@ -27,27 +26,22 @@ import {
 export const Academy: React.FC = React.memo(() => {
   const { courses, completeLesson, submitQuiz, user } = useMainApp();
   
-  // Selection states
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [lessonLang, setLessonLang] = useState<'Hindi' | 'English'>('English');
+  const [proBannerMessage, setProBannerMessage] = useState<string | null>(null);
   
-  // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [languageFilter, setLanguageFilter] = useState<'All' | 'Hindi' | 'English'>('All');
   const [categoryFilter, setCategoryFilter] = useState<'All' | 'Basics' | 'Options' | 'Price Action' | 'Psychology'>('All');
 
-  // Quiz states
   const [showQuiz, setShowQuiz] = useState(false);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [quizScore, setQuizScore] = useState(0);
   const [isQuizFinished, setIsQuizFinished] = useState(false);
-
-  // Certificate award state
   const [showCertificate, setShowCertificate] = useState(false);
 
-  // Filtered courses
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
       const matchesLang = languageFilter === 'All' || course.language === languageFilter;
@@ -65,7 +59,8 @@ export const Academy: React.FC = React.memo(() => {
 
   const handleLessonTap = (lesson: Lesson) => {
     if (lesson.isPremium && !user.isPro) {
-      alert("This is a Premium PRO Masterclass Lesson. Please upgrade your subscription to unlock all advanced masterclass modules.");
+      setProBannerMessage('This is a Pro lesson. Upgrade in your Profile settings to unlock all advanced lessons.');
+      setTimeout(() => setProBannerMessage(null), 4500);
       return;
     }
     setActiveLesson(lesson);
@@ -76,7 +71,6 @@ export const Academy: React.FC = React.memo(() => {
     if (selectedCourse && activeLesson) {
       completeLesson(selectedCourse.id, activeLesson.id);
       
-      // Auto move to next lesson if available
       const currentIdx = selectedCourse.lessons.findIndex(l => l.id === activeLesson.id);
       if (currentIdx !== -1 && currentIdx < selectedCourse.lessons.length - 1) {
         const next = selectedCourse.lessons[currentIdx + 1];
@@ -100,7 +94,7 @@ export const Academy: React.FC = React.memo(() => {
   };
 
   const handleOptionSelect = (idx: number) => {
-    if (selectedOption !== null) return; // Answer locked
+    if (selectedOption !== null) return;
     setSelectedOption(idx);
     const correct = selectedCourse?.quiz?.questions[currentQuestionIdx].correctIndex === idx;
     if (correct) {
@@ -123,121 +117,101 @@ export const Academy: React.FC = React.memo(() => {
     }
   };
 
-  const closeQuiz = () => {
-    setShowQuiz(false);
-  };
-
   return (
-    <div className="space-y-6 pb-24 max-w-5xl mx-auto w-full px-2 sm:px-4">
-      {/* Certificate Award Overlay */}
+    <div className="space-y-6 pb-20 max-w-5xl mx-auto w-full">
+      {/* Pro Notice Banner */}
+      <AnimatePresence>
+        {proBannerMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="bg-amber-500/10 border border-amber-500/30 text-amber-300 px-4 py-3 rounded-xl text-xs flex items-center justify-between gap-2"
+          >
+            <span>{proBannerMessage}</span>
+            <button onClick={() => setProBannerMessage(null)} className="text-amber-300 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Certificate Modal */}
       <AnimatePresence>
         {showCertificate && selectedCourse && (
-          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b0e14]/90 z-50 flex items-center justify-center p-4">
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-gradient-to-tr from-[#171b26] to-[#11141c] border border-sky-500/30 rounded-2xl p-6 text-center space-y-4 max-w-md shadow-lg relative overflow-hidden"
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#121620] border border-sky-500/30 rounded-2xl p-6 text-center space-y-4 max-w-md w-full shadow-xl"
             >
-              <div className="absolute top-0 right-0 p-4 opacity-5">
-                <GraduationCap className="w-32 h-32 text-white" />
+              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400">
+                <Award className="w-6 h-6" />
               </div>
-
-              <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400 animate-bounce">
-                <Award className="w-7 h-7" />
-              </div>
-
-              <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-sky-500/20">
-                Official Certification
-              </span>
-
-              <h3 className="text-xl font-bold text-white tracking-tight">Course Completed!</h3>
-              <p className="text-xs text-gray-300 leading-relaxed">
-                Congratulations, you passed the final evaluation quiz for <span className="text-sky-400 font-semibold">{selectedCourse.title}</span>!
+              <h3 className="text-lg font-bold text-white">Course Completed!</h3>
+              <p className="text-xs text-gray-300">
+                You passed the quiz for <span className="text-sky-400 font-semibold">{selectedCourse.title}</span>.
               </p>
-
-              <div className="border border-sky-500/20 bg-[#0b0e14] p-4 rounded-xl text-left space-y-2 relative shadow-inner">
-                <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                  <span className="text-[9px] font-mono text-sky-400 uppercase tracking-widest">PAPER MARKET TRADING ACADEMY</span>
-                  <span className="text-[9px] font-mono text-amber-400">PASSED 100%</span>
-                </div>
-                <span className="block text-base font-bold text-white uppercase">{user.name}</span>
-                <span className="block text-[11px] text-gray-400">Certified Trading Specialist in {selectedCourse.category || 'Equity & FnO'}</span>
-                <div className="flex justify-between items-center text-[9px] font-mono text-gray-500 pt-2 border-t border-white/5">
-                  <span>DATE: {new Date().toLocaleDateString('en-IN')}</span>
-                  <span>ID: CERT-PM-{Math.floor(1000 + Math.random() * 9000)}</span>
-                </div>
+              <div className="border border-white/10 bg-[#0b0e14] p-4 rounded-xl text-left space-y-1.5">
+                <span className="text-[10px] font-mono text-sky-400 block">CERTIFICATE OF COMPLETION</span>
+                <span className="block text-sm font-bold text-white">{user.name}</span>
+                <span className="block text-xs text-gray-400">{selectedCourse.title}</span>
               </div>
-
               <button
+                type="button"
                 onClick={() => setShowCertificate(false)}
-                className="w-full mt-4 bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-2"
+                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition"
               >
-                <Sparkles className="w-4 h-4 text-amber-300" /> Claim Certificate & Earn +100 XP
+                Claim +100 XP
               </button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Main Academy Container */}
       {selectedCourse ? (
         /* Single Course View */
         <div className="space-y-5">
-          {/* Back Navigation */}
           <button
+            type="button"
             onClick={() => setSelectedCourse(null)}
-            className="text-xs text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1.5 transition bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/10 w-fit"
+            className="text-xs text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1.5 transition bg-white/5 hover:bg-white/10 px-3 py-2 rounded-xl border border-white/10 w-fit"
           >
-            ← Back to All Masterclass Courses
+            ← Back to Courses
           </button>
 
-          {/* Course Banner Card */}
-          <div className="bg-gradient-to-r from-[#171b26] to-[#0f121a] border border-white/10 rounded-2xl p-5 sm:p-6 space-y-4 relative overflow-hidden shadow-xl">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-sky-500/20">
-                  {selectedCourse.level}
-                </span>
-                {selectedCourse.language && (
-                  <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-                    <Globe className="w-3 h-3" /> {selectedCourse.language}
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-gray-400 font-mono flex items-center gap-1">
+          {/* Course Summary Header */}
+          <div className="bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-3 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-gray-400">
+              <span>
+                {selectedCourse.level} · {selectedCourse.category || 'Trading'}
+                {selectedCourse.language ? ` · ${selectedCourse.language}` : ''}
+              </span>
+              <span className="font-mono flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-sky-400" /> {selectedCourse.duration}
               </span>
             </div>
 
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">{selectedCourse.title}</h1>
-            </div>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{selectedCourse.title}</h1>
+            <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed">{selectedCourse.description}</p>
 
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed max-w-2xl font-sans">
-              {selectedCourse.description}
-            </p>
-
-            {/* Course Progress */}
-            <div className="space-y-1.5 pt-2 border-t border-white/5">
-              <div className="flex justify-between items-center text-xs text-gray-400 font-mono">
-                <span>Course Progress</span>
-                <span className="font-bold text-sky-400 tabular-numbers">{selectedCourse.progress}% Completed</span>
+            <div className="space-y-1.5 pt-2">
+              <div className="flex justify-between text-xs text-slate-500 dark:text-gray-400 font-mono">
+                <span>Progress</span>
+                <span className="font-bold text-sky-400">{selectedCourse.progress}%</span>
               </div>
-              <div className="h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                <div className="bg-gradient-to-r from-sky-500 to-blue-500 h-full transition-all duration-500" style={{ width: `${selectedCourse.progress}%` }} />
+              <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${selectedCourse.progress}%` }} />
               </div>
             </div>
           </div>
 
-          {/* Lessons Playlist Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-sky-400" /> Course Curriculum & Modules
-              </h3>
-              <span className="text-xs text-gray-400 font-mono">{selectedCourse.lessons.length} Modules</span>
-            </div>
+          {/* Lessons List */}
+          <div className="space-y-2.5">
+            <h3 className="text-xs font-bold uppercase font-mono tracking-wider text-slate-500 dark:text-gray-400">
+              Lessons ({selectedCourse.lessons.length})
+            </h3>
 
             <div className="space-y-2">
               {selectedCourse.lessons.map((lesson, idx) => {
@@ -246,45 +220,41 @@ export const Academy: React.FC = React.memo(() => {
                   <div
                     key={lesson.id}
                     onClick={() => handleLessonTap(lesson)}
-                    className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
+                    className={`p-4 rounded-xl border flex items-center justify-between gap-3 transition ${
                       isLocked 
-                        ? 'bg-white/1 border-white/5 opacity-60 cursor-not-allowed'
-                        : 'bg-[#121620] border-white/10 hover:border-sky-500/40 hover:bg-[#181d2a] cursor-pointer'
+                        ? 'bg-slate-50 dark:bg-white/2 border-slate-200 dark:border-white/5 opacity-60 cursor-not-allowed'
+                        : 'bg-white dark:bg-[#121620] border-slate-200 dark:border-white/10 hover:border-sky-500/40 cursor-pointer'
                     }`}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 shrink-0">
-                        {lesson.isCompleted ? (
-                          <div className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                            <Check className="w-3.5 h-3.5" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center text-[10px] font-mono text-gray-400">
-                            {idx + 1}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-white">{lesson.title}</span>
-                          <span className="bg-sky-500/10 text-sky-400 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-1 border border-sky-500/20">
-                            <Sparkles className="w-2.5 h-2.5" /> INTERACTIVE
-                          </span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {lesson.isCompleted ? (
+                        <div className="w-6 h-6 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                          <Check className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-[11px] text-gray-400 font-mono block">{lesson.duration}</span>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full border border-slate-300 dark:border-white/20 flex items-center justify-center text-xs font-mono text-slate-500 dark:text-gray-400 shrink-0">
+                          {idx + 1}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white block truncate">
+                          {lesson.title}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-gray-400 font-mono">
+                          {lesson.duration}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end shrink-0">
+                    <div className="shrink-0">
                       {isLocked ? (
-                        <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1 border border-amber-500/20 font-semibold">
-                          <Lock className="w-3.5 h-3.5" /> Unlock PRO
+                        <span className="text-xs text-amber-400 flex items-center gap-1 font-semibold">
+                          <Lock className="w-3.5 h-3.5" /> Pro
                         </span>
                       ) : (
-                        <button className="bg-sky-600/20 hover:bg-sky-600/40 text-sky-300 hover:text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border border-sky-500/30">
-                          <Sparkles className="w-3.5 h-3.5 text-sky-300" /> Start Module
-                        </button>
+                        <span className="text-xs text-sky-400 font-semibold flex items-center gap-1">
+                          Open <ArrowRight className="w-3.5 h-3.5" />
+                        </span>
                       )}
                     </div>
                   </div>
@@ -293,192 +263,129 @@ export const Academy: React.FC = React.memo(() => {
             </div>
           </div>
 
-          {/* Quiz Button Trigger when all lessons done or progress 100% */}
           {selectedCourse.quiz && (
-            <div className="pt-2">
-              <button
-                onClick={startQuiz}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg"
-              >
-                <GraduationCap className="w-5 h-5 text-emerald-200" /> Start Course Evaluation Quiz
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={startQuiz}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-sm"
+            >
+              <GraduationCap className="w-4 h-4" /> Take Course Quiz
+            </button>
           )}
         </div>
       ) : (
-        /* Catalog & Hub View */
-        <div className="space-y-6">
-          {/* Header Banner */}
-          <div className="bg-gradient-to-r from-[#171b26] via-[#121622] to-[#0f121a] border border-white/10 rounded-2xl p-5 sm:p-6 space-y-4 relative overflow-hidden shadow-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-sky-500/20 flex items-center gap-1">
-                    <GraduationCap className="w-3 h-3 text-sky-400" /> Interactive Masterclass Academy
-                  </span>
-                  <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-amber-500/20">
-                    Official Courses
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Paper Market Trading Academy</h1>
-                <p className="text-xs sm:text-sm text-gray-300 font-sans">
-                  Master Stock Market, Options Trading, Price Action & Risk Management through native interactive masterclasses with chart simulators, voiceovers, position calculators, and quizzes.
+        /* Course Catalog View */
+        <div className="space-y-5">
+          <div className="bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Trading Academy</h1>
+                <p className="text-xs text-slate-500 dark:text-gray-400">
+                  Learn market basics, price action, options, and risk management with interactive lessons.
                 </p>
               </div>
-
-              <div className="flex items-center gap-2 shrink-0 bg-white/5 p-3 rounded-xl border border-white/10">
-                <GraduationCap className="w-8 h-8 text-sky-400 shrink-0" />
-                <div className="text-left">
-                  <span className="text-[10px] text-gray-400 uppercase font-mono block">Available Courses</span>
-                  <span className="text-base font-bold text-white">{courses.length} Masterclasses</span>
-                </div>
-              </div>
+              <span className="text-xs font-mono text-sky-400 shrink-0">{courses.length} Courses</span>
             </div>
 
-            {/* Search & Filter Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/5">
-              {/* Search input */}
-              <div className="relative col-span-1">
+            {/* Clean Search & Filter Bar */}
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+              <div className="relative flex-1">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search courses or topics..."
+                  placeholder="Search courses..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#0b0e14] border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-sky-500 transition"
+                  className="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-gray-500 focus:outline-none focus:border-sky-500"
                 />
               </div>
 
-              {/* Language filter */}
-              <div className="flex items-center bg-[#0b0e14] border border-white/10 rounded-xl p-1 text-xs">
-                <button
-                  onClick={() => setLanguageFilter('All')}
-                  className={`flex-1 py-1 px-2 rounded-lg font-medium transition ${languageFilter === 'All' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setLanguageFilter('Hindi')}
-                  className={`flex-1 py-1 px-2 rounded-lg font-medium transition flex items-center justify-center gap-1 ${languageFilter === 'Hindi' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  🇮🇳 हिंदी
-                </button>
-                <button
-                  onClick={() => setLanguageFilter('English')}
-                  className={`flex-1 py-1 px-2 rounded-lg font-medium transition ${languageFilter === 'English' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  🇬🇧 English
-                </button>
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl p-1 text-xs overflow-x-auto">
+                {(['All', 'Basics', 'Options', 'Price Action', 'Psychology'] as const).map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`py-1 px-2.5 rounded-lg font-medium whitespace-nowrap transition ${
+                      categoryFilter === cat
+                        ? 'bg-sky-600 text-white'
+                        : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
 
-              {/* Category filter */}
-              <div className="flex items-center bg-[#0b0e14] border border-white/10 rounded-xl p-1 text-xs overflow-x-auto">
-                <button
-                  onClick={() => setCategoryFilter('All')}
-                  className={`py-1 px-2 rounded-lg font-medium whitespace-nowrap transition ${categoryFilter === 'All' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  All Categories
-                </button>
-                <button
-                  onClick={() => setCategoryFilter('Basics')}
-                  className={`py-1 px-2 rounded-lg font-medium whitespace-nowrap transition ${categoryFilter === 'Basics' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  Basics
-                </button>
-                <button
-                  onClick={() => setCategoryFilter('Options')}
-                  className={`py-1 px-2 rounded-lg font-medium whitespace-nowrap transition ${categoryFilter === 'Options' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  Options
-                </button>
-                <button
-                  onClick={() => setCategoryFilter('Price Action')}
-                  className={`py-1 px-2 rounded-lg font-medium whitespace-nowrap transition ${categoryFilter === 'Price Action' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                >
-                  Price Action
-                </button>
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-white/10 rounded-xl p-1 text-xs shrink-0">
+                {(['All', 'English', 'Hindi'] as const).map(lang => (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => setLanguageFilter(lang)}
+                    className={`py-1 px-2.5 rounded-lg font-medium transition ${
+                      languageFilter === lang
+                        ? 'bg-sky-600 text-white'
+                        : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {lang === 'Hindi' ? 'हिंदी' : lang}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
           {/* Courses Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredCourses.map(course => {
-              return (
-                <div
-                  key={course.id}
-                  onClick={() => setSelectedCourse(course)}
-                  className="bg-[#121620] border border-white/10 rounded-2xl p-5 hover:border-sky-500/50 hover:bg-[#161b28] transition cursor-pointer space-y-4 flex flex-col justify-between group shadow-lg relative overflow-hidden"
-                >
-                  {/* Card Header */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="bg-sky-500/10 text-sky-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-sky-500/20">
-                          {course.level}
-                        </span>
-                        {course.language === 'Hindi' && (
-                          <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/20">
-                            🇮🇳 हिंदी
-                          </span>
-                        )}
-                        <span className="bg-sky-500/10 text-sky-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border border-sky-500/20 flex items-center gap-1">
-                          <Sparkles className="w-2.5 h-2.5" /> Masterclass
-                        </span>
-                      </div>
-
-                      {course.isPremium && !user.isPro && (
-                        <span className="bg-amber-500/10 text-amber-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded flex items-center gap-1 border border-amber-500/20">
-                          <Lock className="w-2.5 h-2.5" /> PRO
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="text-base font-bold text-white leading-tight group-hover:text-sky-400 transition">
-                        {course.title}
-                      </h3>
-                    </div>
-
-                    <p className="text-xs text-gray-400 leading-relaxed font-sans line-clamp-2">
-                      {course.description}
-                    </p>
+            {filteredCourses.map(course => (
+              <div
+                key={course.id}
+                onClick={() => setSelectedCourse(course)}
+                className="bg-white dark:bg-[#121620] border border-slate-200 dark:border-white/10 rounded-2xl p-5 hover:border-sky-500/50 transition cursor-pointer flex flex-col justify-between gap-4 shadow-sm group"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400">
+                    <span>
+                      {course.level} · {course.category}
+                      {course.language === 'Hindi' ? ' · हिंदी' : ''}
+                    </span>
+                    {course.isPremium && !user.isPro && (
+                      <span className="text-amber-400 font-semibold flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Pro
+                      </span>
+                    )}
                   </div>
 
-                  {/* Card Footer */}
-                  <div className="space-y-2 pt-3 border-t border-white/5">
-                    <div className="flex justify-between items-center text-[11px] text-gray-400 font-mono">
-                      <span className="flex items-center gap-1">
-                        <BookOpen className="w-3.5 h-3.5 text-sky-400" /> {course.lessons.length} interactive modules
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-sky-400" /> {course.duration}
-                      </span>
-                    </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-sky-400 transition">
+                    {course.title}
+                  </h3>
 
-                    {/* Progress Bar */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                        <span>Progress</span>
-                        <span>{course.progress}%</span>
-                      </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${course.progress}%` }} />
-                      </div>
-                    </div>
+                  <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed line-clamp-2">
+                    {course.description}
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-white/5">
+                  <div className="flex justify-between items-center text-xs text-slate-500 dark:text-gray-400 font-mono">
+                    <span>{course.lessons.length} Lessons</span>
+                    <span>{course.progress}% Complete</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                    <div className="bg-sky-500 h-full transition-all duration-300" style={{ width: `${course.progress}%` }} />
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
           {filteredCourses.length === 0 && (
-            <div className="text-center py-12 bg-white/2 rounded-2xl border border-white/5 p-6 space-y-3">
-              <GraduationCap className="w-12 h-12 text-gray-500 mx-auto" />
-              <p className="text-sm font-semibold text-gray-300">No courses match your search or filter.</p>
+            <div className="text-center py-12 bg-white dark:bg-[#121620] rounded-2xl border border-slate-200 dark:border-white/5 p-6 space-y-2">
+              <p className="text-xs text-gray-400">No courses match your filter.</p>
               <button
+                type="button"
                 onClick={() => { setSearchQuery(''); setLanguageFilter('All'); setCategoryFilter('All'); }}
-                className="text-xs text-sky-400 hover:underline"
+                className="text-xs text-sky-400 hover:underline font-semibold"
               >
                 Reset filters
               </button>
@@ -487,23 +394,24 @@ export const Academy: React.FC = React.memo(() => {
         </div>
       )}
 
-      {/* Interactive Lesson Studio Player Modal */}
+      {/* Clean Unified Lesson Modal (No Duplicate Transcripts or Stacked Boxes) */}
       <AnimatePresence>
         {activeLesson && selectedCourse && (
-          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-[#0b0e14]/90 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-3xl p-4 sm:p-6 space-y-5 shadow-lg relative my-6 max-h-[92vh] overflow-y-auto"
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-2xl p-4 sm:p-6 space-y-4 shadow-2xl my-auto max-h-[90vh] overflow-y-auto"
             >
-              {/* Top Modal Header */}
-              <div className="flex justify-between items-start border-b border-white/10 pb-3 gap-2">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start border-b border-white/10 pb-3 gap-3">
                 <div>
-                  <span className="text-[10px] font-mono text-sky-400 uppercase tracking-widest block">{selectedCourse.title}</span>
+                  <span className="text-[11px] font-mono text-sky-400 block">{selectedCourse.title}</span>
                   <h3 className="text-base sm:text-lg font-bold text-white mt-0.5">{activeLesson.title}</h3>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setActiveLesson(null)}
                   className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition shrink-0"
                 >
@@ -511,84 +419,23 @@ export const Academy: React.FC = React.memo(() => {
                 </button>
               </div>
 
-              {/* Interactive AI Lesson Studio Component */}
+              {/* Unified Lesson Studio (Notes, Single Interactive Tool, Quiz) */}
               <AILessonStudio
                 lesson={activeLesson}
                 course={selectedCourse}
                 lang={lessonLang}
+                onLanguageChange={setLessonLang}
                 onCompleteLesson={handleMarkComplete}
               />
 
-              {/* Language Switcher for Notes */}
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-sky-400" /> Lesson Transcript & Notes
-                </span>
-
-                {activeLesson.contentHindi && (
-                  <div className="flex items-center bg-[#0b0e14] p-1 rounded-lg border border-white/10 text-xs">
-                    <button
-                      onClick={() => setLessonLang('English')}
-                      className={`px-2.5 py-1 rounded-md font-medium transition ${lessonLang === 'English' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                      🇬🇧 English Notes
-                    </button>
-                    <button
-                      onClick={() => setLessonLang('Hindi')}
-                      className={`px-2.5 py-1 rounded-md font-medium transition ${lessonLang === 'Hindi' ? 'bg-sky-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                    >
-                      🇮🇳 Hindi Notes
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Key Takeaways */}
-              {activeLesson.keyTakeaways && activeLesson.keyTakeaways.length > 0 && (
-                <div className="bg-sky-500/5 p-3.5 rounded-xl border border-sky-500/15 space-y-2">
-                  <span className="text-[10px] font-mono text-sky-400 uppercase tracking-widest font-bold block">
-                    Key Takeaways
-                  </span>
-                  <ul className="space-y-1.5 text-xs text-gray-200">
-                    {activeLesson.keyTakeaways.map((point, pIdx) => (
-                      <li key={pIdx} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Text Content Panel */}
-              <div className="bg-[#0b0e14] p-4 rounded-xl border border-white/5 text-xs text-gray-300 leading-relaxed space-y-3 max-h-[250px] overflow-y-auto font-sans">
-                {(lessonLang === 'Hindi' && activeLesson.contentHindi ? activeLesson.contentHindi : activeLesson.content)
-                  .split('\n\n')
-                  .map((para, i) => {
-                    if (para.startsWith('###')) {
-                      return <h4 key={i} className="text-sm font-bold text-white pt-2 border-b border-white/5 pb-1">{para.replace('###', '')}</h4>;
-                    }
-                    if (para.startsWith('-')) {
-                      return (
-                        <ul key={i} className="list-disc pl-4 space-y-1">
-                          {para.split('\n').map((item, j) => (
-                            <li key={j} className="text-gray-300">{item.replace('-', '').trim()}</li>
-                          ))}
-                        </ul>
-                      );
-                    }
-                    return <p key={i}>{para}</p>;
-                  })}
-              </div>
-
-              {/* Bottom Action */}
-              <div className="pt-2">
+              {/* Single Clean Complete Button */}
+              <div className="pt-2 border-t border-white/10 flex justify-end">
                 <button
                   type="button"
                   onClick={handleMarkComplete}
-                  className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold py-3.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-lg"
+                  className="w-full sm:w-auto bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-sky-200" /> Mark Lesson Complete & Earn +20 XP
+                  <CheckCircle2 className="w-4 h-4" /> Mark Complete (+20 XP)
                 </button>
               </div>
             </motion.div>
@@ -596,22 +443,22 @@ export const Academy: React.FC = React.memo(() => {
         )}
       </AnimatePresence>
 
-      {/* Course Evaluation Quiz Modal */}
+      {/* Course Quiz Modal */}
       <AnimatePresence>
         {showQuiz && selectedCourse?.quiz && (
-          <div className="fixed inset-0 bg-[#0b0e14]/95 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-[#0b0e14]/90 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-lg"
+              className="bg-[#121620] border border-white/10 rounded-2xl w-full max-w-lg p-5 sm:p-6 space-y-5 shadow-xl"
             >
               <div className="flex justify-between items-center border-b border-white/10 pb-3">
                 <div>
-                  <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block">{selectedCourse.title}</span>
-                  <h3 className="text-base font-bold text-white">Course Evaluation Quiz</h3>
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase block">{selectedCourse.title}</span>
+                  <h3 className="text-base font-bold text-white">Course Quiz</h3>
                 </div>
-                <button onClick={closeQuiz} className="p-1.5 hover:bg-white/5 rounded-xl text-gray-400 hover:text-white">
+                <button onClick={() => setShowQuiz(false)} className="p-1.5 hover:bg-white/5 rounded-xl text-gray-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -623,17 +470,15 @@ export const Academy: React.FC = React.memo(() => {
                     <span>Score: {quizScore}</span>
                   </div>
 
-                  {/* Question Title */}
-                  <h4 className="text-sm font-bold text-white leading-relaxed font-sans">
+                  <h4 className="text-sm font-bold text-white leading-relaxed">
                     {selectedCourse.quiz.questions[currentQuestionIdx].question}
                   </h4>
 
-                  {/* Options List */}
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {selectedCourse.quiz.questions[currentQuestionIdx].options.map((opt, oIdx) => {
                       const isSelected = selectedOption === oIdx;
                       const isCorrect = selectedCourse.quiz!.questions[currentQuestionIdx].correctIndex === oIdx;
-                      let colorClass = 'bg-[#0b0e14] border-white/10 hover:border-sky-500/50 hover:bg-white/5 text-gray-200';
+                      let colorClass = 'bg-[#0b0e14] border-white/10 hover:border-sky-500/50 text-gray-200';
                       
                       if (selectedOption !== null) {
                         if (isSelected) {
@@ -644,50 +489,48 @@ export const Academy: React.FC = React.memo(() => {
                       }
 
                       return (
-                        <div
+                        <button
                           key={oIdx}
+                          type="button"
                           onClick={() => handleOptionSelect(oIdx)}
-                          className={`p-3.5 rounded-xl border text-xs cursor-pointer transition font-medium ${colorClass}`}
+                          className={`w-full text-left p-3 rounded-xl border text-xs transition font-medium ${colorClass}`}
                         >
                           {opt}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
 
-                  {/* Explanation card */}
                   {selectedOption !== null && (
-                    <div className="bg-sky-500/10 p-3.5 rounded-xl border border-sky-500/20 text-xs text-gray-300 font-sans leading-relaxed flex gap-2">
+                    <div className="bg-sky-500/10 p-3 rounded-xl border border-sky-500/20 text-xs text-gray-300 flex gap-2">
                       <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
                       <span>{selectedCourse.quiz.questions[currentQuestionIdx].explanation}</span>
                     </div>
                   )}
 
-                  {/* Next Step */}
                   {selectedOption !== null && (
                     <button
+                      type="button"
                       onClick={handleNextQuestion}
-                      className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-lg"
+                      className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
                     >
-                      {currentQuestionIdx < selectedCourse.quiz.questions.length - 1 ? 'Next Question' : 'Finish Quiz Evaluation'} <ArrowRight className="w-4 h-4" />
+                      {currentQuestionIdx < selectedCourse.quiz.questions.length - 1 ? 'Next Question' : 'Finish Quiz'} <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
                 </div>
               ) : (
                 <div className="text-center space-y-4 py-4">
-                  <div className="w-14 h-14 bg-sky-500/10 border border-sky-500/20 rounded-full flex items-center justify-center mx-auto text-sky-400">
-                    <GraduationCap className="w-7 h-7" />
-                  </div>
-                  <h4 className="text-lg font-bold text-white">Quiz Evaluation Completed!</h4>
+                  <GraduationCap className="w-10 h-10 text-sky-400 mx-auto" />
+                  <h4 className="text-base font-bold text-white">Quiz Complete!</h4>
                   <p className="text-xs text-gray-300">
-                    You scored {quizScore} out of {selectedCourse.quiz.questions.length} questions correctly ({Math.round((quizScore / selectedCourse.quiz.questions.length) * 100)}%).
+                    You scored {quizScore} / {selectedCourse.quiz.questions.length} ({Math.round((quizScore / selectedCourse.quiz.questions.length) * 100)}%).
                   </p>
-
                   <button
-                    onClick={closeQuiz}
-                    className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl text-xs transition"
+                    type="button"
+                    onClick={() => setShowQuiz(false)}
+                    className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-xl text-xs transition"
                   >
-                    Return to Academy Catalog
+                    Done
                   </button>
                 </div>
               )}

@@ -6,11 +6,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Home, TrendingUp, Cpu, Award, User, Menu, X, Bell, Shield, 
-  Settings, HelpCircle, BrainCircuit, Library, History, Sparkles, BookOpen,
+  Home, TrendingUp, Cpu, Award, Menu, X, Bell, Shield, 
+  Settings, BrainCircuit, Library, Sparkles, BookOpen,
   Briefcase, ArrowLeftRight, BarChart2
 } from 'lucide-react';
-import { useMainApp, useUpstoxStatus } from '../store';
+import { useMainApp } from '../store';
 import { BrandLogo } from './BrandLogo';
 import { SebiRiskModal } from './SebiRiskModal';
 
@@ -21,7 +21,7 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, onNavigate, children }) => {
-  const { user, notifications = [], theme, toggleTheme, isMarketOpen, enforceMarketHours, sebiFnoAccepted, confirmSebiRiskDisclosure } = useMainApp();
+  const { user, notifications = [], theme, toggleTheme, sebiFnoAccepted, confirmSebiRiskDisclosure } = useMainApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showSebiModal, setShowSebiModal] = useState(false);
   const [pendingTab, setPendingTab] = useState<string | null>(null);
@@ -49,90 +49,92 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
     }
   }, [confirmSebiRiskDisclosure, pendingTab, onNavigate]);
 
-  const navItems = React.useMemo(() => [
+  // Mobile bottom navigation tabs (5 core tabs)
+  const mobileNavItems = React.useMemo(() => [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },
     { key: 'positions', label: 'Positions', icon: <Briefcase className="w-5 h-5" /> },
     { key: 'equity', label: 'Equity', icon: <TrendingUp className="w-5 h-5" /> },
-    { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-5 h-5" /> },
-    { key: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
+    { key: 'fno', label: 'F&O', icon: <ArrowLeftRight className="w-5 h-5" /> },
+    { key: 'academy', label: 'Academy', icon: <BookOpen className="w-5 h-5" /> },
   ], []);
 
   const sidebarGroups = React.useMemo(() => [
     {
-      title: 'TRADING DESK',
+      title: 'TRADING',
       items: [
-        { key: 'dashboard', label: 'Home', icon: <Home className="w-4 h-4" /> },
+        { key: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
         { key: 'positions', label: 'Positions & Orders', icon: <Briefcase className="w-4 h-4" /> },
-        { key: 'equity', label: 'Equity Watchlist', icon: <TrendingUp className="w-4 h-4" /> },
-        { key: 'fno', label: 'Future & Option', icon: <ArrowLeftRight className="w-4 h-4" /> },
+        { key: 'equity', label: 'Stocks Watchlist', icon: <TrendingUp className="w-4 h-4" /> },
+        { key: 'fno', label: 'Futures & Options', icon: <ArrowLeftRight className="w-4 h-4" /> },
       ]
     },
     {
-      title: 'INTELLIGENCE',
+      title: 'ANALYSIS & AI',
       items: [
         { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
-        { key: 'journal', label: 'AI Journal', icon: <Library className="w-4 h-4" /> },
-        { key: 'ai-coach', label: 'AI Trade Coach', icon: <BrainCircuit className="w-4 h-4" /> },
-        { key: 'strategy', label: 'Strategy Builder', icon: <Cpu className="w-4 h-4" /> },
+        { key: 'journal', label: 'Trade Journal', icon: <Library className="w-4 h-4" /> },
+        { key: 'ai-coach', label: 'AI Coach', icon: <BrainCircuit className="w-4 h-4" /> },
+        { key: 'strategy', label: 'Strategy Lab', icon: <Cpu className="w-4 h-4" /> },
       ]
     },
     {
-      title: 'PORTFOLIO & LEARN',
+      title: 'LEARN & ACCOUNT',
       items: [
-        { key: 'risk-management', label: 'Risk Protection', icon: <Shield className="w-4 h-4" /> },
         { key: 'academy', label: 'Academy', icon: <BookOpen className="w-4 h-4" /> },
-        { key: 'profile', label: 'Subscription & Badges', icon: <Award className="w-4 h-4" /> },
-        { key: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+        { key: 'risk-management', label: 'Risk Calculator', icon: <Shield className="w-4 h-4" /> },
+        { key: 'profile', label: 'Profile & Settings', icon: <Award className="w-4 h-4" /> },
       ]
     }
   ], []);
+
+  const currentTabTitle: Record<string, string> = {
+    dashboard: 'Trading Dashboard',
+    positions: 'Positions & Orders',
+    equity: 'Stocks Watchlist',
+    fno: 'Futures & Options',
+    analytics: 'Performance Analytics',
+    journal: 'Trade Journal',
+    'ai-coach': 'AI Trading Coach',
+    strategy: 'Strategy Lab',
+    'risk-management': 'Risk & Sizing Calculator',
+    academy: 'Trading Academy',
+    profile: 'Account & Settings',
+    settings: 'Account & Settings',
+    trade: 'Order Execution'
+  };
 
   if (!user) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#060913] text-slate-800 dark:text-gray-100 flex flex-col md:flex-row">
-      {/* 1. Permanent Left Sidebar on Desktop Viewports */}
-      <aside className="hidden md:flex flex-col justify-between w-64 bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/5 p-6 shrink-0 h-screen sticky top-0 overflow-y-auto scrollbar-none">
-        <div className="space-y-6 flex-1 flex flex-col min-h-0">
-          {/* Logo Brand Header */}
+      {/* 1. Left Sidebar on Desktop Viewports */}
+      <aside className="hidden md:flex flex-col justify-between w-60 lg:w-64 bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/5 p-5 shrink-0 h-screen sticky top-0 overflow-y-auto scrollbar-none">
+        <div className="space-y-5 flex-1 flex flex-col min-h-0">
           <div className="flex items-center px-1">
             <BrandLogo size="md" />
           </div>
 
-          {/* User Brief card */}
-          <div className="bg-slate-50 dark:bg-[#12182d] border border-slate-200/60 dark:border-white/5 rounded-xl p-3 flex items-center justify-between shadow-sm">
-            <div className="space-y-0.5">
-              <span className="block text-xs font-bold text-slate-900 dark:text-white max-w-[120px] truncate">{user.name}</span>
-              <div className="flex items-center gap-2">
-                <span className="block text-[9px] text-slate-500 dark:text-gray-500 uppercase font-mono tracking-widest">Level {user.level}</span>
-                <span className="text-[10px] text-amber-600 dark:text-amber-500 font-bold font-mono shrink-0">🔥 {user.streak}d</span>
-              </div>
-            </div>
-            <span className="bg-blue-600/10 dark:bg-sky-500/10 text-blue-600 dark:text-sky-400 text-[8px] font-bold px-1.5 py-0.5 rounded-full">PRO</span>
-          </div>
-
-          {/* Nav list with categorized sections */}
+          {/* Nav list */}
           <nav className="space-y-5 overflow-y-auto pr-1 flex-1 scrollbar-none">
             {sidebarGroups.map((group, groupIdx) => (
               <div key={groupIdx} className="space-y-1">
-                <span className="block px-3 text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-gray-500 font-bold mb-1">
+                <span className="block px-3 text-[10px] font-mono uppercase tracking-wider text-slate-400 dark:text-gray-500 font-bold mb-1">
                   {group.title}
                 </span>
                 {group.items.map(item => {
-                  const isActive = currentTab === item.key;
+                  const isActive = currentTab === item.key || (item.key === 'profile' && currentTab === 'settings');
                   return (
                     <button
                       key={item.key}
                       onClick={() => handleNavClick(item.key)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                         isActive 
-                          ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500 shadow-sm' 
+                          ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500' 
                           : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
                       }`}
-                      style={{ touchAction: 'manipulation' }}
                     >
                       {item.icon}
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                     </button>
                   );
                 })}
@@ -141,91 +143,46 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
           </nav>
         </div>
 
-        {/* Footer controls on desktop */}
-        <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-white/5 text-xs text-slate-500 dark:text-gray-500">
+        {/* User Footer Card */}
+        <div className="pt-4 border-t border-slate-200 dark:border-white/5">
           <button
-            onClick={toggleTheme}
-            className="w-full flex items-center justify-between hover:text-slate-900 dark:hover:text-white transition"
+            onClick={() => handleNavClick('profile')}
+            className="w-full bg-slate-50 dark:bg-[#12182d] hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200/60 dark:border-white/5 rounded-xl p-3 flex items-center justify-between transition cursor-pointer text-left"
           >
-            <span>Active Theme</span>
-            <span className="capitalize text-blue-600 dark:text-sky-400 font-bold">{theme}</span>
+            <div className="min-w-0">
+              <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">{user.name}</span>
+              <span className="block text-[10px] text-slate-500 dark:text-gray-400 font-mono">
+                Lvl {user.level} • 🔥 {user.streak}d
+              </span>
+            </div>
+            <Settings className="w-4 h-4 text-slate-400 shrink-0" />
           </button>
-          <div className="text-[10px] uppercase font-mono text-slate-400 dark:text-gray-600 tracking-widest">
-            SIMULATED PLATFORM
-          </div>
         </div>
       </aside>
 
-      {/* 2. Responsive Content Container */}
+      {/* 2. Main Responsive Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#060913]">
-        {/* Top Header Row for desktop viewports */}
-        <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-8 py-4 sticky top-0 z-30 shadow-sm">
-          {/* Left section: Tab label and sub-label (visible on large viewports) */}
-          <div className="hidden lg:block shrink-0">
-            <h1 className="text-xs font-extrabold text-slate-950 dark:text-white uppercase font-mono tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-sky-400 animate-pulse" />
-              {currentTab === 'dashboard' ? 'Active Trading Desk' : 
-               currentTab === 'positions' ? 'Portfolio & Orders' : 
-               currentTab === 'equity' ? 'Equity watchlists' :
-               currentTab === 'fno' ? 'Future & Option Desk' :
-               currentTab === 'analytics' ? 'Performance Analytics' :
-               currentTab === 'journal' ? 'AI Trading Journal' :
-               currentTab === 'ai-coach' ? 'AI Coach Insights' :
-               currentTab === 'strategy' ? 'Advanced strategy builder' :
-               currentTab === 'risk-management' ? 'Capital Protection & Sizing' :
-               currentTab === 'academy' ? 'Academy learning suite' :
-               currentTab === 'profile' ? 'Subscription / Badges' : 'Settings Workspace'}
+        {/* Clean Desktop Top Header */}
+        <header className="hidden md:flex justify-between items-center bg-white dark:bg-[#0c1020] border-b border-slate-200 dark:border-white/5 px-6 lg:px-8 py-3.5 sticky top-0 z-30">
+          <div>
+            <h1 className="text-sm font-bold text-slate-900 dark:text-white">
+              {currentTabTitle[currentTab] || 'Trading Workspace'}
             </h1>
-            <p className="text-[9px] text-slate-500 dark:text-gray-400 font-sans mt-0.5 uppercase tracking-wide">
-              Simulated Real-Time Paper Trading & Analytics
-            </p>
           </div>
 
-          {/* Center section: Desktop top navigation bar */}
-          <nav className="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200/40 dark:border-white/5 shadow-inner max-w-sm lg:max-w-md xl:max-w-xl overflow-x-auto shrink-0 scrollbar-none">
-            {navItems.map(item => {
-              const isActive = currentTab === item.key;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => handleNavClick(item.key)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all duration-200 shrink-0 ${
-                    isActive
-                      ? 'bg-white dark:bg-[#12182d] text-blue-600 dark:text-sky-400 shadow-sm border border-slate-200/20 dark:border-white/5 scale-[1.02]'
-                      : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {React.cloneElement(item.icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 shrink-0' })}
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Right section: Balance, notifications, level indicators */}
           <div className="flex items-center gap-3">
-            {/* Live Virtual Capital Badge */}
-            <div className="flex flex-col items-end bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-3.5 py-1 shadow-sm">
-              <span className="text-[8px] text-slate-500 dark:text-gray-500 uppercase tracking-widest font-mono font-bold">Virtual Capital</span>
-              <span className="text-xs font-bold text-slate-950 dark:text-white font-mono mt-0.5">
-                ₹{user.virtualBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {/* Virtual Capital Pill */}
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-3.5 py-1.5">
+              <span className="text-[10px] text-slate-500 dark:text-gray-400 uppercase font-mono">Virtual Capital</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
+                ₹{user.virtualBalance.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </span>
             </div>
 
-            {/* Streak & Level Badges with consistent styling */}
-            <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
-              <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/15 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
-                🔥 {user.streak} Days
-              </div>
-              <div className="flex items-center gap-1 bg-blue-500/10 dark:bg-sky-500/10 border border-blue-500/15 dark:border-sky-500/15 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-blue-700 dark:text-sky-400 font-mono shadow-sm whitespace-nowrap shrink-0">
-                Lvl {user.level}
-              </div>
-            </div>
-
-            {/* Notification Indicator */}
+            {/* Notifications */}
             <button
-              onClick={() => handleNavClick('settings')}
-              className="relative p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-950 dark:hover:text-white transition hover:scale-105"
+              onClick={() => onNavigate('profile', 'notifications')}
+              className="relative p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -234,128 +191,115 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
               )}
             </button>
 
-            {/* Global Theme Toggle */}
+            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-950 dark:hover:text-white transition hover:scale-105"
-              title="Toggle theme mode"
+              className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
+              title="Toggle theme"
             >
               <Sparkles className="w-4 h-4" />
             </button>
           </div>
         </header>
 
-        {/* Top Header Row for mobile/tablet grids */}
-        <header className="md:hidden flex justify-between items-center bg-white dark:bg-[#0c1020]/90 px-3.5 py-3 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40 shadow-sm">
+        {/* Mobile/Tablet Top Header */}
+        <header className="md:hidden flex justify-between items-center bg-white dark:bg-[#0c1020] px-3.5 py-3 border-b border-slate-200 dark:border-white/5 sticky top-0 z-40">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="p-2 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
-              aria-label="Open Navigation Menu"
+              className="p-2 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-300"
+              aria-label="Open Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center ml-0.5">
-              <BrandLogo size="sm" />
-            </div>
+            <BrandLogo size="sm" />
           </div>
 
-          <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
-            {/* Mobile Virtual Capital Badge */}
-            <div className="flex flex-col items-end bg-slate-50 dark:bg-[#12182d] border border-slate-200/80 dark:border-white/5 rounded-xl px-2.5 py-1 shadow-sm">
-              <span className="text-[7px] text-slate-500 dark:text-gray-400 uppercase tracking-wider font-mono font-bold">Capital</span>
-              <span className="text-[11px] font-bold text-slate-950 dark:text-white font-mono leading-none">
+          <div className="flex items-center gap-2">
+            <div className="bg-slate-50 dark:bg-[#12182d] border border-slate-200 dark:border-white/5 rounded-xl px-2.5 py-1 text-right">
+              <span className="text-[8px] text-slate-400 uppercase font-mono block leading-none">Capital</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
                 ₹{(user.virtualBalance / 1000).toFixed(0)}k
               </span>
             </div>
-            {/* Streak Indicator */}
-            <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-xl border border-amber-500/15 text-[10px] font-bold text-amber-700 dark:text-amber-500 font-mono shadow-sm whitespace-nowrap shrink-0">
-              🔥 {user.streak}d
-            </div>
-            {/* Level indicator */}
-            <div className="bg-blue-500/10 dark:bg-sky-500/10 border border-blue-500/15 dark:border-sky-500/15 text-[10px] font-bold text-blue-700 dark:text-sky-400 px-2 py-1 rounded-xl font-mono shadow-sm whitespace-nowrap shrink-0">
-              L{user.level}
-            </div>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400"
+              aria-label="Toggle theme"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
           </div>
         </header>
 
-        {/* Main interactive window viewport frame */}
-        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full">
+        {/* Main Viewport */}
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full overflow-x-hidden">
           {children}
         </main>
 
-        {/* 3. Bottom Navigation bar on Mobile Viewports */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0c1020]/95 border-t border-slate-200 dark:border-white/5  px-1 py-2 pb-safe flex justify-around items-center z-40 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-          {navItems.map(item => {
+        {/* 3. Mobile Bottom Bar */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0c1020] border-t border-slate-200 dark:border-white/5 px-1 py-1.5 pb-safe flex justify-around items-center z-40">
+          {mobileNavItems.map(item => {
             const isActive = currentTab === item.key;
-
             return (
               <button
                 key={item.key}
                 onClick={() => handleNavClick(item.key)}
                 className={`flex-1 flex flex-col items-center justify-center gap-1 py-1.5 min-h-[44px] rounded-xl transition ${
-                  isActive ? 'text-blue-600 dark:text-sky-400 font-bold' : 'text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
+                  isActive ? 'text-blue-600 dark:text-sky-400 font-bold' : 'text-slate-500 dark:text-gray-400'
                 }`}
-                style={{ touchAction: 'manipulation' }}
               >
-                <div className={`${isActive ? 'scale-110 text-blue-600 dark:text-sky-400' : ''} transition-transform`}>
-                  {item.icon}
-                </div>
-                <span className="text-[10px] font-bold tracking-wide font-sans">{item.label}</span>
+                {item.icon}
+                <span className="text-[10px] font-bold">{item.label}</span>
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* 4. Slide-out Navigation Drawer on Mobile (accessible via hamburger) */}
+      {/* 4. Mobile Slide-out Drawer */}
       <AnimatePresence>
         {isDrawerOpen && (
           <div className="fixed inset-0 z-50 md:hidden flex">
-            {/* Backdrop opacity */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
               onClick={() => setIsDrawerOpen(false)}
-              className="fixed inset-0 bg-black/60 z-50 cursor-pointer"
+              className="fixed inset-0 bg-black/60 z-50"
             />
 
-            {/* Drawer Sliding body */}
             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative w-80 max-w-[85vw] bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/10 h-full p-5 flex flex-col justify-between shadow-2xl overflow-y-auto transform-gpu z-50"
+              transition={{ duration: 0.2 }}
+              className="relative w-72 max-w-[82vw] bg-white dark:bg-[#0c1020] border-r border-slate-200 dark:border-white/10 h-full p-5 flex flex-col justify-between shadow-2xl overflow-y-auto z-50"
             >
               <div className="space-y-5">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center">
-                    <BrandLogo size="sm" />
-                  </div>
+                  <BrandLogo size="sm" />
                   <button
                     onClick={() => setIsDrawerOpen(false)}
-                    className="p-2 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
+                    className="p-2 bg-slate-100 dark:bg-white/5 rounded-xl text-slate-500 dark:text-gray-400"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-[#12182d] border border-slate-200 dark:border-white/5 rounded-xl p-3 flex items-center justify-between shadow-sm">
-                  <div className="space-y-0.5">
-                    <span className="block text-xs font-bold text-slate-900 dark:text-white max-w-[140px] truncate">{user.name}</span>
-                    <span className="block text-[9px] text-slate-500 dark:text-gray-500 font-mono">Level {user.level} • ₹{user.virtualBalance.toLocaleString('en-IN')}</span>
+                <div className="bg-slate-50 dark:bg-[#12182d] border border-slate-200 dark:border-white/5 rounded-xl p-3 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white truncate">{user.name}</span>
+                    <span className="block text-[10px] text-slate-500 dark:text-gray-400 font-mono">
+                      Lvl {user.level} • ₹{user.virtualBalance.toLocaleString('en-IN')}
+                    </span>
                   </div>
-                  <span className="bg-blue-600/10 dark:bg-sky-500/10 text-blue-600 dark:text-sky-400 text-[9px] font-bold px-2 py-0.5 rounded-full">PRO</span>
                 </div>
 
-                {/* Drawer list */}
-                <nav className="space-y-4 overflow-y-auto pr-1 flex-1 scrollbar-none max-h-[calc(100vh-230px)]">
+                <nav className="space-y-4">
                   {sidebarGroups.map((group, groupIdx) => (
                     <div key={groupIdx} className="space-y-1">
-                      <span className="block px-3 text-[9px] font-mono uppercase tracking-widest text-slate-400 dark:text-gray-500 font-bold mb-1">
+                      <span className="block px-3 text-[10px] font-mono uppercase tracking-wider text-slate-400 dark:text-gray-500 font-bold mb-1">
                         {group.title}
                       </span>
                       {group.items.map(item => {
@@ -364,35 +308,20 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
                           <button
                             key={item.key}
                             onClick={() => handleNavClick(item.key)}
-                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 min-h-[44px] rounded-xl text-xs font-semibold transition ${
+                            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                               isActive 
                                 ? 'bg-blue-50 text-blue-600 dark:bg-sky-500/10 dark:text-sky-400 font-bold border-l-2 border-blue-600 dark:border-sky-500' 
-                                : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                                : 'text-slate-600 dark:text-gray-300'
                             }`}
-                            style={{ touchAction: 'manipulation' }}
                           >
                             {item.icon}
-                            {item.label}
+                            <span>{item.label}</span>
                           </button>
                         );
                       })}
                     </div>
                   ))}
                 </nav>
-              </div>
-
-              {/* Drawer footer */}
-              <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-white/5 text-xs text-slate-500 dark:text-gray-500">
-                <button
-                  onClick={toggleTheme}
-                  className="w-full flex items-center justify-between hover:text-slate-900 dark:hover:text-white transition"
-                >
-                  <span>Toggle Visual Mode</span>
-                  <span className="capitalize text-blue-600 dark:text-sky-400 font-bold">{theme}</span>
-                </button>
-                <div className="text-[10px] uppercase font-mono text-slate-400 dark:text-gray-600 tracking-widest text-center">
-                  SIMULATED PLATFORM • NO RISK
-                </div>
               </div>
             </motion.div>
           </div>

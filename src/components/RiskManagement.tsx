@@ -4,48 +4,36 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import { useMainApp, useMarketData } from '../store';
 import { 
-  Shield, Calculator, Sliders, Info, Sparkles, TrendingUp, 
-  Coins, AlertTriangle, ArrowRight, RefreshCw, CheckCircle2, ShieldAlert
+  Shield, Calculator, ArrowRight, RefreshCw, CheckCircle2
 } from 'lucide-react';
-import { Instrument } from '../types';
 
 export const RiskManagement: React.FC = React.memo(() => {
   const { user } = useMainApp();
   const { instruments, futures, setSelectedAssetBySymbol } = useMarketData();
 
-  // Available assets
   const allAssets = React.useMemo(() => [...(instruments || []), ...(futures || [])], [instruments, futures]);
   
-  // State variables for position size calculator
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   const [entryPrice, setEntryPrice] = useState<number>(100);
   const [customBalance, setCustomBalance] = useState<number>(user?.virtualBalance || 500000);
   const [riskPercent, setRiskPercent] = useState<number>(1);
   const [stopLossMode, setStopLossMode] = useState<'price' | 'percent'>('percent');
-  const [stopLossValue, setStopLossValue] = useState<number>(2); // 2% or ₹ price
+  const [stopLossValue, setStopLossValue] = useState<number>(2);
   const [targetPrice, setTargetPrice] = useState<string>('');
 
-  // Drawdown Simulator state
-  const [simRiskPercent, setSimRiskPercent] = useState<number>(2);
-  const [simBalance, setSimBalance] = useState<number>(100000);
-
-  // Ref for allAssets to avoid re-triggering effects when asset prices tick live
   const allAssetsRef = React.useRef(allAssets);
   useEffect(() => {
     allAssetsRef.current = allAssets;
   }, [allAssets]);
 
-  // Set default selected symbol if none
   useEffect(() => {
     if (!selectedSymbol && allAssets.length > 0) {
       setSelectedSymbol(prev => prev || (allAssets[0]?.symbol || ''));
     }
   }, [selectedSymbol, allAssets.length]);
 
-  // Sync entry price and stop loss value when selectedSymbol or stopLossMode changes
   useEffect(() => {
     if (!selectedSymbol) return;
     const asset = allAssetsRef.current.find(a => a.symbol === selectedSymbol);
@@ -61,7 +49,6 @@ export const RiskManagement: React.FC = React.memo(() => {
 
   if (!user) return null;
 
-  // Calculations for position size
   const totalBalance = customBalance || user.virtualBalance;
   const maxRiskCapital = (totalBalance * riskPercent) / 100;
   
@@ -78,76 +65,37 @@ export const RiskManagement: React.FC = React.memo(() => {
 
   const recommendedQuantity = riskPerShare > 0 ? Math.floor(maxRiskCapital / riskPerShare) : 0;
   const totalCapitalRequired = recommendedQuantity * entryPrice;
-  const leverageRatio = totalBalance > 0 ? (totalCapitalRequired / totalBalance).toFixed(2) : '0.00';
 
-  // Risk to reward calculation
-  let riskRewardRatio = 'N/A';
+  let riskRewardRatio = '—';
   const targetNum = parseFloat(targetPrice);
   if (targetNum && targetNum > 0 && riskPerShare > 0) {
     const rewardPerShare = Math.abs(targetNum - entryPrice);
     riskRewardRatio = `1 : ${(rewardPerShare / riskPerShare).toFixed(1)}`;
   }
 
-  // Pre-configured trade jump
   const handleInitiateTrade = () => {
     setSelectedAssetBySymbol(selectedSymbol);
-    // We can save calculations in localStorage or pass them through to TradeScreen.
-    // Let's store in localStorage for TradeScreen to pick up on mount!
     localStorage.setItem('risk_calc_qty', recommendedQuantity.toString());
     localStorage.setItem('risk_calc_sl', finalStopLossPrice.toFixed(2));
-    if (targetPrice) localStorage.setItem('risk_calc_target', targetNum.toFixed(2));
+    if (targetPrice && targetNum > 0) localStorage.setItem('risk_calc_target', targetNum.toFixed(2));
     
-    // Trigger navigation by searching for navigation callback or setting state (via dispatch / click)
-    // We can simulate navigating to 'trade' tab by triggering a custom window event
     const event = new CustomEvent('navigate_tab', { detail: 'trade' });
     window.dispatchEvent(event);
   };
 
-  // Drawdown math
-  const getDrawdownSeries = (risk: number, startBal: number) => {
-    let bal = startBal;
-    const series = [];
-    for (let i = 1; i <= 10; i++) {
-      const lost = bal * (risk / 100);
-      bal -= lost;
-      series.push({ trade: i, remaining: bal, lost });
-    }
-    return series;
-  };
-
-  const simSeries = getDrawdownSeries(simRiskPercent, simBalance);
-  const totalDrawdownPercent = (((simBalance - simSeries[9].remaining) / simBalance) * 100).toFixed(1);
-
   return (
-    <div className="space-y-8 w-full">
-      {/* Title Header Banner */}
-      <div className="bg-gradient-to-r from-[#0d1527] to-[#0c1020] border border-white/5 rounded-2xl p-6 relative overflow-hidden shadow-xl">
-        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-          <Shield className="w-40 h-40 text-sky-400" />
-        </div>
-        
-        <div className="max-w-2xl space-y-2">
-          <div className="flex items-center gap-2 bg-sky-500/10 text-sky-400 border border-sky-500/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase font-mono tracking-wider w-fit">
-            <ShieldAlert className="w-3.5 h-3.5" /> Capital Protection Suite
-          </div>
-          <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Risk Management & Position Sizing</h2>
-          <p className="text-xs text-gray-400 leading-relaxed">
-            Professional quantitative models to insulate your capital from ruin. Keep emotional revenge sizing at bay by standardizing risk coefficients based on your active equity curves.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: POSITION SIZE CALCULATOR */}
-        <div className="lg:col-span-7 bg-[#0b0e14] border border-white/5 rounded-2xl p-6 space-y-6 shadow-xl">
-          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+    <div className="space-y-6 max-w-5xl mx-auto w-full pb-20">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Position Size Calculator */}
+        <div className="lg:col-span-8 bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-sky-400 flex items-center justify-center">
                 <Calculator className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Dynamic Sizing Assistant</h3>
-                <p className="text-[10px] text-gray-500">Calculate recommended exposure in real-time</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Position Size Calculator</h3>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400">Calculate exact share quantity based on your stop-loss and risk limit</p>
               </div>
             </div>
             <button 
@@ -158,101 +106,85 @@ export const RiskManagement: React.FC = React.memo(() => {
                 setStopLossMode('percent');
                 setTargetPrice('');
               }}
-              className="p-1.5 hover:bg-white/5 text-gray-400 hover:text-white rounded-lg transition"
-              title="Reset parameters"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-xl transition cursor-pointer"
+              title="Reset calculator"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Input: Asset Selection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">Select Asset</label>
+              <label className="text-[10px] font-mono text-slate-500 dark:text-gray-400 uppercase block">Instrument</label>
               <select
-                value={selectedSymbol ?? ''}
+                value={selectedSymbol}
                 onChange={e => setSelectedSymbol(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 transition"
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
               >
                 {allAssets.map(asset => (
-                  <option key={asset.symbol} value={asset.symbol} className="bg-[#0c1020]">
+                  <option key={asset.symbol} value={asset.symbol} className="bg-white dark:bg-[#0c1020]">
                     {asset.symbol} (₹{asset.ltp.toFixed(2)})
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Input: Account Balance */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block flex justify-between">
-                <span>Trading Account Balance</span>
+              <label className="text-[10px] font-mono text-slate-500 dark:text-gray-400 uppercase flex justify-between">
+                <span>Account Capital (₹)</span>
                 <button 
                   onClick={() => setCustomBalance(user.virtualBalance)}
-                  className="text-sky-400 hover:underline text-[9px]"
+                  className="text-blue-600 dark:text-sky-400 hover:underline text-[10px]"
                 >
-                  Use Live
+                  Use Current
                 </button>
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-3.5 text-xs text-gray-500 font-mono">₹</span>
-                <input
-                  type="number"
-                  value={customBalance ?? ''}
-                  onChange={e => setCustomBalance(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
+              <input
+                type="number"
+                value={customBalance}
+                onChange={e => setCustomBalance(parseFloat(e.target.value) || 0)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-blue-500"
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Input: Risk Per Trade % */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block flex justify-between">
-                <span>Risk Per Trade: {riskPercent}%</span>
+              <label className="text-[10px] font-mono text-slate-500 dark:text-gray-400 uppercase block">
+                Risk Per Trade ({riskPercent}%)
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {[0.5, 1, 1.5, 2].map(p => (
                   <button
                     key={p}
                     onClick={() => setRiskPercent(p)}
-                    className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
                       riskPercent === p 
-                        ? 'bg-sky-500 text-white shadow' 
-                        : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-400'
                     }`}
                   >
                     {p}%
                   </button>
                 ))}
               </div>
-              <input
-                type="range"
-                min="0.25"
-                max="10"
-                step="0.25"
-                value={riskPercent ?? 1}
-                onChange={e => setRiskPercent(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-sky-500 mt-2"
-              />
             </div>
 
-            {/* Input: Stop Loss Toggle */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">Stop-Loss Config</label>
-              <div className="grid grid-cols-2 bg-white/5 rounded-xl p-1 border border-white/5">
+              <label className="text-[10px] font-mono text-slate-500 dark:text-gray-400 uppercase block">Stop-Loss Type</label>
+              <div className="grid grid-cols-2 bg-slate-100 dark:bg-white/5 rounded-xl p-1">
                 <button
                   onClick={() => setStopLossMode('percent')}
-                  className={`py-1 text-[10px] font-bold rounded-lg transition ${
-                    stopLossMode === 'percent' ? 'bg-white/5 text-white shadow' : 'text-gray-500 hover:text-white'
+                  className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                    stopLossMode === 'percent' ? 'bg-white dark:bg-[#12182d] text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
                   }`}
                 >
                   Percent (%)
                 </button>
                 <button
                   onClick={() => setStopLossMode('price')}
-                  className={`py-1 text-[10px] font-bold rounded-lg transition ${
-                    stopLossMode === 'price' ? 'bg-white/5 text-white shadow' : 'text-gray-500 hover:text-white'
+                  className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
+                    stopLossMode === 'price' ? 'bg-white dark:bg-[#12182d] text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
                   }`}
                 >
                   Price (₹)
@@ -261,177 +193,96 @@ export const RiskManagement: React.FC = React.memo(() => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Input: Stop Loss Value */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">
-                {stopLossMode === 'percent' ? 'Stop-Loss percentage below Entry' : 'Stop-Loss Price Trigger (₹)'}
+              <label className="text-[10px] font-mono text-slate-500 dark:text-gray-400 uppercase block">
+                {stopLossMode === 'percent' ? 'Stop-Loss Distance (%)' : 'Stop-Loss Price (₹)'}
               </label>
-              <div className="relative">
-                {stopLossMode === 'percent' && (
-                  <span className="absolute right-3.5 top-3.5 text-xs text-gray-500 font-mono">%</span>
-                )}
-                {stopLossMode === 'price' && (
-                  <span className="absolute left-3.5 top-3.5 text-xs text-gray-500 font-mono">₹</span>
-                )}
-                <input
-                  type="number"
-                  step={stopLossMode === 'percent' ? '0.25' : '0.1'}
-                  value={stopLossValue ?? ''}
-                  onChange={e => setStopLossValue(parseFloat(e.target.value) || 0)}
-                  className={`w-full bg-white/5 border border-white/10 rounded-xl py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono ${
-                    stopLossMode === 'price' ? 'pl-8 pr-4' : 'px-4'
-                  }`}
-                />
-              </div>
+              <input
+                type="number"
+                step={stopLossMode === 'percent' ? '0.25' : '0.5'}
+                value={stopLossValue}
+                onChange={e => setStopLossValue(parseFloat(e.target.value) || 0)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-blue-500"
+              />
             </div>
 
-            {/* Input: Optional Profit Target */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-mono text-gray-400 uppercase tracking-widest block">Target Profit Price (Optional ₹)</label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-3.5 text-xs text-gray-500 font-mono">₹</span>
-                <input
-                  type="number"
-                  placeholder="e.g. ₹ price"
-                  value={targetPrice ?? ''}
-                  onChange={e => setTargetPrice(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
-                />
-              </div>
+              <label className="text-[10px] font-mono text-slate-500 dark:text-gray-400 uppercase block">Target Price (Optional ₹)</label>
+              <input
+                type="number"
+                placeholder={`e.g. ${(entryPrice * 1.04).toFixed(0)}`}
+                value={targetPrice}
+                onChange={e => setTargetPrice(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:border-blue-500"
+              />
             </div>
           </div>
 
-          {/* Sizing Outputs Panel */}
-          <div className="bg-[#12182d] border border-white/5 rounded-2xl p-5 space-y-4 shadow-inner">
-            <h4 className="text-xs font-bold text-white uppercase font-mono tracking-wider border-b border-white/5 pb-2">RECOMMENDED ALLOCATION</h4>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <span className="text-[9px] text-gray-400 font-mono uppercase block">Max Risk Capital</span>
-                <span className="text-sm font-bold text-red-400 font-mono">₹{maxRiskCapital.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[9px] text-gray-400 font-mono uppercase block">Risk Per Share</span>
-                <span className="text-sm font-bold text-white font-mono">₹{riskPerShare.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[9px] text-gray-400 font-mono uppercase block">Target Qty</span>
-                <span className="text-sm font-bold text-sky-400 font-mono">{recommendedQuantity} <span className="text-[10px] text-gray-500 font-sans">units</span></span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[9px] text-gray-400 font-mono uppercase block">Total Margin Req.</span>
-                <span className="text-sm font-bold text-emerald-400 font-mono">₹{totalCapitalRequired.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/5 pt-3 text-[11px] text-gray-400">
-              <div className="flex justify-between items-center bg-white/2 p-2 rounded-lg">
-                <span>Account Leverage Ratio:</span>
-                <span className={`font-mono font-bold ${parseFloat(leverageRatio) > 1.5 ? 'text-amber-500' : 'text-gray-300'}`}>
-                  {leverageRatio}x
+          {/* Results Summary */}
+          <div className="bg-slate-50 dark:bg-[#12182d] border border-slate-200/70 dark:border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <span className="text-[10px] text-slate-400 font-mono uppercase block">Recommended Qty</span>
+                <span className="text-base font-bold text-blue-600 dark:text-sky-400 font-mono">
+                  {recommendedQuantity} <span className="text-[10px] font-sans text-slate-400">shares</span>
                 </span>
               </div>
-              <div className="flex justify-between items-center bg-white/2 p-2 rounded-lg">
-                <span>Calculated R:R Ratio:</span>
-                <span className="font-mono font-bold text-emerald-400">{riskRewardRatio}</span>
+              <div>
+                <span className="text-[10px] text-slate-400 font-mono uppercase block">Max Risk (₹)</span>
+                <span className="text-base font-bold text-red-500 font-mono">
+                  ₹{maxRiskCapital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-mono uppercase block">Capital Needed</span>
+                <span className="text-base font-bold text-slate-900 dark:text-white font-mono">
+                  ₹{totalCapitalRequired.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 font-mono uppercase block">Reward : Risk</span>
+                <span className="text-base font-bold text-emerald-500 font-mono">{riskRewardRatio}</span>
               </div>
             </div>
           </div>
 
           <button
             onClick={handleInitiateTrade}
-            className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-sky-500/15 group"
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
           >
-            LAUNCH PRE-SIZED TICKET <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            Trade {selectedSymbol} with {recommendedQuantity} Qty <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Right Column: RUIN MATHEMATICS & DRILL DOWNS */}
-        <div className="lg:col-span-5 space-y-8">
-          {/* DRAWDOWN SIMULATOR */}
-          <div className="bg-[#0b0e14] border border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" /> Ruin Probability Simulator
-              </h3>
-              <p className="text-[10px] text-gray-400 leading-relaxed">
-                See how a streak of 10 consecutive trading losses drains your equity curve depending on your trade risk.
-              </p>
-            </div>
+        {/* Essential Risk Rules */}
+        <div className="lg:col-span-4 bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Shield className="w-4 h-4 text-emerald-500" /> Core Risk Rules
+          </h3>
 
-            <div className="space-y-4 bg-white/2 rounded-xl p-3 border border-white/5">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">Simulate Trade Risk:</span>
-                <span className="font-bold text-amber-500 font-mono">{simRiskPercent}% per trade</span>
-              </div>
-              <div className="flex gap-1.5">
-                {[1, 2, 5, 10].map(val => (
-                  <button
-                    key={val}
-                    onClick={() => setSimRiskPercent(val)}
-                    className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition ${
-                      simRiskPercent === val 
-                        ? 'bg-amber-500 text-white shadow' 
-                        : 'bg-white/5 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {val}%
-                  </button>
-                ))}
+          <div className="space-y-3 text-xs">
+            <div className="flex items-start gap-2.5 bg-slate-50 dark:bg-white/[0.02] p-3 rounded-xl border border-slate-100 dark:border-white/5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white">1% – 2% Max Risk</h4>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Never risk more than 2% of your total account balance on a single trade.</p>
               </div>
             </div>
 
-            {/* List of losses */}
-            <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-              {simSeries.map(item => (
-                <div key={item.trade} className="flex justify-between items-center text-[10px] border-b border-white/3 py-1 font-mono">
-                  <span className="text-gray-500">Loss #{item.trade}</span>
-                  <span className="text-red-400">-₹{item.lost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                  <span className="text-gray-300">₹{item.remaining.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                </div>
-              ))}
+            <div className="flex items-start gap-2.5 bg-slate-50 dark:bg-white/[0.02] p-3 rounded-xl border border-slate-100 dark:border-white/5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white">Always Set a Stop-Loss</h4>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Define your exit price before entering a trade to prevent emotional losses.</p>
+              </div>
             </div>
 
-            <div className="bg-red-500/10 border border-red-500/15 rounded-xl p-3 flex justify-between items-center">
-              <span className="text-[10px] text-red-300 uppercase tracking-wider font-bold">10 Loss Total Drawdown:</span>
-              <span className="text-sm font-bold font-mono text-red-400">{totalDrawdownPercent}%</span>
-            </div>
-            
-            <p className="text-[9px] text-gray-500 font-sans leading-relaxed">
-              *With <span className="text-red-400 font-semibold font-mono">10%</span> trade risk, a streak of 10 losses wipes out <span className="text-red-400 font-semibold font-mono">65.1%</span> of your starting account. With <span className="text-emerald-400 font-semibold font-mono">1%</span>, you only lose <span className="text-emerald-400 font-semibold font-mono">9.6%</span>, keeping your drawdown shallow and easy to recover.
-            </p>
-          </div>
-
-          {/* RISK LAWS / CORE PRINCIPLES CARD */}
-          <div className="bg-[#0b0e14] border border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Shield className="w-4 h-4 text-emerald-400" /> Capital Preservation Axioms
-            </h3>
-
-            <div className="space-y-3 text-xs leading-relaxed">
-              <div className="flex items-start gap-2.5 bg-white/2 p-2.5 rounded-xl border border-white/5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-white">The 2% Golden Ceiling</h4>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Never risk more than 2% of capital on any trade. For beginner accounts, a maximum risk of 1% is strongly recommended.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 bg-white/2 p-2.5 rounded-xl border border-white/5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-white">No Stop-Loss, No Trade</h4>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Always establish stop-losses on the chart before taking entry. A trade without a designated exit plan is gambling, not trading.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5 bg-white/2 p-2.5 rounded-xl border border-white/5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-white">Minimum 1:2 Risk/Reward Ratio</h4>
-                  <p className="text-[10px] text-gray-400 mt-0.5">The reward potential must always be at least twice the stop loss amount. This enables a profitable strategy even with a sub-50% win rate.</p>
-                </div>
+            <div className="flex items-start gap-2.5 bg-slate-50 dark:bg-white/[0.02] p-3 rounded-xl border border-slate-100 dark:border-white/5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white">Aim for 1:2 Risk-Reward</h4>
+                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Target at least twice your risk distance so you stay profitable even with a 45% win rate.</p>
               </div>
             </div>
           </div>
