@@ -157,10 +157,19 @@ export interface Strategy {
     dataFeedSource?: string;
     totalTrades?: number;
     profitableTrades?: number;
+    avgWin?: number;
+    avgLoss?: number;
+    expectancy?: number;
     initialBalance?: number;
     finalBalance?: number;
     totalFrictionFees?: number;
     testedSymbol?: string;
+    aiOptimization?: {
+      suggestedStopLoss: number;
+      suggestedTakeProfit: number;
+      expectedWinRateBoost: string;
+      summary: string;
+    };
   };
   backtestTrades?: {
     entryDate: string;
