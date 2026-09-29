@@ -2635,15 +2635,20 @@ app.get("/api/market/stream", (req, res) => {
 
   async function fetchUpstoxCandlesWithRetry(upstoxSymbol: string, upstoxInterval: string, isDaily: boolean, token: string, frontendSymbol?: string) {
     const urlsToTry: string[] = [];
-    
-    // Prepare dates for daily historical candles
+
+    // Upstox v2 strictly accepts only '1minute' or '30minute' for intraday, and 'day'/'week'/'month' for daily+
+    const validInterval = isDaily
+      ? "day"
+      : (upstoxInterval === "30minute" ? "30minute" : "1minute");
+
+    // Prepare dates for historical candles
     const toDateObj = new Date();
     const toDate = toDateObj.toISOString().split('T')[0];
     const fromDateObj = new Date();
     fromDateObj.setDate(fromDateObj.getDate() - 365);
     const fromDate = fromDateObj.toISOString().split('T')[0];
-    
-    // Format dates for a safe past date (e.g. if today is a weekend and causes Bad Request)
+
+    // Format dates for a safe past trading date (if today is Saturday/Sunday)
     const safeToDateObj = new Date();
     const dayOfWeek = safeToDateObj.getDay();
     if (dayOfWeek === 6) {
@@ -2652,222 +2657,114 @@ app.get("/api/market/stream", (req, res) => {
       safeToDateObj.setDate(safeToDateObj.getDate() - 2); // Friday
     }
     const safeToDate = safeToDateObj.toISOString().split('T')[0];
-    
+
     const safeFromDateObj = new Date(safeToDateObj);
     safeFromDateObj.setDate(safeFromDateObj.getDate() - 365);
     const safeFromDate = safeFromDateObj.toISOString().split('T')[0];
 
-    const encodedSymbol = encodeURIComponent(upstoxSymbol);
-    const unencodedSymbol = upstoxSymbol; // literal "NSE_EQ|INE296A01024"
-    const colonSymbol = upstoxSymbol.replace("|", ":");
-    const encodedColonSymbol = encodeURIComponent(colonSymbol);
+    // Recent 5-day window for historical intraday fallback when market is closed / weekend
+    const intradayFromDateObj = new Date(safeToDateObj);
+    intradayFromDateObj.setDate(intradayFromDateObj.getDate() - 5);
+    const intradayFromDate = intradayFromDateObj.toISOString().split('T')[0];
+
+    // Upstox v2 requires pipe '|' (URL-encoded as %7C), never colon ':'
+    const normalizedSymbol = upstoxSymbol.replace(":", "|");
+    const encodedSymbol = encodeURIComponent(normalizedSymbol);
 
     if (isDaily) {
-      // 1. Standard: encoded, toDate first
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
-      // 2. Encoded, fromDate first
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}/${fromDate}/${toDate}`);
-      // 3. Literal pipe, toDate first
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
-      // 4. Literal pipe, fromDate first
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}/${fromDate}/${toDate}`);
-      
-      // 5. Colon-separated formats
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedColonSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${colonSymbol}/${upstoxInterval}/${toDate}/${fromDate}`);
-      
-      // 6. Safe dates (excluding weekend)
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedColonSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${colonSymbol}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${validInterval}/${toDate}/${fromDate}`);
+      if (safeToDate !== toDate) {
+        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${validInterval}/${safeToDate}/${safeFromDate}`);
+      }
     } else {
-      // Intraday
-      // 1. Standard: encoded
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${encodedSymbol}/${upstoxInterval}`);
-      // 2. Literal pipe
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${unencodedSymbol}/${upstoxInterval}`);
-      // 3. Colon-separated intraday
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${encodedColonSymbol}/${upstoxInterval}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${colonSymbol}/${upstoxInterval}`);
-      
-      // 4. Without "intraday" path segment
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${upstoxInterval}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${unencodedSymbol}/${upstoxInterval}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedColonSymbol}/${upstoxInterval}`);
-      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${colonSymbol}/${upstoxInterval}`);
-    }
-
-    // Try alternate symbol-based instrument key if provided (e.g. NSE_EQ|BAJFINANCE instead of ISIN)
-    let alternateSymbolKey = "";
-    if (frontendSymbol) {
-      const cleanSym = frontendSymbol.replace("-", " ").trim();
-      if (cleanSym.includes("NIFTY") || cleanSym.includes("SENSEX")) {
-        // Index
-        if (cleanSym === "NIFTY 50") alternateSymbolKey = "NSE_INDEX|Nifty 50";
-        else if (cleanSym === "BANKNIFTY") alternateSymbolKey = "NSE_INDEX|Nifty Bank";
-        else if (cleanSym === "FINNIFTY") alternateSymbolKey = "NSE_INDEX|Nifty Fin Service";
-        else if (cleanSym === "MIDCPNIFTY") alternateSymbolKey = "NSE_INDEX|Nifty Midcap 50";
-        else if (cleanSym === "SENSEX") alternateSymbolKey = "BSE_INDEX|SENSEX";
-      } else {
-        // Equity
-        const mappedSym = cleanSym === "TATAMOTORS" ? "TMPV" : cleanSym;
-        alternateSymbolKey = `NSE_EQ|${mappedSym}`;
-      }
-    }
-
-    if (alternateSymbolKey && alternateSymbolKey !== upstoxSymbol) {
-      const altEncoded = encodeURIComponent(alternateSymbolKey);
-      const altUnencoded = alternateSymbolKey;
-      const altColon = alternateSymbolKey.replace("|", ":");
-      const altEncodedColon = encodeURIComponent(altColon);
-      
-      if (isDaily) {
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncoded}/${upstoxInterval}/${toDate}/${fromDate}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altUnencoded}/${upstoxInterval}/${toDate}/${fromDate}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncodedColon}/${upstoxInterval}/${toDate}/${fromDate}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altColon}/${upstoxInterval}/${toDate}/${fromDate}`);
-        
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altUnencoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncodedColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-      } else {
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altEncoded}/${upstoxInterval}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altUnencoded}/${upstoxInterval}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altEncodedColon}/${upstoxInterval}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${altColon}/${upstoxInterval}`);
-        
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncoded}/${upstoxInterval}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altUnencoded}/${upstoxInterval}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altEncodedColon}/${upstoxInterval}`);
-        urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${altColon}/${upstoxInterval}`);
-      }
+      // 1. Live intraday endpoint
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${encodedSymbol}/${validInterval}`);
+      // 2. Historical intraday endpoint with valid date range (for weekends / after-hours when intraday is empty)
+      urlsToTry.push(`https://api.upstox.com/v2/historical-candle/${encodedSymbol}/${validInterval}/${safeToDate}/${intradayFromDate}`);
     }
 
     let lastError: any = null;
     for (const url of urlsToTry) {
       try {
-        console.log(`[UPSTOX RETRY FETCH] Trying URL: ${url}`);
         const response = await fetch(url, {
+          signal: AbortSignal.timeout(4500),
           headers: {
             "Authorization": `Bearer ${token}`,
             "Accept": "application/json"
           }
         });
-        
+
         if (response.ok) {
           const json = await response.json();
-          if (json.status === "success" && json.data && json.data.candles) {
-            console.log(`[UPSTOX RETRY FETCH] Success! URL: ${url}`);
+          if (json.status === "success" && json.data && Array.isArray(json.data.candles) && json.data.candles.length > 0) {
             return json;
           }
         } else {
           const errBody = await response.text().catch(() => "");
-          console.warn(`[UPSTOX RETRY FETCH FAIL] URL: ${url}, Status: ${response.status}, Body: ${errBody}`);
           lastError = new Error(`Status ${response.status}: ${errBody}`);
         }
       } catch (err: any) {
-        console.warn(`[UPSTOX RETRY FETCH EXCEPTION] URL: ${url}, Error: ${err.message}`);
         lastError = err;
       }
     }
 
-    // Dynamic search fallback: if we have an active token and a frontendSymbol, and all standard formats failed,
-    // we query Upstox's dynamic search endpoint to fetch the exact, current instrument key.
+    // Dynamic search fallback only if standard instrument key returned no candles
     if (token && frontendSymbol) {
       try {
-        console.log(`[UPSTOX SEARCH] Direct formats failed. Dynamically searching correct instrument key for: ${frontendSymbol}`);
         const searchUrl = `https://api.upstox.com/v2/instruments/search?search_text=${encodeURIComponent(frontendSymbol)}`;
         const searchResponse = await fetch(searchUrl, {
+          signal: AbortSignal.timeout(3500),
           headers: {
             "Authorization": `Bearer ${token}`,
             "Accept": "application/json"
           }
         });
-        
+
         if (searchResponse.ok) {
           const searchJson = await searchResponse.json();
           if (searchJson.status === "success" && Array.isArray(searchJson.data) && searchJson.data.length > 0) {
-            const targetSegment = upstoxSymbol.split("|")[0]; // e.g., "NSE_EQ" or "NSE_INDEX"
-            
-            // Prefer matches from the same segment with matching symbol
-            const match = searchJson.data.find((item: any) => 
-              item.segment === targetSegment && 
+            const targetSegment = normalizedSymbol.split("|")[0];
+            const match = searchJson.data.find((item: any) =>
+              item.segment === targetSegment &&
               (String(item.symbol).toUpperCase() === frontendSymbol.toUpperCase() || String(item.trading_symbol).toUpperCase() === frontendSymbol.toUpperCase())
-            ) || searchJson.data.find((item: any) => 
-              String(item.symbol).toUpperCase() === frontendSymbol.toUpperCase() || String(item.trading_symbol).toUpperCase() === frontendSymbol.toUpperCase()
             ) || searchJson.data[0];
 
-            if (match && match.instrument_key) {
-              const resolvedKey = match.instrument_key;
-              console.log(`[UPSTOX SEARCH] Dynamic resolution for ${frontendSymbol}: Resolved key is ${resolvedKey} (original mapping was: ${upstoxSymbol})`);
-              
-              if (resolvedKey !== upstoxSymbol) {
-                const searchUrlsToTry: string[] = [];
-                const resEncoded = encodeURIComponent(resolvedKey);
-                const resUnencoded = resolvedKey;
-                const resColon = resolvedKey.replace("|", ":");
-                const resEncodedColon = encodeURIComponent(resColon);
+            if (match && match.instrument_key && match.instrument_key !== normalizedSymbol) {
+              const resEncoded = encodeURIComponent(String(match.instrument_key).replace(":", "|"));
+              const searchUrls = isDaily
+                ? [
+                    `https://api.upstox.com/v2/historical-candle/${resEncoded}/${validInterval}/${toDate}/${fromDate}`,
+                    `https://api.upstox.com/v2/historical-candle/${resEncoded}/${validInterval}/${safeToDate}/${safeFromDate}`
+                  ]
+                : [
+                    `https://api.upstox.com/v2/historical-candle/intraday/${resEncoded}/${validInterval}`,
+                    `https://api.upstox.com/v2/historical-candle/${resEncoded}/${validInterval}/${safeToDate}/${intradayFromDate}`
+                  ];
 
-                if (isDaily) {
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncoded}/${upstoxInterval}/${toDate}/${fromDate}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resUnencoded}/${upstoxInterval}/${toDate}/${fromDate}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncodedColon}/${upstoxInterval}/${toDate}/${fromDate}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resColon}/${upstoxInterval}/${toDate}/${fromDate}`);
-                  
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resUnencoded}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncodedColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resColon}/${upstoxInterval}/${safeToDate}/${safeFromDate}`);
-                } else {
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resEncoded}/${upstoxInterval}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resUnencoded}/${upstoxInterval}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resEncodedColon}/${upstoxInterval}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/intraday/${resColon}/${upstoxInterval}`);
-                  
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncoded}/${upstoxInterval}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resUnencoded}/${upstoxInterval}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resEncodedColon}/${upstoxInterval}`);
-                  searchUrlsToTry.push(`https://api.upstox.com/v2/historical-candle/${resColon}/${upstoxInterval}`);
-                }
-
-                for (const url of searchUrlsToTry) {
-                  try {
-                    console.log(`[UPSTOX RETRY FETCH (RESOLVED)] Trying URL: ${url}`);
-                    const response = await fetch(url, {
-                      headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Accept": "application/json"
-                      }
-                    });
-                    
-                    if (response.ok) {
-                      const json = await response.json();
-                      if (json.status === "success" && json.data && json.data.candles) {
-                        console.log(`[UPSTOX RETRY FETCH (RESOLVED)] Success! URL: ${url}`);
-                        return json;
-                      }
-                    } else {
-                      const errBody = await response.text().catch(() => "");
-                      console.warn(`[UPSTOX RETRY FETCH FAIL (RESOLVED)] URL: ${url}, Status: ${response.status}, Body: ${errBody}`);
-                      lastError = new Error(`Status ${response.status}: ${errBody}`);
+              for (const url of searchUrls) {
+                try {
+                  const response = await fetch(url, {
+                    signal: AbortSignal.timeout(4000),
+                    headers: {
+                      "Authorization": `Bearer ${token}`,
+                      "Accept": "application/json"
                     }
-                  } catch (err: any) {
-                    console.warn(`[UPSTOX RETRY FETCH EXCEPTION (RESOLVED)] URL: ${url}, Error: ${err.message}`);
-                    lastError = err;
+                  });
+                  if (response.ok) {
+                    const json = await response.json();
+                    if (json.status === "success" && json.data && Array.isArray(json.data.candles) && json.data.candles.length > 0) {
+                      return json;
+                    }
                   }
-                }
+                } catch (_) {}
               }
             }
           }
         }
-      } catch (searchErr: any) {
-        console.warn(`[UPSTOX SEARCH FAIL] Failed to dynamically search instrument key for ${frontendSymbol}:`, searchErr.message);
-      }
+      } catch (_) {}
     }
 
-    throw lastError || new Error("All Upstox candle fetch URLs failed.");
+    throw lastError || new Error("No Upstox candle data available for this instrument/timeframe.");
   }
 
   app.get("/api/integrations/upstox/candles", async (req, res) => {
@@ -2895,27 +2792,64 @@ app.get("/api/market/stream", (req, res) => {
         return res.json({ fallback: true, message: `Symbol ${symbol} has no Upstox mapping. Using simulation.` });
       }
 
+      // Upstox v2 supports only 'day', '30minute', and '1minute'.
+      // We fetch '1minute' for 1m/5m/15m and '30minute' for 30m/1h, then aggregate to exact timeframe!
       let upstoxInterval = "1minute";
+      let bucketSize = 1;
       if (timeframe === "1D") {
         upstoxInterval = "day";
-      } else if (timeframe === "1h" || timeframe === "30m") {
+        bucketSize = 1;
+      } else if (timeframe === "1h") {
         upstoxInterval = "30minute";
+        bucketSize = 2;
+      } else if (timeframe === "30m") {
+        upstoxInterval = "30minute";
+        bucketSize = 1;
       } else if (timeframe === "15m") {
-        upstoxInterval = "15minute";
-      } else if (timeframe === "5m") {
-        upstoxInterval = "5minute";
-      } else if (timeframe === "1m") {
         upstoxInterval = "1minute";
+        bucketSize = 15;
+      } else if (timeframe === "5m") {
+        upstoxInterval = "1minute";
+        bucketSize = 5;
+      } else {
+        upstoxInterval = "1minute";
+        bucketSize = 1;
       }
 
       const isDaily = upstoxInterval === "day";
       const json = await fetchUpstoxCandlesWithRetry(upstoxSymbol, upstoxInterval, isDaily, upstoxAccessToken, symbol as string);
 
-      if (!json || json.status !== "success" || !json.data || !json.data.candles) {
-        throw new Error("No candle data returned from Upstox retry mechanism.");
+      if (!json || json.status !== "success" || !json.data || !Array.isArray(json.data.candles) || json.data.candles.length === 0) {
+        return res.json({ fallback: true, message: "No candle data returned from Upstox." });
       }
 
-      const candles = json.data.candles.map((c: any) => {
+      // Upstox returns candles newest-first; reverse to chronological order first
+      const chronologicalRaw = [...json.data.candles].reverse();
+
+      const aggregatedRaw: any[] = [];
+      if (bucketSize > 1 && chronologicalRaw.length >= bucketSize) {
+        for (let i = 0; i < chronologicalRaw.length; i += bucketSize) {
+          const slice = chronologicalRaw.slice(i, i + bucketSize);
+          if (slice.length === 0) continue;
+          const open = Number(slice[0][1]);
+          let high = Number(slice[0][2]);
+          let low = Number(slice[0][3]);
+          const close = Number(slice[slice.length - 1][4]);
+          let volume = 0;
+          for (const item of slice) {
+            const h = Number(item[2]);
+            const l = Number(item[3]);
+            if (h > high) high = h;
+            if (l < low) low = l;
+            volume += Number(item[5]) || 0;
+          }
+          aggregatedRaw.push([slice[slice.length - 1][0], open, high, low, close, volume]);
+        }
+      } else {
+        aggregatedRaw.push(...chronologicalRaw);
+      }
+
+      const candles = aggregatedRaw.slice(-180).map((c: any) => {
         const date = new Date(c[0]);
         let formattedTime = "";
         if (timeframe === '1D') {
@@ -2932,11 +2866,10 @@ app.get("/api/market/stream", (req, res) => {
           close: Number(c[4]),
           volume: Number(c[5])
         };
-      }).reverse();
+      });
 
       res.json({ success: true, candles });
     } catch (error: any) {
-      console.warn(`Upstox Candle Fetch Warning for ${symbol}:`, error.message);
       res.json({ fallback: true, message: error.message });
     }
   });
