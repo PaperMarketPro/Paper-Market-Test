@@ -152,8 +152,8 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       <div className="bg-white dark:bg-[#0c1020] border border-slate-200 dark:border-white/5 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
           <div>
-            <span className="text-xs font-medium text-slate-500 dark:text-gray-400 block">
-              Total Portfolio Value
+            <span className="text-xs font-semibold text-slate-500 dark:text-gray-400 block">
+              Total Account Value
             </span>
             <div className="flex items-baseline gap-3 mt-1 flex-wrap">
               <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white font-mono">
@@ -162,7 +162,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               <span className={`text-xs font-mono font-bold ${
                 openPositionsPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
               }`}>
-                {openPositionsPnl >= 0 ? '+' : ''}₹{openPositionsPnl.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Open P&L
+                {openPositionsPnl >= 0 ? '+' : ''}₹{openPositionsPnl.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Live Trades P&L
               </span>
             </div>
           </div>
@@ -174,33 +174,33 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
               className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Search className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
-              <span>Search & Trade</span>
+              <span>Search Stock / Option</span>
             </button>
             <button
               type="button"
               onClick={() => onNavigate('trade')}
               className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer text-center"
             >
-              New Order
+              + Place Trade
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
-            <span className="text-xs text-slate-500 dark:text-gray-400 block">Available Cash</span>
+            <span className="text-xs text-slate-500 dark:text-gray-400 block">Cash Available</span>
             <span className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-0.5 block">
               ₹{user.virtualBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
           <div>
-            <span className="text-xs text-slate-500 dark:text-gray-400 block">Unrealized P&L</span>
+            <span className="text-xs text-slate-500 dark:text-gray-400 block">Live Trades P&L</span>
             <span className={`text-sm font-bold font-mono mt-0.5 block ${openPositionsPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
               {openPositionsPnl >= 0 ? '+' : ''}₹{openPositionsPnl.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
           </div>
           <div>
-            <span className="text-xs text-slate-500 dark:text-gray-400 block">Realized P&L</span>
+            <span className="text-xs text-slate-500 dark:text-gray-400 block">Closed Trades P&L</span>
             <span className={`text-sm font-bold font-mono mt-0.5 block ${realizedPnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
               {realizedPnl >= 0 ? '+' : ''}₹{realizedPnl.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </span>
@@ -208,7 +208,7 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
           <div>
             <span className="text-xs text-slate-500 dark:text-gray-400 block">Win Rate</span>
             <span className="text-sm font-bold text-blue-600 dark:text-sky-400 font-mono mt-0.5 block">
-              {winRate}%
+              {winRate}% Won
             </span>
           </div>
         </div>
@@ -218,9 +218,9 @@ export const Dashboard: React.FC<DashboardProps> = React.memo(({ onNavigate }) =
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase font-mono tracking-wider text-slate-500 dark:text-gray-400">
-            Market Indices
+            Market Benchmarks
           </h3>
-          <span className="text-xs text-slate-400 dark:text-gray-500">Click any index to open chart & trade</span>
+          <span className="text-xs text-slate-400 dark:text-gray-500">Tap any index to trade or view charts</span>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {indicesList.map(idxAsset => {

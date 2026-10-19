@@ -52,55 +52,55 @@ export const Navigation: React.FC<NavigationProps> = React.memo(({ currentTab, o
   // Mobile bottom navigation tabs (5 core tabs)
   const mobileNavItems = React.useMemo(() => [
     { key: 'dashboard', label: 'Home', icon: <Home className="w-5 h-5" /> },
-    { key: 'positions', label: 'Positions', icon: <Briefcase className="w-5 h-5" /> },
-    { key: 'equity', label: 'Equity', icon: <TrendingUp className="w-5 h-5" /> },
+    { key: 'positions', label: 'My Trades', icon: <Briefcase className="w-5 h-5" /> },
+    { key: 'equity', label: 'Stocks', icon: <TrendingUp className="w-5 h-5" /> },
     { key: 'fno', label: 'F&O', icon: <ArrowLeftRight className="w-5 h-5" /> },
-    { key: 'academy', label: 'Academy', icon: <BookOpen className="w-5 h-5" /> },
+    { key: 'academy', label: 'Learn', icon: <BookOpen className="w-5 h-5" /> },
   ], []);
 
   const sidebarGroups = React.useMemo(() => [
     {
-      title: 'TRADING',
+      title: 'TRADE & MARKETS',
       items: [
-        { key: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
-        { key: 'positions', label: 'Positions & Orders', icon: <Briefcase className="w-4 h-4" /> },
+        { key: 'dashboard', label: 'Home Dashboard', icon: <Home className="w-4 h-4" /> },
+        { key: 'positions', label: 'My Trades & Orders', icon: <Briefcase className="w-4 h-4" /> },
         { key: 'equity', label: 'Stocks Watchlist', icon: <TrendingUp className="w-4 h-4" /> },
-        { key: 'fno', label: 'Futures & Options', icon: <ArrowLeftRight className="w-4 h-4" /> },
+        { key: 'fno', label: 'Options & Futures', icon: <ArrowLeftRight className="w-4 h-4" /> },
       ]
     },
     {
-      title: 'ANALYSIS & AI',
+      title: 'TOOLS & AI COACH',
       items: [
-        { key: 'analytics', label: 'Analytics', icon: <BarChart2 className="w-4 h-4" /> },
+        { key: 'ai-coach', label: 'AI Trading Coach', icon: <BrainCircuit className="w-4 h-4" /> },
         { key: 'journal', label: 'Trade Journal', icon: <Library className="w-4 h-4" /> },
-        { key: 'ai-coach', label: 'AI Coach', icon: <BrainCircuit className="w-4 h-4" /> },
-        { key: 'strategy', label: 'Strategy Lab', icon: <Cpu className="w-4 h-4" /> },
+        { key: 'strategy', label: 'Strategy & Backtest', icon: <Cpu className="w-4 h-4" /> },
+        { key: 'analytics', label: 'Trading Analytics', icon: <BarChart2 className="w-4 h-4" /> },
       ]
     },
     {
       title: 'LEARN & ACCOUNT',
       items: [
-        { key: 'academy', label: 'Academy', icon: <BookOpen className="w-4 h-4" /> },
-        { key: 'risk-management', label: 'Risk Calculator', icon: <Shield className="w-4 h-4" /> },
-        { key: 'profile', label: 'Profile & Settings', icon: <Award className="w-4 h-4" /> },
+        { key: 'academy', label: 'Trading Lessons', icon: <BookOpen className="w-4 h-4" /> },
+        { key: 'risk-management', label: 'Position Size & Risk', icon: <Shield className="w-4 h-4" /> },
+        { key: 'profile', label: 'My Profile & Settings', icon: <Award className="w-4 h-4" /> },
       ]
     }
   ], []);
 
   const currentTabTitle: Record<string, string> = {
     dashboard: 'Trading Dashboard',
-    positions: 'Positions & Orders',
+    positions: 'My Trades & Orders',
     equity: 'Stocks Watchlist',
-    fno: 'Futures & Options',
-    analytics: 'Performance Analytics',
-    journal: 'Trade Journal',
+    fno: 'Options & Futures (F&O)',
+    analytics: 'Trading Analytics & Performance',
+    journal: 'Trade Journal & Review',
     'ai-coach': 'AI Trading Coach',
-    strategy: 'Strategy Lab',
-    'risk-management': 'Risk & Sizing Calculator',
-    academy: 'Trading Academy',
-    profile: 'Account & Settings',
-    settings: 'Account & Settings',
-    trade: 'Order Execution'
+    strategy: 'Strategy Lab & Real-Time Backtest',
+    'risk-management': 'Position Sizing & Risk Calculator',
+    academy: 'Trading Academy & Lessons',
+    profile: 'My Profile & Account Settings',
+    settings: 'My Profile & Account Settings',
+    trade: 'Place New Order'
   };
 
   if (!user) return null;

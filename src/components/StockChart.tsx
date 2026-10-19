@@ -181,28 +181,33 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
     // Normalize score to -100 to 100 range
     score = Math.max(-100, Math.min(100, score));
 
-    let label = 'Neutral';
+    let label = 'Neutral (Consolidating)';
+    let summaryText = 'Price is moving sideways within normal trading range.';
     let color = 'text-amber-400';
     let bgColor = 'bg-amber-400/10';
     let strokeColor = '#f59e0b';
     
     if (score >= 60) {
-      label = 'Strong Buy';
+      label = 'Strong Uptrend (Buyers Dominant)';
+      summaryText = 'Solid buying volume holding price above all moving averages.';
       color = 'text-emerald-400';
       bgColor = 'bg-emerald-500/10';
       strokeColor = '#10b981';
     } else if (score >= 20) {
-      label = 'Buy';
+      label = 'Uptrend (Buyers Active)';
+      summaryText = 'Upward price momentum testing resistance levels.';
       color = 'text-emerald-400';
       bgColor = 'bg-emerald-500/5';
       strokeColor = '#34d399';
     } else if (score <= -60) {
-      label = 'Strong Sell';
+      label = 'Strong Downtrend (Sellers Dominant)';
+      summaryText = 'Heavy seller pressure holding price below key moving averages.';
       color = 'text-rose-400';
       bgColor = 'bg-red-500/10';
       strokeColor = '#f43f5e';
     } else if (score <= -20) {
-      label = 'Sell';
+      label = 'Downtrend (Sellers Active)';
+      summaryText = 'Downward momentum testing support levels.';
       color = 'text-rose-400';
       bgColor = 'bg-red-500/5';
       strokeColor = '#f87171';
@@ -211,13 +216,14 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
     return {
       score,
       label,
+      summaryText,
       color,
       bgColor,
       strokeColor,
-      emaStatus,
-      smaStatus,
-      bbStatus,
-      momentumStatus
+      emaStatus: emaStatus === 'Bullish' ? 'Upward' : emaStatus === 'Bearish' ? 'Downward' : 'Neutral',
+      smaStatus: smaStatus === 'Bullish' ? 'Above Avg' : smaStatus === 'Bearish' ? 'Below Avg' : 'At Avg',
+      bbStatus: bbStatus === 'Overbought' ? 'Near Resistance' : bbStatus === 'Oversold' ? 'Near Support' : bbStatus === 'Bullish' ? 'Upper Band' : bbStatus === 'Bearish' ? 'Lower Band' : 'Normal',
+      momentumStatus: momentumStatus === 'Bullish' ? 'Positive' : 'Negative'
     };
   }, [lastCandle, prevCandle, activeAsset.ltp]);
 
@@ -226,13 +232,13 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
 
   return (
     <div 
-      className="w-full rounded-xl overflow-hidden bg-[#07090e]/60 p-3.5 border border-white/10 flex flex-col justify-between" 
+      className="w-full rounded-2xl overflow-hidden bg-[#07090e]/80 p-4 border border-white/10 flex flex-col justify-between" 
       style={{ minHeight: `${height}px` }}
     >
       {/* Visual Gauge Header */}
       <div className="text-center">
-        <span className="text-[9px] text-gray-400 uppercase tracking-widest block mb-0.5 font-mono">Composite Outlook</span>
-        <span className={`text-xs sm:text-sm font-extrabold tracking-tight ${metrics.color}`}>
+        <span className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1 font-semibold">Market Direction</span>
+        <span className={`text-xs sm:text-sm font-bold tracking-tight block ${metrics.color}`}>
           {metrics.label}
         </span>
       </div>
@@ -300,29 +306,28 @@ export const NativeTechnicalGauge: React.FC<{ candles: Candle[]; activeAsset: In
           />
         </svg>
 
-        {/* Dynamic score label badge */}
-        <div className="mt-1 text-[10px] font-mono text-gray-200 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10 font-bold shadow-sm">
-          Score: {metrics.score > 0 ? '+' : ''}{metrics.score}
-        </div>
+        <p className="mt-2 text-[11px] text-gray-300 text-center leading-relaxed max-w-xs">
+          {metrics.summaryText}
+        </p>
       </div>
 
       {/* Breakdown Metrics */}
-      <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono mt-2 border-t border-white/10 pt-2.5">
-        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
-          <span className="text-gray-400 shrink-0 mr-1">EMA (8):</span>
-          <span className={`font-bold truncate ${metrics.emaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.emaStatus}</span>
+      <div className="grid grid-cols-2 gap-2 text-[10px] mt-2 border-t border-white/10 pt-2.5">
+        <div className="flex items-center justify-between bg-white/[0.04] px-2.5 py-1.5 rounded-lg border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">Trend:</span>
+          <span className={`font-semibold truncate ${metrics.emaStatus === 'Upward' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.emaStatus}</span>
         </div>
-        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
-          <span className="text-gray-400 shrink-0 mr-1">SMA (15):</span>
-          <span className={`font-bold truncate ${metrics.smaStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.smaStatus}</span>
+        <div className="flex items-center justify-between bg-white/[0.04] px-2.5 py-1.5 rounded-lg border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">Average:</span>
+          <span className={`font-semibold truncate ${metrics.smaStatus === 'Above Avg' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.smaStatus}</span>
         </div>
-        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
-          <span className="text-gray-400 shrink-0 mr-1">Bollinger:</span>
-          <span className={`font-bold truncate ${metrics.bbStatus.includes('Bullish') || metrics.bbStatus.includes('Overbought') ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.bbStatus}</span>
+        <div className="flex items-center justify-between bg-white/[0.04] px-2.5 py-1.5 rounded-lg border border-white/5 min-w-0">
+          <span className="text-gray-400 shrink-0 mr-1">Bands:</span>
+          <span className="font-semibold text-gray-200 truncate">{metrics.bbStatus}</span>
         </div>
-        <div className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-md border border-white/5 min-w-0">
+        <div className="flex items-center justify-between bg-white/[0.04] px-2.5 py-1.5 rounded-lg border border-white/5 min-w-0">
           <span className="text-gray-400 shrink-0 mr-1">Momentum:</span>
-          <span className={`font-bold truncate ${metrics.momentumStatus === 'Bullish' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.momentumStatus}</span>
+          <span className={`font-semibold truncate ${metrics.momentumStatus === 'Positive' ? 'text-emerald-400' : 'text-rose-400'}`}>{metrics.momentumStatus}</span>
         </div>
       </div>
     </div>
@@ -1509,7 +1514,7 @@ export const TradingViewChart: React.FC<{
       bbLowerSeriesRef.current = null;
       bbBasisSeriesRef.current = null;
     };
-  }, [timeframe, chartType, showEMA, showSMA, showBB, showVolume, isPositive, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200, showPatternMarkers]);
+  }, [timeframe, chartType, showEMA, showSMA, showBB, showVolume, showAutoSR, showRSI, showMACD, customLines, trendlines, trendlineStart, fibLevelsList, fibStartPrice, rrSetup, customMarkers, chartTheme, themeConfig, showSupertrend, showVWAP, showEma50_200, showPatternMarkers]);
 
   // Smoothly update series data whenever candles change without recreating the Lightweight Chart instance
   useEffect(() => {
@@ -2056,6 +2061,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const previousAssetPrice = useRef<number>(activeAsset.ltp);
   const previousAssetSymbol = useRef<string>(activeAsset.symbol);
+  const lastTickTimeRef = useRef<number>(0);
 
   // Timeframe description label
   const timeframeLabel = useMemo(() => {
@@ -2467,6 +2473,13 @@ const StockChartBase: React.FC<StockChartProps> = ({
       return;
     }
 
+    // Throttle candle state commits to ~350ms for buttery-smooth 60fps chart performance
+    const now = performance.now();
+    if (now - lastTickTimeRef.current < 350) {
+      previousAssetPrice.current = currentLtp;
+      return;
+    }
+    lastTickTimeRef.current = now;
     previousAssetPrice.current = currentLtp;
 
     startTransition(() => {
@@ -2730,7 +2743,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${showEMA ? 'bg-sky-400' : 'bg-gray-600'}`} />
-                <span>EMA</span>
+                <span>EMA (Trend)</span>
               </button>
               <input
                 type="number"
@@ -2742,7 +2755,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                   if (!isNaN(val) && val >= 2 && val <= 200) setEmaPeriod(val);
                 }}
                 className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-sky-500 py-0"
-                title="EMA Period (2 to 200)"
+                title="EMA Days"
                 onClick={e => e.stopPropagation()}
               />
             </div>
@@ -2758,7 +2771,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${showSMA ? 'bg-amber-500' : 'bg-gray-600'}`} />
-                <span>SMA</span>
+                <span>SMA (Avg)</span>
               </button>
               <input
                 type="number"
@@ -2770,7 +2783,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                   if (!isNaN(val) && val >= 2 && val <= 200) setSmaPeriod(val);
                 }}
                 className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-amber-500 py-0"
-                title="SMA Period (2 to 200)"
+                title="SMA Days"
                 onClick={e => e.stopPropagation()}
               />
             </div>
@@ -2786,7 +2799,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                 className="flex items-center gap-1.5 font-bold bg-transparent border-0 text-inherit cursor-pointer p-0"
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${showBB ? 'bg-purple-500' : 'bg-gray-600'}`} />
-                <span>BB</span>
+                <span>Bollinger Bands</span>
               </button>
               <input
                 type="number"
@@ -2798,7 +2811,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
                   if (!isNaN(val) && val >= 2 && val <= 200) setBbPeriod(val);
                 }}
                 className="w-8 text-center bg-white/5 border border-white/10 rounded font-mono text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-purple-500 py-0"
-                title="Bollinger Bands Period (2 to 200)"
+                title="Bollinger Days"
                 onClick={e => e.stopPropagation()}
               />
             </div>
@@ -2812,7 +2825,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${showSupertrend ? 'bg-amber-400' : 'bg-gray-600'}`} />
-              Supertrend (10,3)
+              Supertrend Signal
             </button>
 
             <button
@@ -2824,7 +2837,7 @@ const StockChartBase: React.FC<StockChartProps> = ({
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${showVWAP ? 'bg-cyan-400' : 'bg-gray-600'}`} />
-              VWAP
+              VWAP (Day Avg)
             </button>
 
             <button
@@ -2848,13 +2861,13 @@ const StockChartBase: React.FC<StockChartProps> = ({
               }`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${showVolume ? 'bg-white' : 'bg-gray-600'}`} />
-              Volume Overlay
+              Volume
             </button>
           </div>
 
           <div className="flex items-center gap-1.5 text-gray-500 font-sans">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Interactive TradingView chart with advanced custom drawing indicators.</span>
+            <span>Live chart with real-time price updates and technical tools.</span>
           </div>
         </div>
       )}

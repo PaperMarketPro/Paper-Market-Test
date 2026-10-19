@@ -180,64 +180,70 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
               <button
                 type="button"
                 onClick={() => setDirection('Buy')}
-                className={`py-2.5 text-xs font-extrabold rounded-lg transition ${
+                className={`py-2.5 text-xs font-bold rounded-lg transition ${
                   direction === 'Buy'
                     ? 'bg-emerald-600 text-white shadow'
                     : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                Buy / Long
+                Buy (Go Long)
               </button>
               <button
                 type="button"
                 onClick={() => setDirection('Sell')}
-                className={`py-2.5 text-xs font-extrabold rounded-lg transition ${
+                className={`py-2.5 text-xs font-bold rounded-lg transition ${
                   direction === 'Sell'
                     ? 'bg-rose-600 text-white shadow'
                     : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                Sell / Short
+                Sell (Go Short)
               </button>
             </div>
 
             {/* Order Type Toggle */}
-            <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-white/5 rounded-xl p-1 border border-slate-200 dark:border-white/5">
-              {(['Market', 'Limit', 'Stop-Loss'] as const).map(type => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setOrderType(type)}
-                  className={`py-1.5 text-xs font-bold rounded-lg transition ${
-                    orderType === type
-                      ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                      : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Execution Type</label>
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-white/5 rounded-xl p-1 border border-slate-200 dark:border-white/5">
+                {(['Market', 'Limit', 'Stop-Loss'] as const).map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setOrderType(type)}
+                    className={`py-2 text-xs font-bold rounded-lg transition flex flex-col items-center justify-center ${
+                      orderType === type
+                        ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>{type}</span>
+                    <span className="text-[9px] font-normal opacity-75 hidden sm:inline">
+                      {type === 'Market' ? 'Instant' : type === 'Limit' ? 'Set Price' : 'Protect Risk'}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* 1-Click Safe Position Size Helper */}
             <div className="flex items-center justify-between bg-blue-500/5 dark:bg-sky-500/5 border border-blue-500/15 dark:border-sky-500/15 rounded-xl px-3 py-2 text-xs">
               <span className="text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-sky-400 shrink-0" />
-                <span>1% Risk Safe Qty: <strong className="font-mono text-slate-900 dark:text-white">{safeQty}</strong></span>
+                <span>Safe Size (1% Risk Rule): <strong className="font-mono text-slate-900 dark:text-white">{safeQty} shares</strong></span>
               </span>
               <button
                 type="button"
                 onClick={handleApplySafeSizing}
-                className="text-blue-600 dark:text-sky-400 hover:underline font-bold text-xs"
+                className="text-blue-600 dark:text-sky-400 hover:underline font-bold text-xs cursor-pointer"
               >
-                Apply
+                Use Safe Qty
               </button>
             </div>
 
             {/* Quantity & Price */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Quantity</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Number of Shares</label>
                 <div className="flex bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-1 items-center justify-between">
                   <button
                     type="button"
@@ -265,7 +271,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">
-                  {orderType === 'Market' ? 'Market Price' : 'Limit Price (₹)'}
+                  {orderType === 'Market' ? 'Market Price' : 'Your Desired Price (₹)'}
                 </label>
                 <input
                   type="text"
@@ -280,33 +286,37 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
             {/* Stop Loss & Target */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Stop-Loss (Optional ₹)</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">
+                  Stop-Loss Price (₹)
+                </label>
                 <input
                   type="number"
                   step="0.05"
-                  placeholder="₹ Price"
+                  placeholder="Exit if loss reaches ₹"
                   value={stopLoss}
                   onChange={e => setStopLoss(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Target (Optional ₹)</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">
+                  Target Profit Price (₹)
+                </label>
                 <input
                   type="number"
                   step="0.05"
-                  placeholder="₹ Price"
+                  placeholder="Exit when profit reaches ₹"
                   value={target}
                   onChange={e => setTarget(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
             </div>
 
             {orderType === 'Stop-Loss' && (
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Trigger Price (₹)</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 block">Trigger Activation Price (₹)</label>
                 <input
                   type="number"
                   step="0.05"
@@ -321,28 +331,28 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
             {/* Order Summary */}
             <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl p-3.5 space-y-1.5 text-xs">
               <div className="flex justify-between text-slate-500 dark:text-gray-400">
-                <span>Order Value</span>
+                <span>Total Trade Cost</span>
                 <span className="font-mono text-slate-900 dark:text-white font-semibold">
                   ₹{marginRequired.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="flex justify-between text-slate-500 dark:text-gray-400">
-                <span>Est. Charges & Taxes</span>
-                <span className="font-mono text-slate-900 dark:text-white font-semibold">
-                  ₹{(estimatedBrokerage + taxesAndCharges).toFixed(2)}
+                <span>Simulated Brokerage & Taxes</span>
+                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                  ₹0.00 (Free Paper Trading)
                 </span>
               </div>
               <div className="flex justify-between font-bold text-slate-900 dark:text-white pt-1.5 border-t border-slate-200 dark:border-white/5">
-                <span>Total Margin Required</span>
+                <span>Cash Needed to Trade</span>
                 <span className="font-mono">
-                  ₹{(marginRequired + estimatedBrokerage + taxesAndCharges).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  ₹{marginRequired.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
 
             {isTradingBlocked && (
               <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300">
-                Markets are currently closed. Disable "Enforce Market Hours" in Settings to trade 24/7.
+                Indian markets are currently closed. You can disable "Enforce Market Hours" in Settings to practice 24/7.
               </div>
             )}
 
@@ -357,7 +367,7 @@ export const TradeScreen: React.FC<TradeScreenProps> = React.memo(({ onSuccess }
                   : 'bg-rose-600 hover:bg-rose-500 cursor-pointer'
               }`}
             >
-              {isTradingBlocked ? 'Markets Closed' : `Place ${direction} Order`}
+              {isTradingBlocked ? 'Markets Closed' : `Place ${direction} Order (₹${marginRequired.toLocaleString('en-IN', { maximumFractionDigits: 0 })})`}
             </button>
           </form>
         </div>
